@@ -1,0 +1,5 @@
+designator,function,value,description,internal_part_number,manufacturer,manufacturer_part_number,layer,location,fitted,notes
+C101,"Buffer capacitor U101, DVDD",1u,"CAP-VS 1uF/6.3V 0402",,,,TOP,,true,
+C102,"Buffer capacitor",100n,"CAP-VS 100nF/50V 0603",,,,TOP,,true,
+R101,"Voltage divider",10k,"RES 10k 1% 0603",,,,TOP,,true,
+D101,"Safety controller",,"Microcontroller",,,,TOP,,true,

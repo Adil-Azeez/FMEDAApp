@@ -1,0 +1,4366 @@
+[
+  {
+    "id": "compdb_4996413b",
+    "display_name": "C",
+    "shortcut": "C",
+    "material": "Zusammenfassung Drift\nKondensator analog",
+    "fits": 0.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kapazitätsverlust auf 0,5*C": 10.0,
+      "Kapazitätserhöhung auf 2*C": 0.0
+    },
+    "created_at": "2026-03-17T11:48:52.617900",
+    "updated_at": "2026-03-17T11:48:52.617900"
+  },
+  {
+    "id": "compdb_9abd5a5c",
+    "display_name": "CE",
+    "shortcut": "CE",
+    "material": "Elektrolyt",
+    "fits": 10.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 90.0,
+      "Kurzschluss": 10.0,
+      "Kapazitätsverlust auf 0,5*C": 0.0,
+      "Kapazitätserhöhung auf 2*C": 0.0,
+      "Kurzschluss mit Impedanz im 10 Ohm Bereich": 0.0,
+      "Ansteigen des Verlustfaktors": 0.0
+    },
+    "created_at": "2026-03-17T11:48:52.617900",
+    "updated_at": "2026-03-17T11:48:52.617900"
+  },
+  {
+    "id": "compdb_0845b314",
+    "display_name": "CEHe",
+    "shortcut": "CEHE",
+    "material": "Aluminium Elektrolyt Kondensator\n- high ripple",
+    "fits": 8.9,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss": 60.0,
+      "Unterbrechung": 25.0,
+      "Wertänderung  0,5 * Cn < C < 2 * Cn": 10.0,
+      "erhöhter Ersatz-Serien-Widerstand (ESR)": 5.0
+    },
+    "created_at": "2026-03-17T11:48:52.617900",
+    "updated_at": "2026-03-17T11:48:52.617900"
+  },
+  {
+    "id": "compdb_afaefa0a",
+    "display_name": "CELe",
+    "shortcut": "CELE",
+    "material": "Aluminium Elektrolyt Kondensator\n- low ripple",
+    "fits": 5.2,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss": 60.0,
+      "Unterbrechung": 25.0,
+      "Wertänderung  0,5 * Cn < C < 2 * Cn": 10.0,
+      "erhöhter Ersatz-Serien-Widerstand (ESR)": 5.0
+    },
+    "created_at": "2026-03-17T11:48:52.617900",
+    "updated_at": "2026-03-17T11:48:52.617900"
+  },
+  {
+    "id": "compdb_083ce51f",
+    "display_name": "CK",
+    "shortcut": "CK",
+    "material": "Keramik",
+    "fits": 2.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 10.0,
+      "Kurzschluss": 70.0,
+      "Kapazitätsverlust auf 0,5*C": 10.0,
+      "Kapazitätserhöhung auf 2*C": 10.0
+    },
+    "created_at": "2026-03-17T11:48:52.617900",
+    "updated_at": "2026-03-17T11:48:52.617900"
+  },
+  {
+    "id": "compdb_10752684",
+    "display_name": "CKPNe",
+    "shortcut": "CKPN",
+    "material": "Nicht-Elektrolyt Kondensator, niedrige Qualität",
+    "fits": 0.4,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss": 50.0,
+      "Unterbrechung": 30.0,
+      "Wertänderung  0,5 * Cn < C < 2 * Cn": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.627353",
+    "updated_at": "2026-03-17T11:48:52.627353"
+  },
+  {
+    "id": "compdb_006599b7",
+    "display_name": "CKPe",
+    "shortcut": "CKPE",
+    "material": "Nicht-Elektrolyt Kondensator",
+    "fits": 0.4,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss": 50.0,
+      "Unterbrechung": 30.0,
+      "Wertänderung  0,5 * Cn < C < 2 * Cn": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.627353",
+    "updated_at": "2026-03-17T11:48:52.627353"
+  },
+  {
+    "id": "compdb_8fc6d294",
+    "display_name": "CP",
+    "shortcut": "CP",
+    "material": "Kunststoffolie",
+    "fits": 1.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 90.0,
+      "Kurzschluss": 10.0
+    },
+    "created_at": "2026-03-17T11:48:52.627353",
+    "updated_at": "2026-03-17T11:48:52.627353"
+  },
+  {
+    "id": "compdb_3fe0b490",
+    "display_name": "CT",
+    "shortcut": "CT",
+    "material": "Tantal",
+    "fits": 5.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 20.0,
+      "Kurzschluss": 80.0
+    },
+    "created_at": "2026-03-17T11:48:52.629167",
+    "updated_at": "2026-03-17T11:48:52.629167"
+  },
+  {
+    "id": "compdb_2bfde7f4",
+    "display_name": "CTe",
+    "shortcut": "CTE",
+    "material": "Tantal Elektrolyt Kondensator",
+    "fits": 1.5,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss": 60.0,
+      "Unterbrechung": 25.0,
+      "Wertänderung  0,5 * Cn < C < 2 * Cn": 15.0
+    },
+    "created_at": "2026-03-17T11:48:52.629167",
+    "updated_at": "2026-03-17T11:48:52.629167"
+  },
+  {
+    "id": "compdb_17aa5019",
+    "display_name": "CX",
+    "shortcut": "CX",
+    "material": "X-Kondensator\nKunststoffolie",
+    "fits": 1.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 90.0,
+      "Kurzschluss": 10.0
+    },
+    "created_at": "2026-03-17T11:48:52.630173",
+    "updated_at": "2026-03-17T11:48:52.630173"
+  },
+  {
+    "id": "compdb_29aa9365",
+    "display_name": "CY",
+    "shortcut": "CY",
+    "material": "Y-Kondensator\nKeramik",
+    "fits": 1.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 10.0,
+      "Kurzschluss": 70.0,
+      "Kapazitätsverlust auf 0,5*C": 0.0,
+      "Kapazitätserhöhung auf 2*C": 0.0
+    },
+    "created_at": "2026-03-17T11:48:52.631174",
+    "updated_at": "2026-03-17T11:48:52.631174"
+  },
+  {
+    "id": "compdb_ef4b53ba",
+    "display_name": "DATm",
+    "shortcut": "DATM",
+    "material": "ATmega64 gesamt",
+    "fits": 100.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "kleben an Versorgungsspannung": 5.0,
+      "kleben an Masse": 5.0,
+      "Unterbrechung": 90.0,
+      "Drift": 0.0,
+      "Oszillation": 0.0
+    },
+    "created_at": "2026-03-17T11:48:52.631174",
+    "updated_at": "2026-03-17T11:48:52.631174"
+  },
+  {
+    "id": "compdb_ab02eef4",
+    "display_name": "DATmAD",
+    "shortcut": "DATM",
+    "material": "ATmega64 äußere\nDatenübertragung",
+    "fits": 6.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "kleben an Versorgungsspannung": 5.0,
+      "kleben an Masse": 5.0,
+      "Unterbrechung": 90.0,
+      "Drift": 0.0,
+      "Oszillation": 0.0
+    },
+    "created_at": "2026-03-17T11:48:52.632174",
+    "updated_at": "2026-03-17T11:48:52.632174"
+  },
+  {
+    "id": "compdb_64e878cb",
+    "display_name": "DATmC",
+    "shortcut": "DATM",
+    "material": "ATmega64 CPU",
+    "fits": 6.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "kleben an Versorgungsspannung": 5.0,
+      "kleben an Masse": 5.0,
+      "Unterbrechung": 90.0,
+      "Drift": 0.0,
+      "Oszillation": 0.0
+    },
+    "created_at": "2026-03-17T11:48:52.633438",
+    "updated_at": "2026-03-17T11:48:52.633438"
+  },
+  {
+    "id": "compdb_4b03d3c6",
+    "display_name": "DATmFlash",
+    "shortcut": "DATM",
+    "material": "ATmega64 Flash",
+    "fits": 53.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "kleben an Versorgungsspannung": 5.0,
+      "kleben an Masse": 5.0,
+      "Unterbrechung": 90.0,
+      "Drift": 0.0,
+      "Oszillation": 0.0
+    },
+    "created_at": "2026-03-17T11:48:52.634452",
+    "updated_at": "2026-03-17T11:48:52.634452"
+  },
+  {
+    "id": "compdb_f9707f3b",
+    "display_name": "DATmID",
+    "shortcut": "DATM",
+    "material": "ATmega64 innerer Datenpfad",
+    "fits": 6.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "kleben an Versorgungsspannung": 5.0,
+      "kleben an Masse": 5.0,
+      "Unterbrechung": 90.0,
+      "Drift": 0.0,
+      "Oszillation": 0.0
+    },
+    "created_at": "2026-03-17T11:48:52.635447",
+    "updated_at": "2026-03-17T11:48:52.635447"
+  },
+  {
+    "id": "compdb_8d703b8e",
+    "display_name": "DATmIO",
+    "shortcut": "DATM",
+    "material": "ATmega64 Ein- und Ausgänge",
+    "fits": 6.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "kleben an Versorgungsspannung": 5.0,
+      "kleben an Masse": 5.0,
+      "Unterbrechung": 90.0,
+      "Drift": 0.0,
+      "Oszillation": 0.0
+    },
+    "created_at": "2026-03-17T11:48:52.636448",
+    "updated_at": "2026-03-17T11:48:52.636448"
+  },
+  {
+    "id": "compdb_6610bce6",
+    "display_name": "DATmInt",
+    "shortcut": "DATM",
+    "material": "ATmega64 Interrupt\nTimer / Counter",
+    "fits": 6.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "kleben an Versorgungsspannung": 5.0,
+      "kleben an Masse": 5.0,
+      "Unterbrechung": 90.0,
+      "Drift": 0.0,
+      "Oszillation": 0.0
+    },
+    "created_at": "2026-03-17T11:48:52.636448",
+    "updated_at": "2026-03-17T11:48:52.636448"
+  },
+  {
+    "id": "compdb_0102ec83",
+    "display_name": "DATmNC",
+    "shortcut": "DATM",
+    "material": "ATmega64 nicht benutzte I/O",
+    "fits": 6.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "kleben an Versorgungsspannung": 5.0,
+      "kleben an Masse": 5.0,
+      "Unterbrechung": 90.0,
+      "Drift": 0.0,
+      "Oszillation": 0.0
+    },
+    "created_at": "2026-03-17T11:48:52.637447",
+    "updated_at": "2026-03-17T11:48:52.637447"
+  },
+  {
+    "id": "compdb_cdcaf071",
+    "display_name": "DATmRAM",
+    "shortcut": "DATM",
+    "material": "ATmega64 SRAM",
+    "fits": 3.3,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "kleben an Versorgungsspannung": 5.0,
+      "kleben an Masse": 5.0,
+      "Unterbrechung": 90.0,
+      "Drift": 0.0,
+      "Oszillation": 0.0
+    },
+    "created_at": "2026-03-17T11:48:52.637447",
+    "updated_at": "2026-03-17T11:48:52.637447"
+  },
+  {
+    "id": "compdb_7eda8b45",
+    "display_name": "DATmROM",
+    "shortcut": "DATM",
+    "material": "ATmega64 EEPROM",
+    "fits": 1.7,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "kleben an Versorgungsspannung": 5.0,
+      "kleben an Masse": 5.0,
+      "Unterbrechung": 90.0,
+      "Drift": 0.0,
+      "Oszillation": 0.0
+    },
+    "created_at": "2026-03-17T11:48:52.638676",
+    "updated_at": "2026-03-17T11:48:52.638676"
+  },
+  {
+    "id": "compdb_5d3293b1",
+    "display_name": "DATmT",
+    "shortcut": "DATM",
+    "material": "ATmega64 Takt",
+    "fits": 6.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "kleben an Versorgungsspannung": 5.0,
+      "kleben an Masse": 5.0,
+      "Unterbrechung": 90.0,
+      "Drift": 0.0,
+      "Oszillation": 0.0
+    },
+    "created_at": "2026-03-17T11:48:52.638676",
+    "updated_at": "2026-03-17T11:48:52.638676"
+  },
+  {
+    "id": "compdb_e7fd0503",
+    "display_name": "DAX",
+    "shortcut": "DAX",
+    "material": "XTR108 Gesamt",
+    "fits": 60.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss": 20.0,
+      "Unterbrechung": 60.0,
+      "Drift": 0.0,
+      "Funktionsfehler": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.639676",
+    "updated_at": "2026-03-17T11:48:52.639676"
+  },
+  {
+    "id": "compdb_7260526e",
+    "display_name": "DAXControl / Ra",
+    "shortcut": "D/R",
+    "material": "XTR108 Controler / RAM",
+    "fits": 20.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss": 20.0,
+      "Unterbrechung": 60.0,
+      "Drift": 0.0,
+      "Funktionsfehler": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.639676",
+    "updated_at": "2026-03-17T11:48:52.639676"
+  },
+  {
+    "id": "compdb_44093090",
+    "display_name": "DAXDAC",
+    "shortcut": "DAXD",
+    "material": "XTR108 DAC",
+    "fits": 10.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss": 20.0,
+      "Unterbrechung": 60.0,
+      "Drift": 0.0,
+      "Funktionsfehler": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.640676",
+    "updated_at": "2026-03-17T11:48:52.640676"
+  },
+  {
+    "id": "compdb_2c47fe49",
+    "display_name": "DAXEndstufe",
+    "shortcut": "DAXE",
+    "material": "XTR108 Endstufe",
+    "fits": 10.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss": 0.0,
+      "Unterbrechung": 25.0,
+      "Drift": 0.0,
+      "Funktionsfehler": 75.0
+    },
+    "created_at": "2026-03-17T11:48:52.641675",
+    "updated_at": "2026-03-17T11:48:52.641675"
+  },
+  {
+    "id": "compdb_45a1f86c",
+    "display_name": "DAXMUX",
+    "shortcut": "DAXM",
+    "material": "XTR108 MUX",
+    "fits": 10.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss": 20.0,
+      "Unterbrechung": 60.0,
+      "Drift": 0.0,
+      "Funktionsfehler": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.641675",
+    "updated_at": "2026-03-17T11:48:52.641675"
+  },
+  {
+    "id": "compdb_cab4466a",
+    "display_name": "DAXPGA",
+    "shortcut": "DAXP",
+    "material": "XTR108 PGA",
+    "fits": 10.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss": 20.0,
+      "Unterbrechung": 60.0,
+      "Drift": 0.0,
+      "Funktionsfehler": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.642675",
+    "updated_at": "2026-03-17T11:48:52.642675"
+  },
+  {
+    "id": "compdb_e2a7f504",
+    "display_name": "DEEP1e",
+    "shortcut": "DEEP",
+    "material": "EEPROM 1 MBit",
+    "fits": 54.1,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "gefährliche Fehler (dangerous failures)": 50.0,
+      "sichere Fehler (safe failures)": 50.0
+    },
+    "created_at": "2026-03-17T11:48:52.642675",
+    "updated_at": "2026-03-17T11:48:52.642675"
+  },
+  {
+    "id": "compdb_b16a3d59",
+    "display_name": "DEEP4e",
+    "shortcut": "DEEP",
+    "material": "EEPROM 4 MBit",
+    "fits": 58.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "gefährliche Fehler (dangerous failures)": 50.0,
+      "sichere Fehler (safe failures)": 50.0
+    },
+    "created_at": "2026-03-17T11:48:52.643675",
+    "updated_at": "2026-03-17T11:48:52.643675"
+  },
+  {
+    "id": "compdb_198b2ae2",
+    "display_name": "DEEP64Be",
+    "shortcut": "DEEP",
+    "material": "EEPROM 64 Mbit >= 64nm",
+    "fits": 42.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Adressfehler": 10.0,
+      "Datenfehler an einer oder mehreren Stellen": 90.0
+    },
+    "created_at": "2026-03-17T11:48:52.643675",
+    "updated_at": "2026-03-17T11:48:52.643675"
+  },
+  {
+    "id": "compdb_4e5e6ac1",
+    "display_name": "DEEP64Se",
+    "shortcut": "DEEP",
+    "material": "EEPROM 64 Mbit < 64nm",
+    "fits": 42.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Adressfehler": 10.0,
+      "Datenfehler an einer oder mehreren Stellen": 90.0
+    },
+    "created_at": "2026-03-17T11:48:52.644675",
+    "updated_at": "2026-03-17T11:48:52.644675"
+  },
+  {
+    "id": "compdb_22726258",
+    "display_name": "DEEPROM",
+    "shortcut": "DEEP",
+    "material": "25LC040",
+    "fits": 30.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss": 20.0,
+      "Unterbrechung": 60.0,
+      "Drift": 0.0,
+      "Funktionsfehler": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.644675",
+    "updated_at": "2026-03-17T11:48:52.644675"
+  },
+  {
+    "id": "compdb_83f1f410",
+    "display_name": "DH",
+    "shortcut": "DH",
+    "material": "HEF 4093",
+    "fits": 6.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "kleben der Ausgänge an Versorgungsspannung": 5.0,
+      "kleben der Ausgänge an Masse": 5.0,
+      "Unterbrechung der Ausgänge": 90.0
+    },
+    "created_at": "2026-03-17T11:48:52.645675",
+    "updated_at": "2026-03-17T11:48:52.645675"
+  },
+  {
+    "id": "compdb_a08af427",
+    "display_name": "DHC123",
+    "shortcut": "DHC1",
+    "material": "74HC123",
+    "fits": 6.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss nach Vcc": 10.0,
+      "Kurzschluss nach GND": 10.0,
+      "Unterbrechung Eingang": 30.0,
+      "Unterbrechung Ausgang": 30.0,
+      "Funktionsfehler": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.646675",
+    "updated_at": "2026-03-17T11:48:52.646675"
+  },
+  {
+    "id": "compdb_e4894000",
+    "display_name": "DIFe",
+    "shortcut": "DIFE",
+    "material": "Kommunikation Puffer/Interface (z. B. RS485 Transceiver)",
+    "fits": 18.5,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Gefährliche Signalstörung / -verlust": 100.0
+    },
+    "created_at": "2026-03-17T11:48:52.646675",
+    "updated_at": "2026-03-17T11:48:52.646675"
+  },
+  {
+    "id": "compdb_ca0abe19",
+    "display_name": "DLM",
+    "shortcut": "DLM",
+    "material": "LM358",
+    "fits": 6.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "kleben an Versorgungsspannung": 5.0,
+      "kleben an Masse": 5.0,
+      "Unterbrechung": 90.0,
+      "Drift": 0.0,
+      "Oszillation": 0.0
+    },
+    "created_at": "2026-03-17T11:48:52.647675",
+    "updated_at": "2026-03-17T11:48:52.647675"
+  },
+  {
+    "id": "compdb_4e477d29",
+    "display_name": "DLMe",
+    "shortcut": "DLME",
+    "material": "Standard Logik Typical (moderate Leistung, > 250mW) 16-Pin  component",
+    "fits": 5.6,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "kleben an Fehler \"stuck at\"": 20.0,
+      "Kurzschluss zwischen zwei beliebigen Anschlüssen": 20.0,
+      "Unterbrechung einer beliebigen Verbindung": 20.0,
+      "parasitäre Oszillation von Ausgängen": 20.0,
+      "Funktionsfehler (Schwellenspannung Eingang, Timing, Ausgangsspannung)": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.647675",
+    "updated_at": "2026-03-17T11:48:52.647675"
+  },
+  {
+    "id": "compdb_ec50eda8",
+    "display_name": "DLSe",
+    "shortcut": "DLSE",
+    "material": "Standard Logik Typical (kleine Leistung, <= 250mW) 16-Pin  component",
+    "fits": 3.6,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "kleben an Fehler \"stuck at\"": 20.0,
+      "Kurzschluss zwischen zwei beliebigen Anschlüssen": 20.0,
+      "Unterbrechung einer beliebigen Verbindung": 20.0,
+      "parasitäre Oszillation von Ausgängen": 20.0,
+      "Funktionsfehler (Schwellenspannung Eingang, Timing, Ausgangsspannung)": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.648676",
+    "updated_at": "2026-03-17T11:48:52.648676"
+  },
+  {
+    "id": "compdb_3da134ac",
+    "display_name": "DMC16e",
+    "shortcut": "DMC1",
+    "material": "Mikrocontroller, 16 Bit, mit integrierten Funktionen (DMA, MMU, Kommunikation usw.)",
+    "fits": 45.8,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Mikrocontroller gesamt": 0.0,
+      "Prozessorkern": 70.0,
+      "- Register, internes RAM": 15.0,
+      "- Flash": 40.0,
+      "- Codierung und Ausführung (ALU) inkl. Flag-Register": 20.0,
+      "- Adressberechnung": 15.0,
+      "- Programmzähler, stack pointer": 5.0,
+      "- Interrupt-Behandlung": 5.0,
+      "Bus-Steuerung (Arbitration), DMA oder MMU": 25.0,
+      "- 'Kleben an'-Fehler (stuck at)": 15.0,
+      "- Kurzschluss zwischen zwei beliebigen Verbindungen": 15.0,
+      "- Unterbrechung einer beliebigen Verbindung": 15.0,
+      "- parasitäre Oszillation von Ausgängen": 15.0,
+      "- Wertänderungen (z. B. Ein-/Ausgangsspannungen analoger Bauteile)": 15.0,
+      "- Funktionsfehler": 25.0,
+      "Kommunikationsblock": 5.0,
+      "- gefährliche Fehler (dangerous failures)": 50.0,
+      "- sichere Fehler (safe failures)": 50.0
+    },
+    "created_at": "2026-03-17T11:48:52.649709",
+    "updated_at": "2026-03-17T11:48:52.649709"
+  },
+  {
+    "id": "compdb_2358cdfd",
+    "display_name": "DMC32e",
+    "shortcut": "DMC3",
+    "material": "Mikrocontroller, 32 Bit, mit integrierten Funktionen (DMA, MMU, Kommunikation usw.)",
+    "fits": 100.7,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Mikrocontroller gesamt": 0.0,
+      "Prozessorkern": 70.0,
+      "- Register, internes RAM": 15.0,
+      "- Flash": 40.0,
+      "- Codierung und Ausführung (ALU) inkl. Flag-Register": 20.0,
+      "- Adressberechnung": 15.0,
+      "- Programmzähler, stack pointer": 5.0,
+      "- Interrupt-Behandlung": 5.0,
+      "Bus-Steuerung (Arbitration), DMA oder MMU": 25.0,
+      "- 'Kleben an'-Fehler (stuck at)": 15.0,
+      "- Kurzschluss zwischen zwei beliebigen Verbindungen": 15.0,
+      "- Unterbrechung einer beliebigen Verbindung": 15.0,
+      "- parasitäre Oszillation von Ausgängen": 15.0,
+      "- Wertänderungen (z. B. Ein-/Ausgangsspannungen analoger Bauteile)": 15.0,
+      "- Funktionsfehler": 25.0,
+      "Kommunikationsblock": 5.0,
+      "- gefährliche Fehler (dangerous failures)": 50.0,
+      "- sichere Fehler (safe failures)": 50.0
+    },
+    "created_at": "2026-03-17T11:48:52.650390",
+    "updated_at": "2026-03-17T11:48:52.650390"
+  },
+  {
+    "id": "compdb_27239a21",
+    "display_name": "DMC64e",
+    "shortcut": "DMC6",
+    "material": "Mikrocontroller, 64 Bit, mit integrierten Funktionen (DMA, MMU, Kommunikation usw.)",
+    "fits": 240.4,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Mikrocontroller gesamt": 0.0,
+      "Prozessorkern": 70.0,
+      "- Register, internes RAM": 15.0,
+      "- Flash": 40.0,
+      "- Codierung und Ausführung (ALU) inkl. Flag-Register": 20.0,
+      "- Adressberechnung": 15.0,
+      "- Programmzähler, stack pointer": 5.0,
+      "- Interrupt-Behandlung": 5.0,
+      "Bus-Steuerung (Arbitration), DMA oder MMU": 25.0,
+      "- 'Kleben an'-Fehler (stuck at)": 15.0,
+      "- Kurzschluss zwischen zwei beliebigen Verbindungen": 15.0,
+      "- Unterbrechung einer beliebigen Verbindung": 15.0,
+      "- parasitäre Oszillation von Ausgängen": 15.0,
+      "- Wertänderungen (z. B. Ein-/Ausgangsspannungen analoger Bauteile)": 15.0,
+      "- Funktionsfehler": 25.0,
+      "Kommunikationsblock": 5.0,
+      "- gefährliche Fehler (dangerous failures)": 50.0,
+      "- sichere Fehler (safe failures)": 50.0
+    },
+    "created_at": "2026-03-17T11:48:52.651523",
+    "updated_at": "2026-03-17T11:48:52.651523"
+  },
+  {
+    "id": "compdb_18cd5914",
+    "display_name": "DMC8e",
+    "shortcut": "DMC8",
+    "material": "Mikrocontroller, 8 Bit, mit integrierten Funktionen (DMA, MMU, Kommunikation usw.)",
+    "fits": 27.7,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Mikrocontroller gesamt": 0.0,
+      "Prozessorkern": 70.0,
+      "- Register, internes RAM": 15.0,
+      "- Flash": 40.0,
+      "- Codierung und Ausführung (ALU) inkl. Flag-Register": 20.0,
+      "- Adressberechnung": 15.0,
+      "- Programmzähler, stack pointer": 5.0,
+      "- Interrupt-Behandlung": 5.0,
+      "Bus-Steuerung (Arbitration), DMA oder MMU": 25.0,
+      "- 'Kleben an'-Fehler (stuck at)": 15.0,
+      "- Kurzschluss zwischen zwei beliebigen Verbindungen": 15.0,
+      "- Unterbrechung einer beliebigen Verbindung": 15.0,
+      "- parasitäre Oszillation von Ausgängen": 15.0,
+      "- Wertänderungen (z. B. Ein-/Ausgangsspannungen analoger Bauteile)": 15.0,
+      "- Funktionsfehler": 25.0,
+      "Kommunikationsblock": 5.0,
+      "- gefährliche Fehler (dangerous failures)": 50.0,
+      "- sichere Fehler (safe failures)": 50.0
+    },
+    "created_at": "2026-03-17T11:48:52.652479",
+    "updated_at": "2026-03-17T11:48:52.652479"
+  },
+  {
+    "id": "compdb_01b02283",
+    "display_name": "DMCGT10e",
+    "shortcut": "DMCG",
+    "material": "PLCC: 1,27mm Rastermaß 20 Pins",
+    "fits": 1.8,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Unterbrechung einzelner Pin": 80.0,
+      "- Kurzschluss zwischen benachbarten Pins": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.653477",
+    "updated_at": "2026-03-17T11:48:52.653477"
+  },
+  {
+    "id": "compdb_358595cb",
+    "display_name": "DMCGT11e",
+    "shortcut": "DMCG",
+    "material": "PLCC: 1,27mm Rastermaß 40 Pins",
+    "fits": 5.3,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Unterbrechung einzelner Pin": 80.0,
+      "- Kurzschluss zwischen benachbarten Pins": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.654480",
+    "updated_at": "2026-03-17T11:48:52.654480"
+  },
+  {
+    "id": "compdb_8e8fc2e3",
+    "display_name": "DMCGT12e",
+    "shortcut": "DMCG",
+    "material": "PLCC: 1,27mm Rastermaß 60 Pins",
+    "fits": 10.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Unterbrechung einzelner Pin": 80.0,
+      "- Kurzschluss zwischen benachbarten Pins": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.654480",
+    "updated_at": "2026-03-17T11:48:52.654480"
+  },
+  {
+    "id": "compdb_6de98d08",
+    "display_name": "DMCGT13e",
+    "shortcut": "DMCG",
+    "material": "PQFP oder TQFP 5x5mm2 mit 32 bis 40 Pins",
+    "fits": 1.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Unterbrechung einzelner Pin": 80.0,
+      "- Kurzschluss zwischen benachbarten Pins": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.655478",
+    "updated_at": "2026-03-17T11:48:52.655478"
+  },
+  {
+    "id": "compdb_313fc218",
+    "display_name": "DMCGT14e",
+    "shortcut": "DMCG",
+    "material": "PQFP oder TQFP 10x10mm2 mit 41 bis 60 Pins",
+    "fits": 3.1,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Unterbrechung einzelner Pin": 80.0,
+      "- Kurzschluss zwischen benachbarten Pins": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.656075",
+    "updated_at": "2026-03-17T11:48:52.656075"
+  },
+  {
+    "id": "compdb_7d6dbea3",
+    "display_name": "DMCGT15e",
+    "shortcut": "DMCG",
+    "material": "PQFP oder TQFP 14x14mm2 mit 61 bis 68 Pins",
+    "fits": 5.9,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Unterbrechung einzelner Pin": 80.0,
+      "- Kurzschluss zwischen benachbarten Pins": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.656075",
+    "updated_at": "2026-03-17T11:48:52.656075"
+  },
+  {
+    "id": "compdb_7e4be562",
+    "display_name": "DMCGT16e",
+    "shortcut": "DMCG",
+    "material": "PQFP oder TQFP 14x20mm2 mit 69 bis 110 Pins",
+    "fits": 7.8,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Unterbrechung einzelner Pin": 80.0,
+      "- Kurzschluss zwischen benachbarten Pins": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.657083",
+    "updated_at": "2026-03-17T11:48:52.657083"
+  },
+  {
+    "id": "compdb_bcd671ab",
+    "display_name": "DMCGT1e",
+    "shortcut": "DMCG",
+    "material": "PQFP oder TQFP 28x28mm2 mit 111 bis 225 Pins",
+    "fits": 18.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Unterbrechung einzelner Pin": 80.0,
+      "- Kurzschluss zwischen benachbarten Pins": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.657083",
+    "updated_at": "2026-03-17T11:48:52.657083"
+  },
+  {
+    "id": "compdb_a2b4ed0a",
+    "display_name": "DMCGT2e",
+    "shortcut": "DMCG",
+    "material": "PQFP oder TQFP 32x32mm2 mit 226 bis 280 Pins",
+    "fits": 22.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Unterbrechung einzelner Pin": 80.0,
+      "- Kurzschluss zwischen benachbarten Pins": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.658082",
+    "updated_at": "2026-03-17T11:48:52.658082"
+  },
+  {
+    "id": "compdb_a266cd46",
+    "display_name": "DMCGT3e",
+    "shortcut": "DMCG",
+    "material": "PQFP oder TQFP 40x40mm2 mit 281 bis 302 Pins",
+    "fits": 32.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Unterbrechung einzelner Pin": 80.0,
+      "- Kurzschluss zwischen benachbarten Pins": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.659085",
+    "updated_at": "2026-03-17T11:48:52.659085"
+  },
+  {
+    "id": "compdb_329bb6c0",
+    "display_name": "DMCGT4e",
+    "shortcut": "DMCG",
+    "material": "PBGA 13,5x15mm2 64 bis 80 Pins",
+    "fits": 8.7,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Unterbrechung einzelner Pin": 80.0,
+      "- Kurzschluss zwischen benachbarten Pins": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.659085",
+    "updated_at": "2026-03-17T11:48:52.659085"
+  },
+  {
+    "id": "compdb_7b6fdf3c",
+    "display_name": "DMCGT5e",
+    "shortcut": "DMCG",
+    "material": "PBGA 17,4x19mm2 81 bis 160 Pins",
+    "fits": 13.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Unterbrechung einzelner Pin": 80.0,
+      "- Kurzschluss zwischen benachbarten Pins": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.660082",
+    "updated_at": "2026-03-17T11:48:52.660082"
+  },
+  {
+    "id": "compdb_d99ef3b6",
+    "display_name": "DMCGT6e",
+    "shortcut": "DMCG",
+    "material": "PBGA 23x23mm2 161 bis 280 Pins",
+    "fits": 20.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Unterbrechung einzelner Pin": 80.0,
+      "- Kurzschluss zwischen benachbarten Pins": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.660712",
+    "updated_at": "2026-03-17T11:48:52.660712"
+  },
+  {
+    "id": "compdb_353f8f24",
+    "display_name": "DMCGT7e",
+    "shortcut": "DMCG",
+    "material": "PBGA 35x35mm2 281 bis 400 Pins",
+    "fits": 39.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Unterbrechung einzelner Pin": 80.0,
+      "- Kurzschluss zwischen benachbarten Pins": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.661719",
+    "updated_at": "2026-03-17T11:48:52.661719"
+  },
+  {
+    "id": "compdb_e0a2155f",
+    "display_name": "DMCGT8e",
+    "shortcut": "DMCG",
+    "material": "SBGA 42,5x42,5mm2 580 Pins",
+    "fits": 54.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Unterbrechung einzelner Pin": 80.0,
+      "- Kurzschluss zwischen benachbarten Pins": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.661719",
+    "updated_at": "2026-03-17T11:48:52.661719"
+  },
+  {
+    "id": "compdb_6d3145f8",
+    "display_name": "DMCGT9e",
+    "shortcut": "DMCG",
+    "material": "SBGA 27x27mm2 672 Pins",
+    "fits": 25.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Unterbrechung einzelner Pin": 80.0,
+      "- Kurzschluss zwischen benachbarten Pins": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.662719",
+    "updated_at": "2026-03-17T11:48:52.662719"
+  },
+  {
+    "id": "compdb_8f8f71ad",
+    "display_name": "DMCH1e",
+    "shortcut": "DMCH",
+    "material": "MCU hohe Leistung >= 65nm  (nur Die, ohne internen Speicher): 64-Bit",
+    "fits": 35.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- interne CPU Register": 15.0,
+      "- Codierung und Ausführung (ALU) inkl. Flag-Register": 60.0,
+      "- Adressberechnung": 15.0,
+      "- Programmzähler, stack pointer": 5.0,
+      "- Interrupt-Behandlung": 5.0
+    },
+    "created_at": "2026-03-17T11:48:52.662719",
+    "updated_at": "2026-03-17T11:48:52.662719"
+  },
+  {
+    "id": "compdb_04c9df74",
+    "display_name": "DMCH2e",
+    "shortcut": "DMCH",
+    "material": "MCU hohe Leistung < 65nm  (nur Die, ohne internen Speicher): 64-Bit",
+    "fits": 35.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- interne CPU Register": 15.0,
+      "- Codierung und Ausführung (ALU) inkl. Flag-Register": 60.0,
+      "- Adressberechnung": 15.0,
+      "- Programmzähler, stack pointer": 5.0,
+      "- Interrupt-Behandlung": 5.0
+    },
+    "created_at": "2026-03-17T11:48:52.663720",
+    "updated_at": "2026-03-17T11:48:52.663720"
+  },
+  {
+    "id": "compdb_6e0aaa98",
+    "display_name": "DMCHF11e",
+    "shortcut": "DMCH",
+    "material": "Addierer MCU hohe Leistung >= 65nm \"Internes Flash\" < 256KB  \n(bis zu 10% vom Die)",
+    "fits": 4.1,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Adressfehler": 10.0,
+      "- Datenfehler an einer oder mehreren Stellen": 90.0
+    },
+    "created_at": "2026-03-17T11:48:52.664996",
+    "updated_at": "2026-03-17T11:48:52.664996"
+  },
+  {
+    "id": "compdb_0b56292c",
+    "display_name": "DMCHF12e",
+    "shortcut": "DMCH",
+    "material": "Addierer MCU hohe Leistung >= 65nm \"Internes Flash\"  256KB - 512KB \n(bis zu 20% vom Die)",
+    "fits": 8.1,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Adressfehler": 10.0,
+      "- Datenfehler an einer oder mehreren Stellen": 90.0
+    },
+    "created_at": "2026-03-17T11:48:52.664996",
+    "updated_at": "2026-03-17T11:48:52.664996"
+  },
+  {
+    "id": "compdb_c160be1f",
+    "display_name": "DMCHF13e",
+    "shortcut": "DMCH",
+    "material": "Addierer MCU hohe Leistung >= 65nm \"Internes Flash\"  512KB - 2MB \n(bis zu 30% vom Die)",
+    "fits": 12.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Adressfehler": 10.0,
+      "- Datenfehler an einer oder mehreren Stellen": 90.0
+    },
+    "created_at": "2026-03-17T11:48:52.666004",
+    "updated_at": "2026-03-17T11:48:52.666004"
+  },
+  {
+    "id": "compdb_3b07dfcc",
+    "display_name": "DMCHF21e",
+    "shortcut": "DMCH",
+    "material": "Addierer MCU hohe Leistung < 65nm \"Internes Flash\" < 256KB  \n(bis zu 10% vom Die)",
+    "fits": 4.1,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Adressfehler": 10.0,
+      "- Datenfehler an einer oder mehreren Stellen": 90.0
+    },
+    "created_at": "2026-03-17T11:48:52.667005",
+    "updated_at": "2026-03-17T11:48:52.667005"
+  },
+  {
+    "id": "compdb_8894f46d",
+    "display_name": "DMCHF22e",
+    "shortcut": "DMCH",
+    "material": "Addierer MCU hohe Leistung < 65nm \"Internes Flash\"  256KB - 512KB \n(bis zu 20% vom Die)",
+    "fits": 8.1,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Adressfehler": 10.0,
+      "- Datenfehler an einer oder mehreren Stellen": 90.0
+    },
+    "created_at": "2026-03-17T11:48:52.668019",
+    "updated_at": "2026-03-17T11:48:52.668019"
+  },
+  {
+    "id": "compdb_aba4f10d",
+    "display_name": "DMCHF23e",
+    "shortcut": "DMCH",
+    "material": "Addierer MCU hohe Leistung < 65nm \"Internes Flash\"  512KB - 2MB \n(bis zu 30% vom Die)",
+    "fits": 12.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Adressfehler": 10.0,
+      "- Datenfehler an einer oder mehreren Stellen": 90.0
+    },
+    "created_at": "2026-03-17T11:48:52.668918",
+    "updated_at": "2026-03-17T11:48:52.668918"
+  },
+  {
+    "id": "compdb_fc1a55d4",
+    "display_name": "DMCHS11e",
+    "shortcut": "DMCH",
+    "material": "Addierer MCU hohe Leistung >= 65nm \"Internes SRAM\" < 512KB  \n(bis zu 10% vom Die)",
+    "fits": 3.8,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Adressfehler": 10.0,
+      "- Datenfehler an einer oder mehreren Stellen": 90.0
+    },
+    "created_at": "2026-03-17T11:48:52.669246",
+    "updated_at": "2026-03-17T11:48:52.669246"
+  },
+  {
+    "id": "compdb_ec386d6d",
+    "display_name": "DMCHS12e",
+    "shortcut": "DMCH",
+    "material": "Addierer MCU hohe Leistung >= 65nm \"Internes SRAM\"  512KB - 1MB \n(10% bis 20% vom Die)",
+    "fits": 7.6,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Adressfehler": 10.0,
+      "- Datenfehler an einer oder mehreren Stellen": 90.0
+    },
+    "created_at": "2026-03-17T11:48:52.670253",
+    "updated_at": "2026-03-17T11:48:52.670253"
+  },
+  {
+    "id": "compdb_5df5235f",
+    "display_name": "DMCHS13e",
+    "shortcut": "DMCH",
+    "material": "Addierer MCU hohe Leistung >= 65nm \"Internes SRAM\"  1MB - 2MB \n(20% bis 30% vom Die)",
+    "fits": 12.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Adressfehler": 10.0,
+      "- Datenfehler an einer oder mehreren Stellen": 90.0
+    },
+    "created_at": "2026-03-17T11:48:52.670253",
+    "updated_at": "2026-03-17T11:48:52.670253"
+  },
+  {
+    "id": "compdb_55279400",
+    "display_name": "DMCHS21e",
+    "shortcut": "DMCH",
+    "material": "Addierer MCU hohe Leistung < 65nm \"Internes SRAM\" < 512KB  \n(bis zu 10% vom Die)",
+    "fits": 3.8,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Adressfehler": 10.0,
+      "- Datenfehler an einer oder mehreren Stellen": 90.0
+    },
+    "created_at": "2026-03-17T11:48:52.670253",
+    "updated_at": "2026-03-17T11:48:52.670253"
+  },
+  {
+    "id": "compdb_e4930c4a",
+    "display_name": "DMCHS22e",
+    "shortcut": "DMCH",
+    "material": "Addierer MCU hohe Leistung < 65nm \"Internes SRAM\"  512KB - 1MB \n(10% bis 20% vom Die)",
+    "fits": 7.6,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Adressfehler": 10.0,
+      "- Datenfehler an einer oder mehreren Stellen": 90.0
+    },
+    "created_at": "2026-03-17T11:48:52.670253",
+    "updated_at": "2026-03-17T11:48:52.670253"
+  },
+  {
+    "id": "compdb_c8360476",
+    "display_name": "DMCHS23e",
+    "shortcut": "DMCH",
+    "material": "Addierer MCU hohe Leistung < 65nm \"Internes SRAM\"  1MB - 2MB",
+    "fits": 12.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Adressfehler": 10.0,
+      "- Datenfehler an einer oder mehreren Stellen": 90.0
+    },
+    "created_at": "2026-03-17T11:48:52.670253",
+    "updated_at": "2026-03-17T11:48:52.670253"
+  },
+  {
+    "id": "compdb_fcba026e",
+    "display_name": "DMCIUHe",
+    "shortcut": "DMCI",
+    "material": "Intere Unterstützungsfunktionen bei MCU mit hoher Leistung",
+    "fits": 17.5,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- interne Takt-Schaltung": 15.0,
+      "- IO Port Pins": 15.0,
+      "- interne A/D-Wandler": 20.0,
+      "- interne D/A-Wandler": 20.0,
+      "- MMU oder DMA": 15.0,
+      "- Kommunikationsports": 15.0
+    },
+    "created_at": "2026-03-17T11:48:52.670253",
+    "updated_at": "2026-03-17T11:48:52.670253"
+  },
+  {
+    "id": "compdb_03b9eacb",
+    "display_name": "DMCIULe",
+    "shortcut": "DMCI",
+    "material": "Intere Unterstützungsfunktionen bei MCU mit geringer Leistung",
+    "fits": 4.3,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- interne Takt-Schaltung": 15.0,
+      "- IO Port Pins": 15.0,
+      "- interne A/D-Wandler": 20.0,
+      "- interne D/A-Wandler": 20.0,
+      "- MMU oder DMA": 15.0,
+      "- Kommunikationsports": 15.0
+    },
+    "created_at": "2026-03-17T11:48:52.674119",
+    "updated_at": "2026-03-17T11:48:52.674119"
+  },
+  {
+    "id": "compdb_2625276e",
+    "display_name": "DMCIUMe",
+    "shortcut": "DMCI",
+    "material": "Intere Unterstützungsfunktionen bei MCU mit moderater Leistung",
+    "fits": 6.6,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- interne Takt-Schaltung": 15.0,
+      "- IO Port Pins": 15.0,
+      "- interne A/D-Wandler": 20.0,
+      "- interne D/A-Wandler": 20.0,
+      "- MMU oder DMA": 15.0,
+      "- Kommunikationsports": 15.0
+    },
+    "created_at": "2026-03-17T11:48:52.674119",
+    "updated_at": "2026-03-17T11:48:52.674119"
+  },
+  {
+    "id": "compdb_c480ae34",
+    "display_name": "DMCLF1e",
+    "shortcut": "DMCL",
+    "material": "Addierer MCU geringe Leistung \"Internes Flash\" < 128KB  \n(bis zu 10% vom Die)",
+    "fits": 4.1,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Adressfehler": 10.0,
+      "- Datenfehler an einer oder mehreren Stellen": 90.0
+    },
+    "created_at": "2026-03-17T11:48:52.674119",
+    "updated_at": "2026-03-17T11:48:52.674119"
+  },
+  {
+    "id": "compdb_5910655a",
+    "display_name": "DMCLF2e",
+    "shortcut": "DMCL",
+    "material": "Addierer MCU geringe Leistung \"Internes Flash\"  128KB - 256KB \n(10% - 20% vom Die)",
+    "fits": 8.1,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Adressfehler": 10.0,
+      "- Datenfehler an einer oder mehreren Stellen": 90.0
+    },
+    "created_at": "2026-03-17T11:48:52.675350",
+    "updated_at": "2026-03-17T11:48:52.675350"
+  },
+  {
+    "id": "compdb_6bec728d",
+    "display_name": "DMCLF3e",
+    "shortcut": "DMCL",
+    "material": "Addierer MCU geringe Leistung \"Internes Flash\"  256KB - 1MB \n(20% - 30% vom Die)",
+    "fits": 12.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Adressfehler": 10.0,
+      "- Datenfehler an einer oder mehreren Stellen": 90.0
+    },
+    "created_at": "2026-03-17T11:48:52.675350",
+    "updated_at": "2026-03-17T11:48:52.675350"
+  },
+  {
+    "id": "compdb_8b59d266",
+    "display_name": "DMCLS1e",
+    "shortcut": "DMCL",
+    "material": "Addierer MCU geringe Leistung \"Internes SRAM + Cache\" < 32KB  \n(bis zu 10% vom Die)",
+    "fits": 2.1,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Adressfehler": 10.0,
+      "- Datenfehler an einer oder mehreren Stellen": 90.0
+    },
+    "created_at": "2026-03-17T11:48:52.676350",
+    "updated_at": "2026-03-17T11:48:52.676350"
+  },
+  {
+    "id": "compdb_7ee458f9",
+    "display_name": "DMCLS2e",
+    "shortcut": "DMCL",
+    "material": "Addierer MCU geringe Leistung \"Internes SRAM + Cache\"  32KB - 64KB \n(10% - 20% vom Die)",
+    "fits": 4.2,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Adressfehler": 10.0,
+      "- Datenfehler an einer oder mehreren Stellen": 90.0
+    },
+    "created_at": "2026-03-17T11:48:52.677349",
+    "updated_at": "2026-03-17T11:48:52.677349"
+  },
+  {
+    "id": "compdb_5cceade5",
+    "display_name": "DMCLS3e",
+    "shortcut": "DMCL",
+    "material": "Addierer MCU geringe Leistung \"Internes SRAM + Cache\"  64KB - 128KB \n(20% - 30% vom Die)",
+    "fits": 6.3,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Adressfehler": 10.0,
+      "- Datenfehler an einer oder mehreren Stellen": 90.0
+    },
+    "created_at": "2026-03-17T11:48:52.677349",
+    "updated_at": "2026-03-17T11:48:52.677349"
+  },
+  {
+    "id": "compdb_a89b78eb",
+    "display_name": "DMCLe",
+    "shortcut": "DMCL",
+    "material": "MCU geringe Leistung (nur Die, ohne internen Speicher): 8-,16- o. 32-Bit",
+    "fits": 8.6,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- interne CPU Register": 15.0,
+      "- Codierung und Ausführung (ALU) inkl. Flag-Register": 60.0,
+      "- Adressberechnung": 15.0,
+      "- Programmzähler, stack pointer": 5.0,
+      "- Interrupt-Behandlung": 5.0
+    },
+    "created_at": "2026-03-17T11:48:52.678349",
+    "updated_at": "2026-03-17T11:48:52.678349"
+  },
+  {
+    "id": "compdb_df930a9f",
+    "display_name": "DMCMF1e",
+    "shortcut": "DMCM",
+    "material": "Addierer MCU moderate Leistung \"Internes Flash\" < 128KB  \n(bis zu 10% vom Die)",
+    "fits": 4.1,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Adressfehler": 10.0,
+      "- Datenfehler an einer oder mehreren Stellen": 90.0
+    },
+    "created_at": "2026-03-17T11:48:52.678914",
+    "updated_at": "2026-03-17T11:48:52.678914"
+  },
+  {
+    "id": "compdb_e972925d",
+    "display_name": "DMCMF2e",
+    "shortcut": "DMCM",
+    "material": "Addierer MCU moderate Leistung \"Internes Flash\"  128KB - 256KB \n(10% - 20% vom Die)",
+    "fits": 8.1,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Adressfehler": 10.0,
+      "- Datenfehler an einer oder mehreren Stellen": 90.0
+    },
+    "created_at": "2026-03-17T11:48:52.678914",
+    "updated_at": "2026-03-17T11:48:52.678914"
+  },
+  {
+    "id": "compdb_58ef2ffc",
+    "display_name": "DMCMF3e",
+    "shortcut": "DMCM",
+    "material": "Addierer MCU moderate Leistung \"Internes Flash\"  256KB - 1MB \n(20% - 30% vom Die)",
+    "fits": 12.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Adressfehler": 10.0,
+      "- Datenfehler an einer oder mehreren Stellen": 90.0
+    },
+    "created_at": "2026-03-17T11:48:52.678914",
+    "updated_at": "2026-03-17T11:48:52.678914"
+  },
+  {
+    "id": "compdb_b62e112c",
+    "display_name": "DMCMe",
+    "shortcut": "DMCM",
+    "material": "MCU moderate Leistung (nur Die, ohne internen Speicher): 8-,16- o. 32-Bit",
+    "fits": 13.2,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- interne CPU Register": 15.0,
+      "- Codierung und Ausführung (ALU) inkl. Flag-Register": 60.0,
+      "- Adressberechnung": 15.0,
+      "- Programmzähler, stack pointer": 5.0,
+      "- Interrupt-Behandlung": 5.0
+    },
+    "created_at": "2026-03-17T11:48:52.678914",
+    "updated_at": "2026-03-17T11:48:52.678914"
+  },
+  {
+    "id": "compdb_c7e9ad9a",
+    "display_name": "DMCSER1e",
+    "shortcut": "DMCS",
+    "material": "Soft Error Rate für ICs kleiner Geometrie",
+    "fits": 1.4,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Soft Error Rate (SER) Ucoremax 1,5V": 100.0
+    },
+    "created_at": "2026-03-17T11:48:52.678914",
+    "updated_at": "2026-03-17T11:48:52.678914"
+  },
+  {
+    "id": "compdb_ea2175e5",
+    "display_name": "DMCSER2e",
+    "shortcut": "DMCS",
+    "material": "Soft Error Rate für ICs kleiner Geometrie",
+    "fits": 0.3,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Soft Error Rate (SER) Ucoremax 2,5V": 100.0
+    },
+    "created_at": "2026-03-17T11:48:52.678914",
+    "updated_at": "2026-03-17T11:48:52.678914"
+  },
+  {
+    "id": "compdb_cc5280d8",
+    "display_name": "DMP16e",
+    "shortcut": "DMP1",
+    "material": "Mikroprozessor, 16 Bit",
+    "fits": 32.2,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Register, internes RAM": 15.0,
+      "- Codierung und Ausführung (ALU) inkl. Flag-Register": 60.0,
+      "- Adressberechnung": 15.0,
+      "- Programmzähler, stack pointer": 5.0,
+      "- Interrupt-Behandlung": 5.0
+    },
+    "created_at": "2026-03-17T11:48:52.678914",
+    "updated_at": "2026-03-17T11:48:52.678914"
+  },
+  {
+    "id": "compdb_ee9f0884",
+    "display_name": "DMP32e",
+    "shortcut": "DMP3",
+    "material": "Mikroprozessor, 32 Bit",
+    "fits": 67.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Register, internes RAM": 15.0,
+      "- Codierung und Ausführung (ALU) inkl. Flag-Register": 60.0,
+      "- Adressberechnung": 15.0,
+      "- Programmzähler, stack pointer": 5.0,
+      "- Interrupt-Behandlung": 5.0
+    },
+    "created_at": "2026-03-17T11:48:52.678914",
+    "updated_at": "2026-03-17T11:48:52.678914"
+  },
+  {
+    "id": "compdb_46184f70",
+    "display_name": "DMP64e",
+    "shortcut": "DMP6",
+    "material": "Mikroprozessor, 64 Bit",
+    "fits": 139.1,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Register, internes RAM": 15.0,
+      "- Codierung und Ausführung (ALU) inkl. Flag-Register": 60.0,
+      "- Adressberechnung": 15.0,
+      "- Programmzähler, stack pointer": 5.0,
+      "- Interrupt-Behandlung": 5.0
+    },
+    "created_at": "2026-03-17T11:48:52.683639",
+    "updated_at": "2026-03-17T11:48:52.683639"
+  },
+  {
+    "id": "compdb_4e14057f",
+    "display_name": "DMP8e",
+    "shortcut": "DMP8",
+    "material": "Mikroprozessor, 8 Bit",
+    "fits": 22.6,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "- Register, internes RAM": 15.0,
+      "- Codierung und Ausführung (ALU) inkl. Flag-Register": 60.0,
+      "- Adressberechnung": 15.0,
+      "- Programmzähler, stack pointer": 5.0,
+      "- Interrupt-Behandlung": 5.0
+    },
+    "created_at": "2026-03-17T11:48:52.684894",
+    "updated_at": "2026-03-17T11:48:52.684894"
+  },
+  {
+    "id": "compdb_85dcdf85",
+    "display_name": "DTC",
+    "shortcut": "DTC",
+    "material": "TC4S584F",
+    "fits": 6.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "kleben an Versorgungsspannung": 5.0,
+      "kleben an Masse": 5.0,
+      "Unterbrechung": 90.0,
+      "Drift": 0.0,
+      "Oszillation": 0.0
+    },
+    "created_at": "2026-03-17T11:48:52.685902",
+    "updated_at": "2026-03-17T11:48:52.685902"
+  },
+  {
+    "id": "compdb_e510427d",
+    "display_name": "DTLC",
+    "shortcut": "DTLC",
+    "material": "TLC27L2ACD",
+    "fits": 6.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "kleben an Versorgungsspannung": 5.0,
+      "kleben an Masse": 5.0,
+      "Unterbrechung": 90.0,
+      "Drift": 0.0,
+      "Oszillation": 0.0
+    },
+    "created_at": "2026-03-17T11:48:52.685902",
+    "updated_at": "2026-03-17T11:48:52.685902"
+  },
+  {
+    "id": "compdb_37c45d2e",
+    "display_name": "DTLC4",
+    "shortcut": "DTLC",
+    "material": "TLC27MA",
+    "fits": 6.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "kleben an Versorgungsspannung": 5.0,
+      "kleben an Masse": 5.0,
+      "Unterbrechung": 90.0,
+      "Drift": 0.0,
+      "Oszillation": 0.0
+    },
+    "created_at": "2026-03-17T11:48:52.686903",
+    "updated_at": "2026-03-17T11:48:52.686903"
+  },
+  {
+    "id": "compdb_7b0dd767",
+    "display_name": "DUARTe",
+    "shortcut": "DUAR",
+    "material": "Kommunikation UART (z. B. HART-Modem, Ethernet)",
+    "fits": 6.5,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Gefährliche Signalstörung / -verlust": 100.0
+    },
+    "created_at": "2026-03-17T11:48:52.686903",
+    "updated_at": "2026-03-17T11:48:52.686903"
+  },
+  {
+    "id": "compdb_e5c6d91f",
+    "display_name": "DWe",
+    "shortcut": "DWE",
+    "material": "Watchdog Timer",
+    "fits": 10.5,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "kann nicht auslösen": 30.0,
+      "falsches Auslösen": 50.0,
+      "Kurzschluss zwischen zwei beliebigen Anschlüssen": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.687902",
+    "updated_at": "2026-03-17T11:48:52.687902"
+  },
+  {
+    "id": "compdb_5338622e",
+    "display_name": "FUS1",
+    "shortcut": "FUS1",
+    "material": "FUSE",
+    "fits": 5.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 50.0,
+      "Kurzschluss": 50.0
+    },
+    "created_at": "2026-03-17T11:48:52.687902",
+    "updated_at": "2026-03-17T11:48:52.687902"
+  },
+  {
+    "id": "compdb_afef8493",
+    "display_name": "FUS2",
+    "shortcut": "FUS2",
+    "material": "Kleinstsicherung",
+    "fits": 10.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 50.0,
+      "Kurzschluss": 50.0
+    },
+    "created_at": "2026-03-17T11:48:52.688902",
+    "updated_at": "2026-03-17T11:48:52.688902"
+  },
+  {
+    "id": "compdb_a6a50d0f",
+    "display_name": "FUS3",
+    "shortcut": "FUS3",
+    "material": "SMD-Sicherung UMT 250",
+    "fits": 10.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 50.0,
+      "Kurzschluss": 50.0
+    },
+    "created_at": "2026-03-17T11:48:52.688902",
+    "updated_at": "2026-03-17T11:48:52.688902"
+  },
+  {
+    "id": "compdb_d6cf07ec",
+    "display_name": "FUS4",
+    "shortcut": "FUS4",
+    "material": "SMD Chipsicherung USI1206",
+    "fits": 10.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 50.0,
+      "Kurzschluss": 50.0
+    },
+    "created_at": "2026-03-17T11:48:52.689902",
+    "updated_at": "2026-03-17T11:48:52.689902"
+  },
+  {
+    "id": "compdb_7249e438",
+    "display_name": "FUS5",
+    "shortcut": "FUS5",
+    "material": "SMD PTC FSMD1210",
+    "fits": 5.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 50.0,
+      "Kurzschluss": 50.0
+    },
+    "created_at": "2026-03-17T11:48:52.690903",
+    "updated_at": "2026-03-17T11:48:52.690903"
+  },
+  {
+    "id": "compdb_48739e91",
+    "display_name": "FUSe",
+    "shortcut": "FUSE",
+    "material": "Sicherung, allgemein",
+    "fits": 10.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "öffnet nicht": 50.0,
+      "öffnet verzögert, zu langsam": 40.0,
+      "öffnet verfrüht": 10.0
+    },
+    "created_at": "2026-03-17T11:48:52.690903",
+    "updated_at": "2026-03-17T11:48:52.690903"
+  },
+  {
+    "id": "compdb_c2fce77c",
+    "display_name": "GU",
+    "shortcut": "GU",
+    "material": "Quarz",
+    "fits": 5.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 25.0,
+      "Kurzschluss": 25.0,
+      "Harmonische": 25.0,
+      "Subharmonische": 25.0
+    },
+    "created_at": "2026-03-17T11:48:52.691903",
+    "updated_at": "2026-03-17T11:48:52.691903"
+  },
+  {
+    "id": "compdb_bf738cf7",
+    "display_name": "GY",
+    "shortcut": "GY",
+    "material": "Quarz (failure mode exida)",
+    "fits": 15.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "fehlende Oszillation": 25.0,
+      "Harmonische": 25.0,
+      "Subharmonische": 25.0
+    },
+    "created_at": "2026-03-17T11:48:52.691903",
+    "updated_at": "2026-03-17T11:48:52.691903"
+  },
+  {
+    "id": "compdb_8f74f173",
+    "display_name": "Ge",
+    "shortcut": "GE",
+    "material": "Quarz, allgemein",
+    "fits": 20.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "fehlende Oszillation": 60.0,
+      "Subharmonische": 20.0,
+      "Superharmonische": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.692902",
+    "updated_at": "2026-03-17T11:48:52.692902"
+  },
+  {
+    "id": "compdb_ce932dd2",
+    "display_name": "KRCAFEe",
+    "shortcut": "KRCA",
+    "material": "Relais Kontakt, ungeschützt, Form A, Fehlerausschluss",
+    "fits": 80.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "offen/hochohmig": 33.0,
+      "kann nicht in die stromlose Position zurückkehren": 6.0,
+      "schaltet, verbleibt dann in dieser Position; andere Pole arbeiten noch": 1.0,
+      "schaltet, verbleibt dann in dieser Position; andere Pole stimmen mit diesem Pol überein": 59.0,
+      "Kontakte und/oder Spule kurzgeschlossen": 1.0
+    },
+    "created_at": "2026-03-17T11:48:52.693904",
+    "updated_at": "2026-03-17T11:48:52.693904"
+  },
+  {
+    "id": "compdb_b6c89c9a",
+    "display_name": "KRCAe",
+    "shortcut": "KRCA",
+    "material": "Relais Kontakt, ungeschützt, Form A",
+    "fits": 80.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "offen/hochohmig": 33.0,
+      "kann nicht in die stromlose Position zurückkehren": 5.0,
+      "schaltet, verbleibt dann in dieser Position; andere Pole arbeiten noch": 50.0,
+      "schaltet, verbleibt dann in dieser Position; andere Pole stimmen mit diesem Pol überein": 10.0,
+      "Kontakte und/oder Spule kurzgeschlossen": 2.0
+    },
+    "created_at": "2026-03-17T11:48:52.693904",
+    "updated_at": "2026-03-17T11:48:52.693904"
+  },
+  {
+    "id": "compdb_da315f34",
+    "display_name": "KRCBFEe",
+    "shortcut": "KRCB",
+    "material": "Relais Kontakt, ungeschützt, Form B, Fehlerausschluss",
+    "fits": 80.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "offen/hochohmig": 24.0,
+      "Kontakte ändern sich nicht; andere Pole arbeiten noch": 1.0,
+      "Kontakte ändern sich nicht; andere Pole stimmen mit diesem Pol überein": 68.0,
+      "schaltet, verbleibt dann in dieser Position; andere Pole arbeiten noch": 1.0,
+      "kann nicht in die stromlose Position zurückkehren": 5.0,
+      "Kontakte und/oder Spule kurzgeschlossen": 1.0
+    },
+    "created_at": "2026-03-17T11:48:52.694902",
+    "updated_at": "2026-03-17T11:48:52.694902"
+  },
+  {
+    "id": "compdb_1c4051a8",
+    "display_name": "KRCBe",
+    "shortcut": "KRCB",
+    "material": "Relais Kontakt, ungeschützt, Form B",
+    "fits": 80.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "offen/hochohmig": 23.0,
+      "Kontakte ändern sich nicht; andere Pole arbeiten noch": 50.0,
+      "Kontakte ändern sich nicht; andere Pole stimmen mit diesem Pol überein": 10.0,
+      "schaltet, verbleibt dann in dieser Position; andere Pole arbeiten noch": 10.0,
+      "kann nicht in die stromlose Position zurückkehren": 5.0,
+      "Kontakte und/oder Spule kurzgeschlossen": 2.0
+    },
+    "created_at": "2026-03-17T11:48:52.694902",
+    "updated_at": "2026-03-17T11:48:52.695903"
+  },
+  {
+    "id": "compdb_93051003",
+    "display_name": "KRCCFEe",
+    "shortcut": "KRCC",
+    "material": "Relais Kontakt, ungeschützt, Form C, Fehlerausschluss",
+    "fits": 80.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "offen/hochohmig": 32.0,
+      "Kontakte verschweißen; andere Pole arbeiten noch": 1.0,
+      "Kontakte verschweißen; andere Pole stimmen mit diesem Pol überein": 59.0,
+      "NO und NC Kontakte gleichzeitig geschlossen": 1.0,
+      "kann nicht in die stromlose Position zurückkehren": 6.0,
+      "Kontakte und/oder Spule kurzgeschlossen": 1.0
+    },
+    "created_at": "2026-03-17T11:48:52.695903",
+    "updated_at": "2026-03-17T11:48:52.695903"
+  },
+  {
+    "id": "compdb_71e6a038",
+    "display_name": "KRCCe",
+    "shortcut": "KRCC",
+    "material": "Relais Kontakt, ungeschützt, Form C",
+    "fits": 80.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "offen/hochohmig": 28.000000000000004,
+      "Kontakte verschweißen; andere Pole arbeiten noch": 50.0,
+      "Kontakte ändern verschweißen; andere Pole stimmen mit diesem Pol überein": 10.0,
+      "NO und NC Kontakte gleichzeitig geschlossen": 5.0,
+      "kann nicht in die stromlose Position zurückkehren": 5.0,
+      "Kontakte und/oder Spule kurzgeschlossen": 2.0
+    },
+    "created_at": "2026-03-17T11:48:52.696902",
+    "updated_at": "2026-03-17T11:48:52.696902"
+  },
+  {
+    "id": "compdb_8e6208c5",
+    "display_name": "KRCFAMe",
+    "shortcut": "KRCF",
+    "material": "Kurzschluss zwischen Relais Kontakten (Multi Pole)",
+    "fits": 1.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Benachbarter Kontakt zu Kontakt Kurzschluss": 100.0
+    },
+    "created_at": "2026-03-17T11:48:52.696902",
+    "updated_at": "2026-03-17T11:48:52.696902"
+  },
+  {
+    "id": "compdb_92873dfe",
+    "display_name": "KRCFASe",
+    "shortcut": "KRCF",
+    "material": "Relais Kontakt zu Spule Kurzschluss",
+    "fits": 1.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kontakt zu Spule Kurzschluss": 100.0
+    },
+    "created_at": "2026-03-17T11:48:52.697902",
+    "updated_at": "2026-03-17T11:48:52.697902"
+  },
+  {
+    "id": "compdb_69aa0601",
+    "display_name": "KRCP1A",
+    "shortcut": "KRCP",
+    "material": "Relais Kontakt, geschützt gegen Überstrom (z. B. Sicherung), Form A",
+    "fits": 50.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "offen/hochohmig": 37.0,
+      "kann nicht in die stromlose Position zurückkehren": 10.0,
+      "schaltet, verbleibt dann in dieser Position; andere Pole arbeiten noch": 35.0,
+      "schaltet, verbleibt dann in dieser Position; andere Pole stimmen mit diesem Pol überein": 15.0,
+      "Kontakte und/oder Spule kurzgeschlossen": 3.0
+    },
+    "created_at": "2026-03-17T11:48:52.697902",
+    "updated_at": "2026-03-17T11:48:52.697902"
+  },
+  {
+    "id": "compdb_2867cc06",
+    "display_name": "KRCP1AFE",
+    "shortcut": "KRCP",
+    "material": "Relais Kontakt, geschützt gegen Überstrom (z. B. Sicherung), Form A, Fehlerausschluss",
+    "fits": 50.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "offen/hochohmig": 38.0,
+      "kann nicht in die stromlose Position zurückkehren": 12.0,
+      "schaltet, verbleibt dann in dieser Position; andere Pole arbeiten noch": 1.0,
+      "schaltet, verbleibt dann in dieser Position; andere Pole stimmen mit diesem Pol überein": 49.0,
+      "Kontakte und/oder Spule kurzgeschlossen": 1.0
+    },
+    "created_at": "2026-03-17T11:48:52.698902",
+    "updated_at": "2026-03-17T11:48:52.698902"
+  },
+  {
+    "id": "compdb_ee5245fe",
+    "display_name": "KRCP1B",
+    "shortcut": "KRCP",
+    "material": "Relais Kontakt, geschützt gegen Überstrom (z. B. Sicherung), Form B",
+    "fits": 50.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "offen/hochohmig": 27.0,
+      "Kontakte ändern sich nicht; andere Pole arbeiten noch": 35.0,
+      "Kontakte ändern sich nicht; andere Pole stimmen mit diesem Pol überein": 15.0,
+      "schaltet, verbleibt dann in dieser Position; andere Pole arbeiten noch": 10.0,
+      "kann nicht in die stromlose Position zurückkehren": 10.0,
+      "Kontakte und/oder Spule kurzgeschlossen": 3.0
+    },
+    "created_at": "2026-03-17T11:48:52.699902",
+    "updated_at": "2026-03-17T11:48:52.699902"
+  },
+  {
+    "id": "compdb_5c7aa66d",
+    "display_name": "KRCP1BFE",
+    "shortcut": "KRCP",
+    "material": "Relais Kontakt, geschützt gegen Überstrom (z. B. Sicherung), Form B, Fehlerausschluss",
+    "fits": 50.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "offen/hochohmig": 28.000000000000004,
+      "Kontakte ändern sich nicht; andere Pole arbeiten noch": 12.0,
+      "Kontakte ändern sich nicht; andere Pole stimmen mit diesem Pol überein": 49.0,
+      "schaltet, verbleibt dann in dieser Position; andere Pole arbeiten noch": 1.0,
+      "kann nicht in die stromlose Position zurückkehren": 10.0,
+      "Kontakte und/oder Spule kurzgeschlossen": 1.0
+    },
+    "created_at": "2026-03-17T11:48:52.701122",
+    "updated_at": "2026-03-17T11:48:52.701122"
+  },
+  {
+    "id": "compdb_89704449",
+    "display_name": "KRCP1C",
+    "shortcut": "KRCP",
+    "material": "Relais Kontakt, geschützt gegen Überstrom (z. B. Sicherung), Form C",
+    "fits": 50.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "offen/hochohmig": 32.0,
+      "Kontakte verschweißen; andere Pole arbeiten noch": 35.0,
+      "Kontakte ändern verschweißen; andere Pole stimmen mit diesem Pol überein": 15.0,
+      "NO und NC Kontakte gleichzeitig geschlossen": 5.0,
+      "kann nicht in die stromlose Position zurückkehren": 10.0,
+      "Kontakte und/oder Spule kurzgeschlossen": 3.0
+    },
+    "created_at": "2026-03-17T11:48:52.702153",
+    "updated_at": "2026-03-17T11:48:52.702153"
+  },
+  {
+    "id": "compdb_404fcc66",
+    "display_name": "KRCP1CFE",
+    "shortcut": "KRCP",
+    "material": "Relais Kontakt, geschützt gegen Überstrom (z. B. Sicherung), Form C, Fehlerausschluss",
+    "fits": 50.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "offen/hochohmig": 36.0,
+      "Kontakte verschweißen; andere Pole arbeiten noch": 1.0,
+      "Kontakte verschweißen; andere Pole stimmen mit diesem Pol überein": 49.0,
+      "NO und NC Kontakte gleichzeitig geschlossen": 1.0,
+      "kann nicht in die stromlose Position zurückkehren": 13.0,
+      "Kontakte und/oder Spule kurzgeschlossen": 1.0
+    },
+    "created_at": "2026-03-17T11:48:52.702153",
+    "updated_at": "2026-03-17T11:48:52.702153"
+  },
+  {
+    "id": "compdb_c0cd6b17",
+    "display_name": "KRCP2AFEe",
+    "shortcut": "KRCP",
+    "material": "Relais Kontakt, geschützt, Form A, \nFehlerausschluss",
+    "fits": 20.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "offen/hochohmig": 42.0,
+      "kann nicht in die stromlose Position zurückkehren": 17.0,
+      "schaltet, verbleibt dann in dieser Position; andere Pole arbeiten noch": 1.0,
+      "schaltet, verbleibt dann in dieser Position; andere Pole stimmen mit diesem Pol überein": 39.0,
+      "Kontakte und/oder Spule kurzgeschlossen": 1.0
+    },
+    "created_at": "2026-03-17T11:48:52.703155",
+    "updated_at": "2026-03-17T11:48:52.703155"
+  },
+  {
+    "id": "compdb_9b3edaa5",
+    "display_name": "KRCP2Ae",
+    "shortcut": "KRCP",
+    "material": "Relais Kontakt, geschützt gegen Überspannung (z. B. Freilaufdiode) und Überstrom (z. B. Sicherung), Form A",
+    "fits": 20.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "offen/hochohmig": 40.0,
+      "kann nicht in die stromlose Position zurückkehren": 15.0,
+      "schaltet, verbleibt dann in dieser Position; andere Pole arbeiten noch": 20.0,
+      "schaltet, verbleibt dann in dieser Position; andere Pole stimmen mit diesem Pol überein": 20.0,
+      "Kontakte und/oder Spule kurzgeschlossen": 5.0
+    },
+    "created_at": "2026-03-17T11:48:52.703155",
+    "updated_at": "2026-03-17T11:48:52.703155"
+  },
+  {
+    "id": "compdb_c875ca95",
+    "display_name": "KRCP2BFEe",
+    "shortcut": "KRCP",
+    "material": "Relais Kontakt, geschützt, Form B, \nFehlerausschluss",
+    "fits": 20.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "offen/hochohmig": 32.0,
+      "Kontakte ändern sich nicht; andere Pole arbeiten noch": 22.0,
+      "Kontakte ändern sich nicht; andere Pole stimmen mit diesem Pol überein": 28.999999999999996,
+      "schaltet, verbleibt dann in dieser Position; andere Pole arbeiten noch": 1.0,
+      "kann nicht in die stromlose Position zurückkehren": 15.0,
+      "Kontakte und/oder Spule kurzgeschlossen": 1.0
+    },
+    "created_at": "2026-03-17T11:48:52.704152",
+    "updated_at": "2026-03-17T11:48:52.704152"
+  },
+  {
+    "id": "compdb_f699689b",
+    "display_name": "KRCP2Be",
+    "shortcut": "KRCP",
+    "material": "Relais Kontakt, geschützt gegen Überspannung (z. B. Freilaufdiode) und Überstrom (z. B. Sicherung), Form B",
+    "fits": 20.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "offen/hochohmig": 30.0,
+      "Kontakte ändern sich nicht; andere Pole arbeiten noch": 20.0,
+      "Kontakte ändern sich nicht; andere Pole stimmen mit diesem Pol überein": 20.0,
+      "schaltet, verbleibt dann in dieser Position; andere Pole arbeiten noch": 10.0,
+      "kann nicht in die stromlose Position zurückkehren": 15.0,
+      "Kontakte und/oder Spule kurzgeschlossen": 5.0
+    },
+    "created_at": "2026-03-17T11:48:52.705155",
+    "updated_at": "2026-03-17T11:48:52.705155"
+  },
+  {
+    "id": "compdb_090801f3",
+    "display_name": "KRCP2CFEe",
+    "shortcut": "KRCP",
+    "material": "Relais Kontakt, geschützt, Form C, \nFehlerausschluss",
+    "fits": 20.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "offen/hochohmig": 39.0,
+      "Kontakte verschweißen; andere Pole arbeiten noch": 1.0,
+      "Kontakte verschweißen; andere Pole stimmen mit diesem Pol überein": 39.0,
+      "NO und NC Kontakte gleichzeitig geschlossen": 1.0,
+      "kann nicht in die stromlose Position zurückkehren": 19.0,
+      "Kontakte und/oder Spule kurzgeschlossen": 1.0
+    },
+    "created_at": "2026-03-17T11:48:52.705155",
+    "updated_at": "2026-03-17T11:48:52.705155"
+  },
+  {
+    "id": "compdb_a625bf0d",
+    "display_name": "KRCP2Ce",
+    "shortcut": "KRCP",
+    "material": "Relais Kontakt, geschützt gegen Überspannung (z. B. Freilaufdiode) und Überstrom (z. B. Sicherung), Form C",
+    "fits": 20.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "offen/hochohmig": 35.0,
+      "Kontakte verschweißen; andere Pole arbeiten noch": 20.0,
+      "Kontakte ändern verschweißen; andere Pole stimmen mit diesem Pol überein": 20.0,
+      "NO und NC Kontakte gleichzeitig geschlossen": 5.0,
+      "kann nicht in die stromlose Position zurückkehren": 15.0,
+      "Kontakte und/oder Spule kurzgeschlossen": 5.0
+    },
+    "created_at": "2026-03-17T11:48:52.706152",
+    "updated_at": "2026-03-17T11:48:52.706152"
+  },
+  {
+    "id": "compdb_458f1bc5",
+    "display_name": "KRCPe",
+    "shortcut": "KRCP",
+    "material": "Relais Kontakt, geschützt gegen Überspannung (z. B. Freilaufdiode) und Überstrom (z. B. Sicherung) und direkten Umgebungseinflüssen",
+    "fits": 20.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kontakt kann Zustand nicht ändern (Stuck at)": 50.0,
+      "Kotakt ändert spontan Zustand ohne Änderung der Spulenansteuerung": 50.0
+    },
+    "created_at": "2026-03-17T11:48:52.707152",
+    "updated_at": "2026-03-17T11:48:52.707152"
+  },
+  {
+    "id": "compdb_53c5e3ab",
+    "display_name": "KRCe",
+    "shortcut": "KRCE",
+    "material": "Relais Kontakt, ungeschützt",
+    "fits": 80.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kontakt kann Zustand nicht ändern (Stuck at)": 50.0,
+      "Kotakt ändert spontan Zustand ohne Änderung der Spulenansteuerung": 50.0
+    },
+    "created_at": "2026-03-17T11:48:52.707152",
+    "updated_at": "2026-03-17T11:48:52.707152"
+  },
+  {
+    "id": "compdb_002d888b",
+    "display_name": "KRLe",
+    "shortcut": "KRLE",
+    "material": "Relaisspule <500 mW",
+    "fits": 2.9,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss": 10.0,
+      "Unterbrechung": 80.0,
+      "Wertänderung  0,5 * N < N< 2 * N": 10.0
+    },
+    "created_at": "2026-03-17T11:48:52.708152",
+    "updated_at": "2026-03-17T11:48:52.708152"
+  },
+  {
+    "id": "compdb_5fdcf8d2",
+    "display_name": "L",
+    "shortcut": "L",
+    "material": "Induktivität",
+    "fits": 10.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 80.0,
+      "Kurzschluss": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.708152",
+    "updated_at": "2026-03-17T11:48:52.708152"
+  },
+  {
+    "id": "compdb_3c229e3d",
+    "display_name": "LCD",
+    "shortcut": "LCD",
+    "material": "LCD-Display\nmit Leitgummis",
+    "fits": 50.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 50.0,
+      "Kurzschluss": 50.0
+    },
+    "created_at": "2026-03-17T11:48:52.709153",
+    "updated_at": "2026-03-17T11:48:52.709153"
+  },
+  {
+    "id": "compdb_7e859b5d",
+    "display_name": "LED",
+    "shortcut": "LED",
+    "material": "LED",
+    "fits": 3.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 10.0,
+      "Kurzschluss": 70.0,
+      "Änderung des Wertes auf 0,5": 0.0
+    },
+    "created_at": "2026-03-17T11:48:52.709153",
+    "updated_at": "2026-03-17T11:48:52.709153"
+  },
+  {
+    "id": "compdb_3a7344b0",
+    "display_name": "LEDA",
+    "shortcut": "LEDA",
+    "material": "LED 7 Segmentanzeige vierstellig",
+    "fits": 42.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 10.0,
+      "Kurzschluss": 70.0,
+      "Änderung des Wertes auf 0,5": 0.0
+    },
+    "created_at": "2026-03-17T11:48:52.710153",
+    "updated_at": "2026-03-17T11:48:52.710153"
+  },
+  {
+    "id": "compdb_8e5b333d",
+    "display_name": "LEDe",
+    "shortcut": "LEDE",
+    "material": "LED (sichtbares Spektrum, Infrarot, ≤250 mW)",
+    "fits": 5.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss": 50.0,
+      "Unterbrechung": 30.0,
+      "reduzierte Lichtintensität": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.710153",
+    "updated_at": "2026-03-17T11:48:52.710153"
+  },
+  {
+    "id": "compdb_c3b01e19",
+    "display_name": "LHe",
+    "shortcut": "LHE",
+    "material": "Induktivität, hohe Leistung (>3 A)",
+    "fits": 4.4,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss": 10.0,
+      "Unterbrechung": 80.0,
+      "Wertänderung  0,5 * Ln < L< 2 * Ln": 10.0
+    },
+    "created_at": "2026-03-17T11:48:52.711151",
+    "updated_at": "2026-03-17T11:48:52.711151"
+  },
+  {
+    "id": "compdb_74a5a17c",
+    "display_name": "LLe",
+    "shortcut": "LLE",
+    "material": "Induktivität, kleine Leistung (Signalpegel, kleiner Wechselstrom)",
+    "fits": 0.8,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss": 10.0,
+      "Unterbrechung": 80.0,
+      "Wertänderung  0,5 * Ln < L< 2 * Ln": 10.0
+    },
+    "created_at": "2026-03-17T11:48:52.712157",
+    "updated_at": "2026-03-17T11:48:52.712157"
+  },
+  {
+    "id": "compdb_af2b6959",
+    "display_name": "LMe",
+    "shortcut": "LME",
+    "material": "Induktivität, mittlere Leistung (<3 A)",
+    "fits": 2.9,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss": 10.0,
+      "Unterbrechung": 80.0,
+      "Wertänderung  0,5 * Ln < L< 2 * Ln": 10.0
+    },
+    "created_at": "2026-03-17T11:48:52.712157",
+    "updated_at": "2026-03-17T11:48:52.712157"
+  },
+  {
+    "id": "compdb_de22564a",
+    "display_name": "LPIj",
+    "shortcut": "LPIJ",
+    "material": "LPI mit 232 Durchkontaktierungen\nLPI CPU/Netzteil 701170",
+    "fits": 116.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 20.0,
+      "Kurzschluss": 80.0
+    },
+    "created_at": "2026-03-17T11:48:52.713157",
+    "updated_at": "2026-03-17T11:48:52.713157"
+  },
+  {
+    "id": "compdb_a9edcfa0",
+    "display_name": "NI",
+    "shortcut": "NI",
+    "material": "ISL43144",
+    "fits": 12.3,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 20.0,
+      "Kurzschluss zwischen beliebigen Anschlüssen": 20.0,
+      "Kurzschluss zwischen allen Anschlüssen": 20.0,
+      "Wertänderung 0,5V": 20.0,
+      "Wertänderung 2V": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.714158",
+    "updated_at": "2026-03-17T11:48:52.714158"
+  },
+  {
+    "id": "compdb_0d4e05ef",
+    "display_name": "NL",
+    "shortcut": "NL",
+    "material": "UA 7812",
+    "fits": 45.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 20.0,
+      "Kurzschluss zwischen beliebigen Anschlüssen": 20.0,
+      "Kurzschluss zwischen allen Anschlüssen": 20.0,
+      "Wertänderung 0,5V": 20.0,
+      "Wertänderung 2V": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.714158",
+    "updated_at": "2026-03-17T11:48:52.714158"
+  },
+  {
+    "id": "compdb_7bfd52ce",
+    "display_name": "NLLe",
+    "shortcut": "NLLE",
+    "material": "Linearregler, 3/4 Anschlüsse, kleine Leistung, geringfügige Ströme (Referenz)",
+    "fits": 10.2,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss Eingang zu Ausgang": 30.0,
+      "Unterbrechung Eingang zu Ausgang": 30.0,
+      "Wertänderung bis zu +20%": 15.0,
+      "Wertänderung bis zu -20%": 15.0,
+      "Oszillation Ausgangssignal": 10.0
+    },
+    "created_at": "2026-03-17T11:48:52.715159",
+    "updated_at": "2026-03-17T11:48:52.715159"
+  },
+  {
+    "id": "compdb_98f108b2",
+    "display_name": "NLMe",
+    "shortcut": "NLME",
+    "material": "Linearregler, 3/4 Anschlüsse, moderate Leistung <50% Pv",
+    "fits": 17.7,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss Eingang zu Ausgang": 30.0,
+      "Unterbrechung Eingang zu Ausgang": 30.0,
+      "Wertänderung bis zu +20%": 15.0,
+      "Wertänderung bis zu -20%": 15.0,
+      "Oszillation Ausgangssignal": 10.0
+    },
+    "created_at": "2026-03-17T11:48:52.715159",
+    "updated_at": "2026-03-17T11:48:52.715159"
+  },
+  {
+    "id": "compdb_2efc8706",
+    "display_name": "NMXLe",
+    "shortcut": "NMXL",
+    "material": "Analogmultiplexer  (32-Eingänge oder weniger)\nkleine Leistung <= 250mW",
+    "fits": 16.4,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss zwischen zwei beliebigen Anschlüssen": 10.0,
+      "Kurzschluss Kanal zu Kanal": 10.0,
+      "keine Verbindung zum Ausgang": 30.0,
+      "Leckstrom 10-fach": 20.0,
+      "Wertänderung Ron 10-fach": 10.0,
+      "Auswahl falscher Kanal": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.716158",
+    "updated_at": "2026-03-17T11:48:52.716158"
+  },
+  {
+    "id": "compdb_8f964593",
+    "display_name": "NMXMe",
+    "shortcut": "NMXM",
+    "material": "Analogmultiplexer  (32-Eingänge oder weniger)\nmoderate Leistung > 250mW",
+    "fits": 26.5,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss zwischen zwei beliebigen Anschlüssen": 10.0,
+      "Kurzschluss Kanal zu Kanal": 10.0,
+      "keine Verbindung zum Ausgang": 30.0,
+      "Leckstrom 10-fach": 20.0,
+      "Wertänderung Ron 10-fach": 10.0,
+      "Auswahl falscher Kanal": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.717952",
+    "updated_at": "2026-03-17T11:48:52.717952"
+  },
+  {
+    "id": "compdb_b2c357cf",
+    "display_name": "NOPA1Le",
+    "shortcut": "NOPA",
+    "material": "Operationsverstärker, einfach\nkleine Leistung, <= 250mW",
+    "fits": 10.4,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Ausgang übersteuert (positive Sättigung)": 30.0,
+      "Ausgang untersteuert (negative Sättigung)": 30.0,
+      "Kurzschluss zwischen zwei beliebigen Anschlüssen": 10.0,
+      "Oszillation Ausgangssignal": 10.0,
+      "offene Verstärkung 0,1-fach": 10.0,
+      "Ausgangsimpedanz/Offsetspannung 10-fach": 10.0
+    },
+    "created_at": "2026-03-17T11:48:52.718960",
+    "updated_at": "2026-03-17T11:48:52.718960"
+  },
+  {
+    "id": "compdb_19718080",
+    "display_name": "NOPA1Me",
+    "shortcut": "NOPA",
+    "material": "Operationsverstärker, einfach\nmoderate Leistung, > 250mW",
+    "fits": 18.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Ausgang übersteuert (positive Sättigung)": 30.0,
+      "Ausgang untersteuert (negative Sättigung)": 30.0,
+      "Kurzschluss zwischen zwei beliebigen Anschlüssen": 10.0,
+      "Oszillation Ausgangssignal": 10.0,
+      "offene Verstärkung 0,1-fach": 10.0,
+      "Ausgangsimpedanz/Offsetspannung 10-fach": 10.0
+    },
+    "created_at": "2026-03-17T11:48:52.718960",
+    "updated_at": "2026-03-17T11:48:52.718960"
+  },
+  {
+    "id": "compdb_2a32dba9",
+    "display_name": "NOPA2Le",
+    "shortcut": "NOPA",
+    "material": "Operationsverstärker, zweifach\nkleine Leistung, <= 250mW",
+    "fits": 5.2,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Ausgang übersteuert (positive Sättigung)": 30.0,
+      "Ausgang untersteuert (negative Sättigung)": 30.0,
+      "Kurzschluss zwischen zwei beliebigen Anschlüssen": 10.0,
+      "Oszillation Ausgangssignal": 10.0,
+      "offene Verstärkung 0,1-fach": 10.0,
+      "Ausgangsimpedanz/Offsetspannung 10-fach": 10.0
+    },
+    "created_at": "2026-03-17T11:48:52.719959",
+    "updated_at": "2026-03-17T11:48:52.719959"
+  },
+  {
+    "id": "compdb_e5aa9689",
+    "display_name": "NOPA2Me",
+    "shortcut": "NOPA",
+    "material": "Operationsverstärker, zweifach\nmoderate Leistung, > 250mW",
+    "fits": 8.9,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Ausgang übersteuert (positive Sättigung)": 30.0,
+      "Ausgang untersteuert (negative Sättigung)": 30.0,
+      "Kurzschluss zwischen zwei beliebigen Anschlüssen": 10.0,
+      "Oszillation Ausgangssignal": 10.0,
+      "offene Verstärkung 0,1-fach": 10.0,
+      "Ausgangsimpedanz/Offsetspannung 10-fach": 10.0
+    },
+    "created_at": "2026-03-17T11:48:52.720958",
+    "updated_at": "2026-03-17T11:48:52.720958"
+  },
+  {
+    "id": "compdb_ab074849",
+    "display_name": "NOPA4Le",
+    "shortcut": "NOPA",
+    "material": "Operationsverstärker, vierfach\nkleine Leistung, <= 250mW",
+    "fits": 2.7,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Ausgang übersteuert (positive Sättigung)": 30.0,
+      "Ausgang untersteuert (negative Sättigung)": 30.0,
+      "Kurzschluss zwischen zwei beliebigen Anschlüssen": 10.0,
+      "Oszillation Ausgangssignal": 10.0,
+      "offene Verstärkung 0,1-fach": 10.0,
+      "Ausgangsimpedanz/Offsetspannung 10-fach": 10.0
+    },
+    "created_at": "2026-03-17T11:48:52.720958",
+    "updated_at": "2026-03-17T11:48:52.720958"
+  },
+  {
+    "id": "compdb_abb504d7",
+    "display_name": "NOPA4Me",
+    "shortcut": "NOPA",
+    "material": "Operationsverstärker, vierfach\nmoderate Leistung, > 250mW",
+    "fits": 4.6,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Ausgang übersteuert (positive Sättigung)": 30.0,
+      "Ausgang untersteuert (negative Sättigung)": 30.0,
+      "Kurzschluss zwischen zwei beliebigen Anschlüssen": 10.0,
+      "Oszillation Ausgangssignal": 10.0,
+      "offene Verstärkung 0,1-fach": 10.0,
+      "Ausgangsimpedanz/Offsetspannung 10-fach": 10.0
+    },
+    "created_at": "2026-03-17T11:48:52.721959",
+    "updated_at": "2026-03-17T11:48:52.721959"
+  },
+  {
+    "id": "compdb_5b239f15",
+    "display_name": "NREFe",
+    "shortcut": "NREF",
+    "material": "Spannungsreferenz, linear",
+    "fits": 10.2,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss Eingang zu Ausgang": 30.0,
+      "Unterbrechung Eingang zu Ausgang": 30.0,
+      "Wertänderung bis zu +20%": 15.0,
+      "Wertänderung bis zu -20%": 15.0,
+      "Oszillation Ausgangssignal": 10.0
+    },
+    "created_at": "2026-03-17T11:48:52.721959",
+    "updated_at": "2026-03-17T11:48:52.721959"
+  },
+  {
+    "id": "compdb_6742eb72",
+    "display_name": "NSCLe",
+    "shortcut": "NSCL",
+    "material": "DC-DC Konverter, Ladungspumpe (Switched Capacitor), kleine Leistung, < 10% der Nennleistung",
+    "fits": 8.5,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "kein Ausgangssignal": 70.0,
+      "Ausgangssignal zu niedrig (bis zu -20%)": 20.0,
+      "Kurzschluss Eingang zu Ausgang": 10.0
+    },
+    "created_at": "2026-03-17T11:48:52.722959",
+    "updated_at": "2026-03-17T11:48:52.722959"
+  },
+  {
+    "id": "compdb_58e5672a",
+    "display_name": "NSCMe",
+    "shortcut": "NSCM",
+    "material": "DC-DC Konverter, Ladungspumpe (Switched Capacitor), moderate Leistung, < 50% der Nennleistung",
+    "fits": 14.8,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "kein Ausgangssignal": 70.0,
+      "Ausgangssignal zu niedrig (bis zu -20%)": 20.0,
+      "Kurzschluss Eingang zu Ausgang": 10.0
+    },
+    "created_at": "2026-03-17T11:48:52.723959",
+    "updated_at": "2026-03-17T11:48:52.723959"
+  },
+  {
+    "id": "compdb_33586040",
+    "display_name": "NSE",
+    "shortcut": "NSE",
+    "material": "SED1510 gesamt",
+    "fits": 75.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "kleben an Versorgungsspannung": 5.0,
+      "kleben an Masse": 5.0,
+      "Unterbrechung": 90.0,
+      "Drift": 0.0,
+      "Oszillation": 0.0
+    },
+    "created_at": "2026-03-17T11:48:52.723959",
+    "updated_at": "2026-03-17T11:48:52.723959"
+  },
+  {
+    "id": "compdb_1a03f110",
+    "display_name": "NSEIO",
+    "shortcut": "NSEI",
+    "material": "SED1510 Ein- und Ausgänge",
+    "fits": 18.75,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "kleben an Versorgungsspannung": 5.0,
+      "kleben an Masse": 5.0,
+      "Unterbrechung": 90.0,
+      "Drift": 0.0,
+      "Oszillation": 0.0
+    },
+    "created_at": "2026-03-17T11:48:52.724959",
+    "updated_at": "2026-03-17T11:48:52.724959"
+  },
+  {
+    "id": "compdb_254695fc",
+    "display_name": "NSESp",
+    "shortcut": "NSES",
+    "material": "SED1510 Speicher",
+    "fits": 18.75,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "kleben an Versorgungsspannung": 5.0,
+      "kleben an Masse": 5.0,
+      "Unterbrechung": 90.0,
+      "Drift": 0.0,
+      "Oszillation": 0.0
+    },
+    "created_at": "2026-03-17T11:48:52.725959",
+    "updated_at": "2026-03-17T11:48:52.725959"
+  },
+  {
+    "id": "compdb_b6d3e158",
+    "display_name": "NSESt",
+    "shortcut": "NSES",
+    "material": "SED1510 Steuereinheit",
+    "fits": 18.75,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "kleben an Versorgungsspannung": 5.0,
+      "kleben an Masse": 5.0,
+      "Unterbrechung": 90.0,
+      "Drift": 0.0,
+      "Oszillation": 0.0
+    },
+    "created_at": "2026-03-17T11:48:52.725959",
+    "updated_at": "2026-03-17T11:48:52.725959"
+  },
+  {
+    "id": "compdb_9dc5a78c",
+    "display_name": "NSET",
+    "shortcut": "NSET",
+    "material": "SED1510 Takt",
+    "fits": 18.75,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "kleben an Versorgungsspannung": 5.0,
+      "kleben an Masse": 5.0,
+      "Unterbrechung": 90.0,
+      "Drift": 0.0,
+      "Oszillation": 0.0
+    },
+    "created_at": "2026-03-17T11:48:52.726958",
+    "updated_at": "2026-03-17T11:48:52.726958"
+  },
+  {
+    "id": "compdb_2922781e",
+    "display_name": "NSLe",
+    "shortcut": "NSLE",
+    "material": "Schaltregler, kleine Leistung, externe Bauteile (pass device), benötigt vernachlässigbaren Versorgungsstrom",
+    "fits": 19.4,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "kein Ausgangssignal": 70.0,
+      "Ausgangssignal zu hoch (bis zu +20%)": 10.0,
+      "Ausgangssignal zu niedrig (bis zu -20%)": 10.0,
+      "Ausgangsschalter dauernd ein (stuck on)": 10.0
+    },
+    "created_at": "2026-03-17T11:48:52.726958",
+    "updated_at": "2026-03-17T11:48:52.726958"
+  },
+  {
+    "id": "compdb_39c02150",
+    "display_name": "NSMe",
+    "shortcut": "NSME",
+    "material": "Schaltregler, moderate Leistung, interner Leistungschalter <50% Pv",
+    "fits": 33.7,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "kein Ausgangssignal": 70.0,
+      "Ausgangssignal zu hoch (bis zu +20%)": 10.0,
+      "Ausgangssignal zu niedrig (bis zu -20%)": 10.0,
+      "Ausgangsschalter dauernd ein (stuck on)": 10.0
+    },
+    "created_at": "2026-03-17T11:48:52.728237",
+    "updated_at": "2026-03-17T11:48:52.728237"
+  },
+  {
+    "id": "compdb_6c7d784e",
+    "display_name": "NSWLe",
+    "shortcut": "NSWL",
+    "material": "Analogschalter (8-Schalter oder weniger pro package)\nkleine Leistung <= 250mW",
+    "fits": 14.6,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Fehler Öffnen": 30.0,
+      "Fehler Schließen": 30.0,
+      "Kurzschluss zwischen zwei beliebigen Anschlüssen": 20.0,
+      "Leckstrom 10-fach": 10.0,
+      "Wertänderung Ron 10-fach": 10.0
+    },
+    "created_at": "2026-03-17T11:48:52.729237",
+    "updated_at": "2026-03-17T11:48:52.729237"
+  },
+  {
+    "id": "compdb_bb0ba265",
+    "display_name": "NSWMe",
+    "shortcut": "NSWM",
+    "material": "Analogschalter (8-Schalter oder weniger pro package)\nmoderate Leistung > 250mW",
+    "fits": 23.4,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Fehler Öffnen": 30.0,
+      "Fehler Schließen": 30.0,
+      "Kurzschluss zwischen zwei beliebigen Anschlüssen": 20.0,
+      "Leckstrom 10-fach": 10.0,
+      "Wertänderung Ron 10-fach": 10.0
+    },
+    "created_at": "2026-03-17T11:48:52.729237",
+    "updated_at": "2026-03-17T11:48:52.729237"
+  },
+  {
+    "id": "compdb_39394fce",
+    "display_name": "NT",
+    "shortcut": "NT",
+    "material": "TNY266",
+    "fits": 50.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 15.0,
+      "Kurzschluss zwischen beliebigen Anschlüssen": 40.0,
+      "Kurzschluss zwischen allen Anschlüssen": 40.0,
+      "Wertänderung 0,5V": 2.5,
+      "Wertänderung 2V": 2.5
+    },
+    "created_at": "2026-03-17T11:48:52.730237",
+    "updated_at": "2026-03-17T11:48:52.730237"
+  },
+  {
+    "id": "compdb_bffc17aa",
+    "display_name": "NTL",
+    "shortcut": "NTL",
+    "material": "TL431",
+    "fits": 6.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 20.0,
+      "Kurzschluss zwischen beliebigen Anschlüssen": 35.0,
+      "Kurzschluss zwischen allen Anschlüssen": 35.0,
+      "Wertänderung 0,5V": 5.0,
+      "Wertänderung 2V": 5.0
+    },
+    "created_at": "2026-03-17T11:48:52.731236",
+    "updated_at": "2026-03-17T11:48:52.731236"
+  },
+  {
+    "id": "compdb_92bd7191",
+    "display_name": "NU",
+    "shortcut": "NU",
+    "material": "UC2845",
+    "fits": 20.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 20.0,
+      "Kurzschluss zwischen beliebigen Anschlüssen": 20.0,
+      "Kurzschluss zwischen allen Anschlüssen": 20.0,
+      "Wertänderung 0,5V": 0.0,
+      "Wertänderung 2V": 0.0
+    },
+    "created_at": "2026-03-17T11:48:52.731236",
+    "updated_at": "2026-03-17T11:48:52.731236"
+  },
+  {
+    "id": "compdb_8dca30f1",
+    "display_name": "NZ",
+    "shortcut": "NZ",
+    "material": "ZLDO485",
+    "fits": 50.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 20.0,
+      "Kurzschluss zwischen beliebigen Anschlüssen": 20.0,
+      "Kurzschluss zwischen allen Anschlüssen": 20.0,
+      "Wertänderung 0,5V": 20.0,
+      "Wertänderung 2V": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.732237",
+    "updated_at": "2026-03-17T11:48:52.732237"
+  },
+  {
+    "id": "compdb_0d74c486",
+    "display_name": "PT",
+    "shortcut": "PT",
+    "material": "Pt100 extern",
+    "fits": 37.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 56.00000000000001,
+      "Kurzschluss unterschiedliches Potential": 16.0,
+      "Kurzschluss gleiches Potential": 8.0,
+      "Wertänderung 0,5R": 12.0,
+      "Wertänderung 2R": 8.0
+    },
+    "created_at": "2026-03-17T11:48:52.732237",
+    "updated_at": "2026-03-17T11:48:52.732237"
+  },
+  {
+    "id": "compdb_76995d25",
+    "display_name": "PTC",
+    "shortcut": "PTC",
+    "material": "KTY",
+    "fits": 45.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 10.0,
+      "Kurzschluss": 70.0,
+      "Wertänderung 0,5R": 0.0,
+      "Wertänderung 2R": 0.0
+    },
+    "created_at": "2026-03-17T11:48:52.733960",
+    "updated_at": "2026-03-17T11:48:52.733960"
+  },
+  {
+    "id": "compdb_a32011a3",
+    "display_name": "PTCPWRe",
+    "shortcut": "PTCP",
+    "material": "Thermistor (PTC), Leistung/Interface",
+    "fits": 45.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss": 10.0,
+      "Unterbrechung": 60.0,
+      "Wertänderung 0,5-fach": 15.0,
+      "Wertänderung 2-fach": 15.0
+    },
+    "created_at": "2026-03-17T11:48:52.734469",
+    "updated_at": "2026-03-17T11:48:52.734469"
+  },
+  {
+    "id": "compdb_b2a2bd57",
+    "display_name": "PTCe",
+    "shortcut": "PTCE",
+    "material": "Thermistor (PTC), Sensor",
+    "fits": 5.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss": 10.0,
+      "Unterbrechung": 60.0,
+      "Wertänderung 0,5-fach": 15.0,
+      "Wertänderung 2-fach": 15.0
+    },
+    "created_at": "2026-03-17T11:48:52.735478",
+    "updated_at": "2026-03-17T11:48:52.735478"
+  },
+  {
+    "id": "compdb_fb58d8df",
+    "display_name": "PTH",
+    "shortcut": "PTH",
+    "material": "Thermoelemente",
+    "fits": 12.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 80.0,
+      "Kurzschluss": 10.0,
+      "Wertänderung 0,5Uthermo": 5.0,
+      "Wertänderung 2Uthermo": 5.0
+    },
+    "created_at": "2026-03-17T11:48:52.735478",
+    "updated_at": "2026-03-17T11:48:52.735478"
+  },
+  {
+    "id": "compdb_baa09602",
+    "display_name": "PTH_EMPj",
+    "shortcut": "PTH_",
+    "material": "Thermoelement (TE), JUMO",
+    "fits": 12.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 80.0,
+      "Kurzschluss": 10.0,
+      "Wertänderung 0,5Uthermo": 5.0,
+      "Wertänderung 2Uthermo": 5.0
+    },
+    "created_at": "2026-03-17T11:48:52.736477",
+    "updated_at": "2026-03-17T11:48:52.736477"
+  },
+  {
+    "id": "compdb_cd38ce8a",
+    "display_name": "PTHj",
+    "shortcut": "PTHJ",
+    "material": "Thermoelement (TE), JUMO",
+    "fits": 1000.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 60.0,
+      "Kurzschluss": 30.0,
+      "Wertänderung +5%Uthermo": 5.0,
+      "Wertänderung -5%Uthermo": 5.0
+    },
+    "created_at": "2026-03-17T11:48:52.736477",
+    "updated_at": "2026-03-17T11:48:52.736477"
+  },
+  {
+    "id": "compdb_c418fec3",
+    "display_name": "PT_CCHS",
+    "shortcut": "PT_C",
+    "material": "Pt100 extern",
+    "fits": 960.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 56.00000000000001,
+      "Kurzschluss unterschiedliches Potential": 16.0,
+      "Kurzschluss gleiches Potential": 8.0,
+      "Wertänderung 0,5R": 12.0,
+      "Wertänderung 2R": 8.0
+    },
+    "created_at": "2026-03-17T11:48:52.737476",
+    "updated_at": "2026-03-17T11:48:52.737476"
+  },
+  {
+    "id": "compdb_3cff2a92",
+    "display_name": "PT_CCLS",
+    "shortcut": "PT_C",
+    "material": "Pt100 extern",
+    "fits": 48.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 56.00000000000001,
+      "Kurzschluss unterschiedliches Potential": 16.0,
+      "Kurzschluss gleiches Potential": 8.0,
+      "Wertänderung 0,5R": 12.0,
+      "Wertänderung 2R": 8.0
+    },
+    "created_at": "2026-03-17T11:48:52.738518",
+    "updated_at": "2026-03-17T11:48:52.738518"
+  },
+  {
+    "id": "compdb_ea611f19",
+    "display_name": "PT_EMPj",
+    "shortcut": "PT_E",
+    "material": "Temperaturwiderstand (RTD), JUMO",
+    "fits": 37.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 56.00000000000001,
+      "Kurzschluss unterschiedliches Potential": 16.0,
+      "Kurzschluss gleiches Potential": 8.0,
+      "Wertänderung 0,5R": 10.0,
+      "Wertänderung 2R": 10.0
+    },
+    "created_at": "2026-03-17T11:48:52.738518",
+    "updated_at": "2026-03-17T11:48:52.738518"
+  },
+  {
+    "id": "compdb_2b7bf38e",
+    "display_name": "PT_EWHS",
+    "shortcut": "PT_E",
+    "material": "Pt100 extern",
+    "fits": 9500.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 56.00000000000001,
+      "Kurzschluss unterschiedliches Potential": 16.0,
+      "Kurzschluss gleiches Potential": 8.0,
+      "Wertänderung 0,5R": 12.0,
+      "Wertänderung 2R": 8.0
+    },
+    "created_at": "2026-03-17T11:48:52.739516",
+    "updated_at": "2026-03-17T11:48:52.739516"
+  },
+  {
+    "id": "compdb_947f5f53",
+    "display_name": "PT_EWLS",
+    "shortcut": "PT_E",
+    "material": "Pt100 extern",
+    "fits": 475.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 56.00000000000001,
+      "Kurzschluss unterschiedliches Potential": 16.0,
+      "Kurzschluss gleiches Potential": 8.0,
+      "Wertänderung 0,5R": 12.0,
+      "Wertänderung 2R": 8.0
+    },
+    "created_at": "2026-03-17T11:48:52.739516",
+    "updated_at": "2026-03-17T11:48:52.739516"
+  },
+  {
+    "id": "compdb_378aa01c",
+    "display_name": "PTj",
+    "shortcut": "PTJ",
+    "material": "Temperaturwiderstand (RTD), JUMO",
+    "fits": 1000.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 60.0,
+      "Kurzschluss unterschiedliches Potential": 20.0,
+      "Kurzschluss gleiches Potential": 10.0,
+      "Wertänderung +5%R": 5.0,
+      "Wertänderung -5%R": 5.0
+    },
+    "created_at": "2026-03-17T11:48:52.740516",
+    "updated_at": "2026-03-17T11:48:52.740516"
+  },
+  {
+    "id": "compdb_d01f2529",
+    "display_name": "Pt100",
+    "shortcut": "PT10",
+    "material": "Pt100 Chipwiderstand",
+    "fits": 0.2,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 40.0,
+      "Wertänderung -1,5%R": 0.0,
+      "Wertänderung +1,5%R": 0.0
+    },
+    "created_at": "2026-03-17T11:48:52.741517",
+    "updated_at": "2026-03-17T11:48:52.741517"
+  },
+  {
+    "id": "compdb_2b00eccd",
+    "display_name": "RC",
+    "shortcut": "RC",
+    "material": "Chip",
+    "fits": 0.2,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 40.0,
+      "Wertänderung -1,5%R": 30.0,
+      "Wertänderung +1,5%R": 30.0
+    },
+    "created_at": "2026-03-17T11:48:52.742516",
+    "updated_at": "2026-03-17T11:48:52.742516"
+  },
+  {
+    "id": "compdb_b14d0fbe",
+    "display_name": "RE",
+    "shortcut": "RE",
+    "material": "Relais",
+    "fits": 40.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Nichtabfallen": 20.0,
+      "Nichtanziehen": 78.0,
+      "Unterbrechung der Spule oder des Kontaktweges": 1.0,
+      "Nicht öffnen einzelner Kontakte": 1.0
+    },
+    "created_at": "2026-03-17T11:48:52.743516",
+    "updated_at": "2026-03-17T11:48:52.743516"
+  },
+  {
+    "id": "compdb_df9c9986",
+    "display_name": "RM1",
+    "shortcut": "RM1",
+    "material": "Micro Melf",
+    "fits": 0.2,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 40.0,
+      "Wertänderung -0,5%R": 0.0,
+      "Wertänderung +0,5%R": 0.0
+    },
+    "created_at": "2026-03-17T11:48:52.744518",
+    "updated_at": "2026-03-17T11:48:52.744518"
+  },
+  {
+    "id": "compdb_85b95190",
+    "display_name": "RM100e",
+    "shortcut": "RM10",
+    "material": "Chip, Micro-Melf, Mini-Melf;\n>50% Bemessungsleistung",
+    "fits": 1.4,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss": 2.0,
+      "Unterbrechung": 64.0,
+      "Wertänderung 0,5*R": 15.0,
+      "Wertänderung 2*R": 19.0
+    },
+    "created_at": "2026-03-17T11:48:52.744518",
+    "updated_at": "2026-03-17T11:48:52.744518"
+  },
+  {
+    "id": "compdb_22e5a7fe",
+    "display_name": "RM10e",
+    "shortcut": "RM10",
+    "material": "Chip, Micro-Melf, Mini-Melf;\n<10% Bemessungsleistung",
+    "fits": 0.5,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss": 2.0,
+      "Unterbrechung": 64.0,
+      "Wertänderung 0,5*R": 15.0,
+      "Wertänderung 2*R": 19.0
+    },
+    "created_at": "2026-03-17T11:48:52.745496",
+    "updated_at": "2026-03-17T11:48:52.745496"
+  },
+  {
+    "id": "compdb_38657dbd",
+    "display_name": "RM2",
+    "shortcut": "RM2",
+    "material": "Mini Melf",
+    "fits": 0.2,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 40.0,
+      "Wertänderung -1,5%R": 0.0,
+      "Wertänderung +1,5%R": 0.0
+    },
+    "created_at": "2026-03-17T11:48:52.746513",
+    "updated_at": "2026-03-17T11:48:52.746513"
+  },
+  {
+    "id": "compdb_c923bdde",
+    "display_name": "RM50e",
+    "shortcut": "RM50",
+    "material": "Chip, Micro-Melf, Mini-Melf;\n<50% Bemessungsleistung",
+    "fits": 0.9,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss": 2.0,
+      "Unterbrechung": 64.0,
+      "Wertänderung 0,5*R": 15.0,
+      "Wertänderung 2*R": 19.0
+    },
+    "created_at": "2026-03-17T11:48:52.746513",
+    "updated_at": "2026-03-17T11:48:52.746513"
+  },
+  {
+    "id": "compdb_9948909a",
+    "display_name": "RP",
+    "shortcut": "RP",
+    "material": "Potentiometer",
+    "fits": 3.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung unterhalb vom Schleifer": 30.0,
+      "Unterbrechung oberhalb vom Schleifer": 30.0,
+      "Kurzschluss unterhalb vom Schleifer": 5.0,
+      "Kurzschluss oberhalb vom Schleifer": 5.0,
+      "Abheben des  Schleifer": 20.0,
+      "Wertänderung 0,5R": 0.0,
+      "Wertänderung 2R": 0.0
+    },
+    "created_at": "2026-03-17T11:48:52.747513",
+    "updated_at": "2026-03-17T11:48:52.747513"
+  },
+  {
+    "id": "compdb_b0b39fa0",
+    "display_name": "RT",
+    "shortcut": "RT",
+    "material": "Spindeltrimmer",
+    "fits": 3.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung unterhalb vom Schleifer": 30.0,
+      "Unterbrechung oberhalb vom Schleifer": 30.0,
+      "Kurzschluss unterhalb vom Schleifer": 5.0,
+      "Kurzschluss oberhalb vom Schleifer": 5.0,
+      "Abheben des  Schleifer": 20.0,
+      "Wertänderung 0,5R": 0.0,
+      "Wertänderung 2R": 0.0
+    },
+    "created_at": "2026-03-17T11:48:52.748512",
+    "updated_at": "2026-03-17T11:48:52.748512"
+  },
+  {
+    "id": "compdb_c9b2132a",
+    "display_name": "RTD2W3W_CCHSe",
+    "shortcut": "RTD2",
+    "material": "RTD, 2 Wire or 3 Wire, close coupled high stress",
+    "fits": 192.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 79.0,
+      "Kurzschluss": 3.0,
+      "Wertänderung": 18.0
+    },
+    "created_at": "2026-03-17T11:48:52.748512",
+    "updated_at": "2026-03-17T11:48:52.748512"
+  },
+  {
+    "id": "compdb_406582e1",
+    "display_name": "RTD2W3W_CCLSe",
+    "shortcut": "RTD2",
+    "material": "RTD, 2 Wire or 3 Wire, close coupled low stress",
+    "fits": 48.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 79.0,
+      "Kurzschluss": 3.0,
+      "Wertänderung": 18.0
+    },
+    "created_at": "2026-03-17T11:48:52.749510",
+    "updated_at": "2026-03-17T11:48:52.749510"
+  },
+  {
+    "id": "compdb_9708d12b",
+    "display_name": "RTD2W3W_EWHSe",
+    "shortcut": "RTD2",
+    "material": "RTD, 2 Wire or 3 Wire, extension wire high stress",
+    "fits": 384.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 78.0,
+      "Kurzschluss": 2.0,
+      "Wertänderung": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.750512",
+    "updated_at": "2026-03-17T11:48:52.750512"
+  },
+  {
+    "id": "compdb_9b0ae1ae",
+    "display_name": "RTD2W3W_EWLSe",
+    "shortcut": "RTD2",
+    "material": "RTD, 2 Wire or 3 Wire, extension wire low stress",
+    "fits": 96.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 78.0,
+      "Kurzschluss": 2.0,
+      "Wertänderung": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.751513",
+    "updated_at": "2026-03-17T11:48:52.751513"
+  },
+  {
+    "id": "compdb_ecbf8a4b",
+    "display_name": "RTD4W_CCHSe",
+    "shortcut": "RTD4",
+    "material": "RTD, 4 Wire, close coupled high stress",
+    "fits": 200.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 83.0,
+      "Kurzschluss": 5.0,
+      "Wertänderung": 12.0
+    },
+    "created_at": "2026-03-17T11:48:52.752512",
+    "updated_at": "2026-03-17T11:48:52.752512"
+  },
+  {
+    "id": "compdb_cafe147f",
+    "display_name": "RTD4W_CCLSe",
+    "shortcut": "RTD4",
+    "material": "RTD, 4 Wire, close coupled low stress",
+    "fits": 50.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 83.0,
+      "Kurzschluss": 5.0,
+      "Wertänderung": 12.0
+    },
+    "created_at": "2026-03-17T11:48:52.753349",
+    "updated_at": "2026-03-17T11:48:52.753349"
+  },
+  {
+    "id": "compdb_ea75a951",
+    "display_name": "RTD4W_EWHSe",
+    "shortcut": "RTD4",
+    "material": "RTD, 4 Wire, extension wire high stress",
+    "fits": 800.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 82.0,
+      "Kurzschluss": 4.0,
+      "Wertänderung": 14.000000000000002
+    },
+    "created_at": "2026-03-17T11:48:52.753349",
+    "updated_at": "2026-03-17T11:48:52.753349"
+  },
+  {
+    "id": "compdb_dcf443ce",
+    "display_name": "RTD4W_EWLSe",
+    "shortcut": "RTD4",
+    "material": "RTD, 4 Wire, extension wire low stress",
+    "fits": 200.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 82.0,
+      "Kurzschluss": 4.0,
+      "Wertänderung": 14.000000000000002
+    },
+    "created_at": "2026-03-17T11:48:52.753349",
+    "updated_at": "2026-03-17T11:48:52.753349"
+  },
+  {
+    "id": "compdb_8ba2e2ef",
+    "display_name": "RV",
+    "shortcut": "RV",
+    "material": "Varistor",
+    "fits": 1.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 50.0,
+      "Kurzschluss": 50.0
+    },
+    "created_at": "2026-03-17T11:48:52.753349",
+    "updated_at": "2026-03-17T11:48:52.753349"
+  },
+  {
+    "id": "compdb_5cccc211",
+    "display_name": "RVPe",
+    "shortcut": "RVPE",
+    "material": "Varistor, Leistung",
+    "fits": 41.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss": 5.0,
+      "Unterbrechung": 95.0
+    },
+    "created_at": "2026-03-17T11:48:52.753349",
+    "updated_at": "2026-03-17T11:48:52.753349"
+  },
+  {
+    "id": "compdb_eb44cffa",
+    "display_name": "RVSe",
+    "shortcut": "RVSE",
+    "material": "Varistor, Signal",
+    "fits": 4.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "leck, schlecht isoliert": 70.0,
+      "Kurzschluss": 25.0,
+      "Unterbrechung": 5.0
+    },
+    "created_at": "2026-03-17T11:48:52.753349",
+    "updated_at": "2026-03-17T11:48:52.753349"
+  },
+  {
+    "id": "compdb_b3764dad",
+    "display_name": "S",
+    "shortcut": "S",
+    "material": "Taster",
+    "fits": 5.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 50.0,
+      "Kurzschluss": 50.0
+    },
+    "created_at": "2026-03-17T11:48:52.753349",
+    "updated_at": "2026-03-17T11:48:52.753349"
+  },
+  {
+    "id": "compdb_54c5f70f",
+    "display_name": "SM",
+    "shortcut": "SM",
+    "material": "Schaltmatten",
+    "fits": 5.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 50.0,
+      "Kurzschluss": 50.0
+    },
+    "created_at": "2026-03-17T11:48:52.758642",
+    "updated_at": "2026-03-17T11:48:52.758642"
+  },
+  {
+    "id": "compdb_e83a4cbd",
+    "display_name": "SRe",
+    "shortcut": "SRE",
+    "material": "Drehschalter",
+    "fits": 4.3,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kontakte bleiben geschlossen": 10.0,
+      "Kontakte bleiben offen": 80.0,
+      "Kurzschluss zwischen benachbarten Kontakten": 10.0
+    },
+    "created_at": "2026-03-17T11:48:52.759650",
+    "updated_at": "2026-03-17T11:48:52.759650"
+  },
+  {
+    "id": "compdb_c33ee8b7",
+    "display_name": "Se",
+    "shortcut": "SE",
+    "material": "Schalter, Taster (umschalten, DIP)",
+    "fits": 2.6,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kontakte bleiben geschlossen": 10.0,
+      "Kontakte bleiben offen": 80.0,
+      "Kurzschluss zwischen benachbarten Kontakten": 10.0
+    },
+    "created_at": "2026-03-17T11:48:52.760649",
+    "updated_at": "2026-03-17T11:48:52.760649"
+  },
+  {
+    "id": "compdb_7bb6e246",
+    "display_name": "TE_CCHSe",
+    "shortcut": "TE_C",
+    "material": "Thermoelement, close coupled high stress",
+    "fits": 400.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 95.0,
+      "Kurzschluss": 4.0,
+      "Wertänderung": 1.0
+    },
+    "created_at": "2026-03-17T11:48:52.760649",
+    "updated_at": "2026-03-17T11:48:52.760649"
+  },
+  {
+    "id": "compdb_12ecd1ca",
+    "display_name": "TE_CCLSe",
+    "shortcut": "TE_C",
+    "material": "Thermoelement, close coupled low stress",
+    "fits": 100.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 95.0,
+      "Kurzschluss": 4.0,
+      "Wertänderung": 1.0
+    },
+    "created_at": "2026-03-17T11:48:52.761647",
+    "updated_at": "2026-03-17T11:48:52.761647"
+  },
+  {
+    "id": "compdb_d7e9bab4",
+    "display_name": "TE_EWHSe",
+    "shortcut": "TE_E",
+    "material": "Thermoelement, extension wire high stress",
+    "fits": 800.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 90.0,
+      "Kurzschluss": 5.0,
+      "Wertänderung": 5.0
+    },
+    "created_at": "2026-03-17T11:48:52.763211",
+    "updated_at": "2026-03-17T11:48:52.763211"
+  },
+  {
+    "id": "compdb_e0858cb5",
+    "display_name": "TE_EWLSe",
+    "shortcut": "TE_E",
+    "material": "Thermoelement, extension wire low stress",
+    "fits": 200.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 90.0,
+      "Kurzschluss": 5.0,
+      "Wertänderung": 5.0
+    },
+    "created_at": "2026-03-17T11:48:52.763211",
+    "updated_at": "2026-03-17T11:48:52.763211"
+  },
+  {
+    "id": "compdb_06504baf",
+    "display_name": "THWe",
+    "shortcut": "THWE",
+    "material": "Transformatorwicklung, zusätzlich, hohe Leistung",
+    "fits": 11.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung der Wicklung": 65.0,
+      "Kurzschluss der Wicklung": 25.0,
+      "Kurzschluss zwischen verschiedenen Wicklungen": 10.0
+    },
+    "created_at": "2026-03-17T11:48:52.764217",
+    "updated_at": "2026-03-17T11:48:52.764217"
+  },
+  {
+    "id": "compdb_06031c32",
+    "display_name": "THe",
+    "shortcut": "THE",
+    "material": "Transformator, hohe Leistung",
+    "fits": 22.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung Primärwicklung": 30.0,
+      "Kurzschluss Primärwicklung": 10.0,
+      "Unterbrechung Sekundärwicklung(en)": 30.0,
+      "Kurzschluss Sekundärwicklung(en)": 10.0,
+      "Kurzschluss zwischen verschiedenen Wicklungen": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.764217",
+    "updated_at": "2026-03-17T11:48:52.764217"
+  },
+  {
+    "id": "compdb_c9e56401",
+    "display_name": "TLWe",
+    "shortcut": "TLWE",
+    "material": "Transformatorwicklung, zusätzlich, geringe Leistung",
+    "fits": 3.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung der Wicklung": 65.0,
+      "Kurzschluss der Wicklung": 25.0,
+      "Kurzschluss zwischen verschiedenen Wicklungen": 10.0
+    },
+    "created_at": "2026-03-17T11:48:52.764217",
+    "updated_at": "2026-03-17T11:48:52.764217"
+  },
+  {
+    "id": "compdb_6f42cadf",
+    "display_name": "TLe",
+    "shortcut": "TLE",
+    "material": "Transformator, geringe Leistung",
+    "fits": 6.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung Primärwicklung": 30.0,
+      "Kurzschluss Primärwicklung": 10.0,
+      "Unterbrechung Sekundärwicklung(en)": 30.0,
+      "Kurzschluss Sekundärwicklung(en)": 10.0,
+      "Kurzschluss zwischen verschiedenen Wicklungen": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.767086",
+    "updated_at": "2026-03-17T11:48:52.767086"
+  },
+  {
+    "id": "compdb_8b025095",
+    "display_name": "TMWe",
+    "shortcut": "TMWE",
+    "material": "Transformatorwicklung, zusätzlich, mittlere Leistung",
+    "fits": 7.1,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung der Wicklung": 65.0,
+      "Kurzschluss der Wicklung": 25.0,
+      "Kurzschluss zwischen verschiedenen Wicklungen": 10.0
+    },
+    "created_at": "2026-03-17T11:48:52.768823",
+    "updated_at": "2026-03-17T11:48:52.768823"
+  },
+  {
+    "id": "compdb_f971a339",
+    "display_name": "TMe",
+    "shortcut": "TME",
+    "material": "Transformator, mittlere Leistung",
+    "fits": 14.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung Primärwicklung": 30.0,
+      "Kurzschluss Primärwicklung": 10.0,
+      "Unterbrechung Sekundärwicklung(en)": 30.0,
+      "Kurzschluss Sekundärwicklung(en)": 10.0,
+      "Kurzschluss zwischen verschiedenen Wicklungen": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.769828",
+    "updated_at": "2026-03-17T11:48:52.769828"
+  },
+  {
+    "id": "compdb_fa35e268",
+    "display_name": "TN",
+    "shortcut": "TN",
+    "material": "Trafo",
+    "fits": 10.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Wicklungsunterbrechung": 80.0,
+      "WicklungsKurzschluss": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.770828",
+    "updated_at": "2026-03-17T11:48:52.770828"
+  },
+  {
+    "id": "compdb_9f552f98",
+    "display_name": "TÜ",
+    "shortcut": "TÜ",
+    "material": "Übertrager",
+    "fits": 10.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Wicklungsunterbrechung": 80.0,
+      "Wicklungskurzschluss": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.771827",
+    "updated_at": "2026-03-17T11:48:52.771827"
+  },
+  {
+    "id": "compdb_2573c43f",
+    "display_name": "UAD",
+    "shortcut": "UAD",
+    "material": "ADS1241 gesamt",
+    "fits": 30.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss": 0.0,
+      "Unterbrechung": 25.0,
+      "Drift": 0.0,
+      "Funktionsfehler": 75.0
+    },
+    "created_at": "2026-03-17T11:48:52.772829",
+    "updated_at": "2026-03-17T11:48:52.772829"
+  },
+  {
+    "id": "compdb_1a220bc2",
+    "display_name": "UADMUX",
+    "shortcut": "UADM",
+    "material": "ADS1241 Multiplexer",
+    "fits": 6.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss": 0.0,
+      "Unterbrechung": 25.0,
+      "Drift": 0.0,
+      "Funktionsfehler": 75.0
+    },
+    "created_at": "2026-03-17T11:48:52.773828",
+    "updated_at": "2026-03-17T11:48:52.773828"
+  },
+  {
+    "id": "compdb_9f265bb2",
+    "display_name": "UADMXHe",
+    "shortcut": "UADM",
+    "material": "A/D-Wandler, MOS mit Multiplexer, high speed",
+    "fits": 36.5,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Auswahl falscher Kanal": 20.0,
+      "Kurzschluss Kanal zu Kanal": 20.0,
+      "Änderung Verstärkung (10%)": 20.0,
+      "Änderung Offset (10%)": 20.0,
+      "Ausgabecode Bit konstanter Wert (stuck at)": 10.0,
+      "Fehler Kommunikation": 10.0
+    },
+    "created_at": "2026-03-17T11:48:52.774654",
+    "updated_at": "2026-03-17T11:48:52.774654"
+  },
+  {
+    "id": "compdb_52f9f722",
+    "display_name": "UADMXTe",
+    "shortcut": "UADM",
+    "material": "A/D-Wandler, MOS mit Multiplexer, typisch",
+    "fits": 22.1,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Auswahl falscher Kanal": 20.0,
+      "Kurzschluss Kanal zu Kanal": 20.0,
+      "Änderung Verstärkung (10%)": 20.0,
+      "Änderung Offset (10%)": 20.0,
+      "Ausgabecode Bit konstanter Wert (stuck at)": 10.0,
+      "Fehler Kommunikation": 10.0
+    },
+    "created_at": "2026-03-17T11:48:52.775660",
+    "updated_at": "2026-03-17T11:48:52.775660"
+  },
+  {
+    "id": "compdb_db559f80",
+    "display_name": "UADSt",
+    "shortcut": "UADS",
+    "material": "ADS1241 Steuereinheit",
+    "fits": 6.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss": 0.0,
+      "Unterbrechung": 25.0,
+      "Drift": 0.0,
+      "Funktionsfehler": 75.0
+    },
+    "created_at": "2026-03-17T11:48:52.775660",
+    "updated_at": "2026-03-17T11:48:52.775660"
+  },
+  {
+    "id": "compdb_bb2d0d7e",
+    "display_name": "UADT",
+    "shortcut": "UADT",
+    "material": "ADS1241Takt",
+    "fits": 6.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss": 0.0,
+      "Unterbrechung": 25.0,
+      "Drift": 0.0,
+      "Funktionsfehler": 75.0
+    },
+    "created_at": "2026-03-17T11:48:52.776659",
+    "updated_at": "2026-03-17T11:48:52.776659"
+  },
+  {
+    "id": "compdb_68b36f9e",
+    "display_name": "UADV",
+    "shortcut": "UADV",
+    "material": "ADS1241 Verstärkung / Offset",
+    "fits": 6.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss": 0.0,
+      "Unterbrechung": 25.0,
+      "Drift": 0.0,
+      "Funktionsfehler": 75.0
+    },
+    "created_at": "2026-03-17T11:48:52.777659",
+    "updated_at": "2026-03-17T11:48:52.777659"
+  },
+  {
+    "id": "compdb_a6e49c69",
+    "display_name": "UADW",
+    "shortcut": "UADW",
+    "material": "ADS1241 AD-Einheit",
+    "fits": 6.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss": 0.0,
+      "Unterbrechung": 25.0,
+      "Drift": 0.0,
+      "Funktionsfehler": 75.0
+    },
+    "created_at": "2026-03-17T11:48:52.777659",
+    "updated_at": "2026-03-17T11:48:52.777659"
+  },
+  {
+    "id": "compdb_be500e77",
+    "display_name": "UO",
+    "shortcut": "UO",
+    "material": "CNY17-1",
+    "fits": 40.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung primär": 20.0,
+      "Kurzschluss primär": 20.0,
+      "Unterbrechung sekundär": 20.0,
+      "Kurzschluss sekundär": 20.0,
+      "Unterbrechung primär / sekundär": 20.0,
+      "Kurzschluss primär / sekundär": 0.0
+    },
+    "created_at": "2026-03-17T11:48:52.778659",
+    "updated_at": "2026-03-17T11:48:52.778659"
+  },
+  {
+    "id": "compdb_d824d3a2",
+    "display_name": "UOFEHe",
+    "shortcut": "UOFE",
+    "material": "Optokoppler (verstärkte Isolierung), Fehlerausschluss, hohe Leistung",
+    "fits": 33.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung einer einzelnen Verbindung": 33.0,
+      "Kurzschluss zwischen zwei beliebigen Verbindungen am Eingang (primär)": 27.500000000000004,
+      "Kurzschluss zwischen zwei beliebigen Verbindungen am Ausgang (sekundär)": 27.500000000000004,
+      "Übertragungsverhältnis 0,1-fach": 11.0,
+      "Kurzschluss zwischen zwei beliebigen Verbindungen vom Eingang und Ausgang": 1.0
+    },
+    "created_at": "2026-03-17T11:48:52.779448",
+    "updated_at": "2026-03-17T11:48:52.779448"
+  },
+  {
+    "id": "compdb_6f73273e",
+    "display_name": "UOFELe",
+    "shortcut": "UOFE",
+    "material": "Optokoppler (verstärkte Isolierung), Fehlerausschluss, kleine Leistung",
+    "fits": 10.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung einer einzelnen Verbindung": 33.0,
+      "Kurzschluss zwischen zwei beliebigen Verbindungen am Eingang (primär)": 27.500000000000004,
+      "Kurzschluss zwischen zwei beliebigen Verbindungen am Ausgang (sekundär)": 27.500000000000004,
+      "Übertragungsverhältnis 0,1-fach": 11.0,
+      "Kurzschluss zwischen zwei beliebigen Verbindungen vom Eingang und Ausgang": 1.0
+    },
+    "created_at": "2026-03-17T11:48:52.779448",
+    "updated_at": "2026-03-17T11:48:52.779448"
+  },
+  {
+    "id": "compdb_9ad7e613",
+    "display_name": "UOFEMe",
+    "shortcut": "UOFE",
+    "material": "Optokoppler (verstärkte Isolierung), Fehlerausschluss, mittlere Leistung",
+    "fits": 19.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung einer einzelnen Verbindung": 33.0,
+      "Kurzschluss zwischen zwei beliebigen Verbindungen am Eingang (primär)": 27.500000000000004,
+      "Kurzschluss zwischen zwei beliebigen Verbindungen am Ausgang (sekundär)": 27.500000000000004,
+      "Übertragungsverhältnis 0,1-fach": 11.0,
+      "Kurzschluss zwischen zwei beliebigen Verbindungen vom Eingang und Ausgang": 1.0
+    },
+    "created_at": "2026-03-17T11:48:52.779448",
+    "updated_at": "2026-03-17T11:48:52.779448"
+  },
+  {
+    "id": "compdb_3d689307",
+    "display_name": "UOHe",
+    "shortcut": "UOHE",
+    "material": "Optokoppler, hohe Leistung",
+    "fits": 37.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung einer einzelnen Verbindung": 30.0,
+      "Kurzschluss zwischen zwei beliebigen Verbindungen am Eingang (primär)": 25.0,
+      "Kurzschluss zwischen zwei beliebigen Verbindungen am Ausgang (sekundär)": 25.0,
+      "Übertragungsverhältnis 0,1-fach": 10.0,
+      "Kurzschluss zwischen zwei beliebigen Verbindungen vom Eingang und Ausgang": 10.0
+    },
+    "created_at": "2026-03-17T11:48:52.779448",
+    "updated_at": "2026-03-17T11:48:52.779448"
+  },
+  {
+    "id": "compdb_c47a80b6",
+    "display_name": "UOLe",
+    "shortcut": "UOLE",
+    "material": "Optokoppler, kleine Leistung",
+    "fits": 11.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung einer einzelnen Verbindung": 30.0,
+      "Kurzschluss zwischen zwei beliebigen Verbindungen am Eingang (primär)": 25.0,
+      "Kurzschluss zwischen zwei beliebigen Verbindungen am Ausgang (sekundär)": 25.0,
+      "Übertragungsverhältnis 0,1-fach": 10.0,
+      "Kurzschluss zwischen zwei beliebigen Verbindungen vom Eingang und Ausgang": 10.0
+    },
+    "created_at": "2026-03-17T11:48:52.784333",
+    "updated_at": "2026-03-17T11:48:52.784333"
+  },
+  {
+    "id": "compdb_791395b2",
+    "display_name": "UOMe",
+    "shortcut": "UOME",
+    "material": "Optokoppler, mittlere Leistung",
+    "fits": 21.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung einer einzelnen Verbindung": 30.0,
+      "Kurzschluss zwischen zwei beliebigen Verbindungen am Eingang (primär)": 25.0,
+      "Kurzschluss zwischen zwei beliebigen Verbindungen am Ausgang (sekundär)": 25.0,
+      "Übertragungsverhältnis 0,1-fach": 10.0,
+      "Kurzschluss zwischen zwei beliebigen Verbindungen vom Eingang und Ausgang": 10.0
+    },
+    "created_at": "2026-03-17T11:48:52.785456",
+    "updated_at": "2026-03-17T11:48:52.785456"
+  },
+  {
+    "id": "compdb_0b520cba",
+    "display_name": "UPC10FEe",
+    "shortcut": "UPC1",
+    "material": "Leistungsumsetzer (verstärkte Isolierung), AC/DC, DC/DC, isoliert, Fehlerausschluss, >1 W bis ≤10 W",
+    "fits": 164.1,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "kein Ausgangssignal": 69.0,
+      "erhöhtes Ausgangssignal (bis 20%)": 10.0,
+      "reduziertes Ausgangssignal (bis 20%)": 10.0,
+      "hohen Eingangsstrom ziehen": 10.0,
+      "Isolation kurzgeschlossen": 1.0
+    },
+    "created_at": "2026-03-17T11:48:52.786455",
+    "updated_at": "2026-03-17T11:48:52.786455"
+  },
+  {
+    "id": "compdb_2d3a6b57",
+    "display_name": "UPC10e",
+    "shortcut": "UPC1",
+    "material": "Leistungsumsetzer, AC/DC, DC/DC, isoliert, >1 W bis ≤10 W",
+    "fits": 180.3,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "kein Ausgangssignal": 60.0,
+      "erhöhtes Ausgangssignal (bis 20%)": 10.0,
+      "reduziertes Ausgangssignal (bis 20%)": 10.0,
+      "hohen Eingangsstrom ziehen": 10.0,
+      "Isolation kurzgeschlossen": 10.0
+    },
+    "created_at": "2026-03-17T11:48:52.787456",
+    "updated_at": "2026-03-17T11:48:52.787456"
+  },
+  {
+    "id": "compdb_73471dbe",
+    "display_name": "UPC1FEe",
+    "shortcut": "UPC1",
+    "material": "Leistungsumsetzer (verstärkte Isolierung), AC/DC, DC/DC, isoliert, Fehlerausschluss, ≤1 W",
+    "fits": 49.2,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "kein Ausgangssignal": 69.0,
+      "erhöhtes Ausgangssignal (bis 20%)": 10.0,
+      "reduziertes Ausgangssignal (bis 20%)": 10.0,
+      "hohen Eingangsstrom ziehen": 10.0,
+      "Isolation kurzgeschlossen": 1.0
+    },
+    "created_at": "2026-03-17T11:48:52.788474",
+    "updated_at": "2026-03-17T11:48:52.788474"
+  },
+  {
+    "id": "compdb_0902bc9b",
+    "display_name": "UPC1e",
+    "shortcut": "UPC1",
+    "material": "Leistungsumsetzer, AC/DC, DC/DC, isoliert, ≤1 W",
+    "fits": 54.1,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "kein Ausgangssignal": 60.0,
+      "erhöhtes Ausgangssignal (bis 20%)": 10.0,
+      "reduziertes Ausgangssignal (bis 20%)": 10.0,
+      "hohen Eingangsstrom ziehen": 10.0,
+      "Isolation kurzgeschlossen": 10.0
+    },
+    "created_at": "2026-03-17T11:48:52.788474",
+    "updated_at": "2026-03-17T11:48:52.788474"
+  },
+  {
+    "id": "compdb_6d3b6b86",
+    "display_name": "UPC30FEe",
+    "shortcut": "UPC3",
+    "material": "Leistungsumsetzer (verstärkte Isolierung), AC/DC, DC/DC, isoliert, Fehlerausschluss, >10 W bis ≤30 W",
+    "fits": 213.3,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "kein Ausgangssignal": 69.0,
+      "erhöhtes Ausgangssignal (bis 20%)": 10.0,
+      "reduziertes Ausgangssignal (bis 20%)": 10.0,
+      "hohen Eingangsstrom ziehen": 10.0,
+      "Isolation kurzgeschlossen": 1.0
+    },
+    "created_at": "2026-03-17T11:48:52.789456",
+    "updated_at": "2026-03-17T11:48:52.789456"
+  },
+  {
+    "id": "compdb_129e23ae",
+    "display_name": "UPC30e",
+    "shortcut": "UPC3",
+    "material": "Leistungsumsetzer, AC/DC, DC/DC, isoliert, >10 W bis ≤30 W",
+    "fits": 234.4,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "kein Ausgangssignal": 60.0,
+      "erhöhtes Ausgangssignal (bis 20%)": 10.0,
+      "reduziertes Ausgangssignal (bis 20%)": 10.0,
+      "hohen Eingangsstrom ziehen": 10.0,
+      "Isolation kurzgeschlossen": 10.0
+    },
+    "created_at": "2026-03-17T11:48:52.789456",
+    "updated_at": "2026-03-17T11:48:52.789456"
+  },
+  {
+    "id": "compdb_6a2b92f9",
+    "display_name": "V",
+    "shortcut": "V",
+    "material": "Zusammenfassung Drift\nDioden, Transistor analog",
+    "fits": 0.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Wertänderung - 0,5U": 5.0,
+      "Wertänderung + 0,5U": 5.0
+    },
+    "created_at": "2026-03-17T11:48:52.790455",
+    "updated_at": "2026-03-17T11:48:52.790455"
+  },
+  {
+    "id": "compdb_eaa04766",
+    "display_name": "VB",
+    "shortcut": "VB",
+    "material": "Transistor, bipolar",
+    "fits": 3.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung B": 5.0,
+      "Unterbrechung C": 5.0,
+      "Unterbrechung E": 5.0,
+      "Kurzschluss B-C": 21.25,
+      "Kurzschluss E-C": 21.25,
+      "Kurzschluss B-E": 21.25,
+      "Kurzschluss B-C-E": 21.25
+    },
+    "created_at": "2026-03-17T11:48:52.791457",
+    "updated_at": "2026-03-17T11:48:52.791457"
+  },
+  {
+    "id": "compdb_20d3f87b",
+    "display_name": "VB1e",
+    "shortcut": "VB1E",
+    "material": "Transistor bipolar ≤250 mW",
+    "fits": 4.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss CE/BC (0…100 Ohm)": 55.00000000000001,
+      "Unterbrechung Kollektor": 10.0,
+      "Unterbrechung Emitter": 10.0,
+      "Kurzschluss BE (0…100 Ohm)": 10.0,
+      "Unterbrechung Basis": 10.0,
+      "Stromverstärkung (beta) 0,1-fach": 5.0
+    },
+    "created_at": "2026-03-17T11:48:52.792476",
+    "updated_at": "2026-03-17T11:48:52.792476"
+  },
+  {
+    "id": "compdb_c1d32c3c",
+    "display_name": "VB2e",
+    "shortcut": "VB2E",
+    "material": "Transistor bipolar 0,25 W … ≤5 W",
+    "fits": 9.5,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss CE/BC (0…100 Ohm)": 55.00000000000001,
+      "Unterbrechung Kollektor": 10.0,
+      "Unterbrechung Emitter": 10.0,
+      "Kurzschluss BE (0…100 Ohm)": 10.0,
+      "Unterbrechung Basis": 10.0,
+      "Stromverstärkung (beta) 0,1-fach": 5.0
+    },
+    "created_at": "2026-03-17T11:48:52.792476",
+    "updated_at": "2026-03-17T11:48:52.792476"
+  },
+  {
+    "id": "compdb_99f3b2d6",
+    "display_name": "VB3e",
+    "shortcut": "VB3E",
+    "material": "Transistor bipolar >5 W",
+    "fits": 8.4,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss CE/BC (0…100 Ohm)": 55.00000000000001,
+      "Unterbrechung Kollektor": 10.0,
+      "Unterbrechung Emitter": 10.0,
+      "Kurzschluss BE (0…100 Ohm)": 10.0,
+      "Unterbrechung Basis": 10.0,
+      "Stromverstärkung (beta) 0,1-fach": 5.0
+    },
+    "created_at": "2026-03-17T11:48:52.793456",
+    "updated_at": "2026-03-17T11:48:52.793456"
+  },
+  {
+    "id": "compdb_1708a6f8",
+    "display_name": "VD",
+    "shortcut": "VD",
+    "material": "Dioden, einfach",
+    "fits": 2.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 20.0,
+      "Kurzschluss": 80.0
+    },
+    "created_at": "2026-03-17T11:48:52.793456",
+    "updated_at": "2026-03-17T11:48:52.793456"
+  },
+  {
+    "id": "compdb_1c749772",
+    "display_name": "VD1e",
+    "shortcut": "VD1E",
+    "material": "Dioden, einfach",
+    "fits": 1.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss": 50.0,
+      "Unterbrechung": 30.0,
+      "Sperrstrom 10-fach": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.794456",
+    "updated_at": "2026-03-17T11:48:52.794456"
+  },
+  {
+    "id": "compdb_e83b670b",
+    "display_name": "VD2e",
+    "shortcut": "VD2E",
+    "material": "Dioden, Gleichrichtung, Schaltdioden",
+    "fits": 3.2,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss": 50.0,
+      "Unterbrechung": 30.0,
+      "Sperrstrom 10-fach": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.795455",
+    "updated_at": "2026-03-17T11:48:52.795455"
+  },
+  {
+    "id": "compdb_098c7184",
+    "display_name": "VD3e",
+    "shortcut": "VD3E",
+    "material": "Leistungsdioden",
+    "fits": 16.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss": 50.0,
+      "Unterbrechung": 30.0,
+      "Sperrstrom 10-fach": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.795455",
+    "updated_at": "2026-03-17T11:48:52.795455"
+  },
+  {
+    "id": "compdb_c5cd56e5",
+    "display_name": "VD4e",
+    "shortcut": "VD4E",
+    "material": "Schutzdioden",
+    "fits": 18.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss": 50.0,
+      "Unterbrechung": 30.0,
+      "Sperrstrom 10-fach": 20.0
+    },
+    "created_at": "2026-03-17T11:48:52.796457",
+    "updated_at": "2026-03-17T11:48:52.796457"
+  },
+  {
+    "id": "compdb_ceee6bb7",
+    "display_name": "VF",
+    "shortcut": "VF",
+    "material": "Transistor, Feldeffekt",
+    "fits": 5.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung G": 5.0,
+      "Unterbrechung D": 5.0,
+      "Unterbrechung S": 5.0,
+      "Kurzschluss G-D": 21.25,
+      "Kurzschluss D-S": 21.25,
+      "Kurzschluss G-S": 21.25,
+      "Kurzschluss G-D-S": 21.25
+    },
+    "created_at": "2026-03-17T11:48:52.796457",
+    "updated_at": "2026-03-17T11:48:52.796457"
+  },
+  {
+    "id": "compdb_41653d6d",
+    "display_name": "VF1e",
+    "shortcut": "VF1E",
+    "material": "Transistor Feldeffekt ≤250 mW",
+    "fits": 11.3,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss Drain-Source (0…100 Ohm)": 40.0,
+      "Unterbrechung Drain-Source": 20.0,
+      "Floating Gate (Oszillation)": 10.0,
+      "Leckstrom Gate 10-fach": 10.0,
+      "Verstärkung 0,1-fach": 10.0,
+      "Durchlasswiderstand 10-fach": 10.0
+    },
+    "created_at": "2026-03-17T11:48:52.797456",
+    "updated_at": "2026-03-17T11:48:52.797456"
+  },
+  {
+    "id": "compdb_c09c9737",
+    "display_name": "VF2e",
+    "shortcut": "VF2E",
+    "material": "Transistor Feldeffekt 0,25 W … ≤5 W",
+    "fits": 21.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss Drain-Source (0…100 Ohm)": 40.0,
+      "Unterbrechung Drain-Source": 20.0,
+      "Floating Gate (Oszillation)": 10.0,
+      "Leckstrom Gate 10-fach": 10.0,
+      "Verstärkung 0,1-fach": 10.0,
+      "Durchlasswiderstand 10-fach": 10.0
+    },
+    "created_at": "2026-03-17T11:48:52.798460",
+    "updated_at": "2026-03-17T11:48:52.798460"
+  },
+  {
+    "id": "compdb_12c33549",
+    "display_name": "VF3e",
+    "shortcut": "VF3E",
+    "material": "Transistor Feldeffekt >5 W",
+    "fits": 18.7,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss Drain-Source (0…100 Ohm)": 40.0,
+      "Unterbrechung Drain-Source": 20.0,
+      "Floating Gate (Oszillation)": 10.0,
+      "Leckstrom Gate 10-fach": 10.0,
+      "Verstärkung 0,1-fach": 10.0,
+      "Durchlasswiderstand 10-fach": 10.0
+    },
+    "created_at": "2026-03-17T11:48:52.799456",
+    "updated_at": "2026-03-17T11:48:52.799456"
+  },
+  {
+    "id": "compdb_871cd8dc",
+    "display_name": "VG",
+    "shortcut": "VG",
+    "material": "Brückengleichrichter",
+    "fits": 10.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 20.0,
+      "Kurzschluss zwischen beliebigen Anschlüssen": 40.0,
+      "Kurzschluss zwischen allen Anschlüssen": 40.0
+    },
+    "created_at": "2026-03-17T11:48:52.800268",
+    "updated_at": "2026-03-17T11:48:52.800268"
+  },
+  {
+    "id": "compdb_7128ba44",
+    "display_name": "VM",
+    "shortcut": "VM",
+    "material": "MOSFET",
+    "fits": 40.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 10.0,
+      "Kurzschluss": 80.0,
+      "Wertänderung  -0,5U": 5.0,
+      "Wertänderung +0,5U": 5.0
+    },
+    "created_at": "2026-03-17T11:48:52.801305",
+    "updated_at": "2026-03-17T11:48:52.801305"
+  },
+  {
+    "id": "compdb_9c5aa4bc",
+    "display_name": "VR",
+    "shortcut": "VR",
+    "material": "Referenzdiode",
+    "fits": 7.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 20.0,
+      "Kurzschluss": 70.0,
+      "Wertänderung 0,5VZ": 5.0,
+      "Wertänderung 2VZ": 5.0
+    },
+    "created_at": "2026-03-17T11:48:52.802304",
+    "updated_at": "2026-03-17T11:48:52.802304"
+  },
+  {
+    "id": "compdb_e4611a83",
+    "display_name": "VS",
+    "shortcut": "VS",
+    "material": "Suppressordioden",
+    "fits": 7.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 20.0,
+      "Kurzschluss": 80.0
+    },
+    "created_at": "2026-03-17T11:48:52.802304",
+    "updated_at": "2026-03-17T11:48:52.802304"
+  },
+  {
+    "id": "compdb_64e68856",
+    "display_name": "VSHL",
+    "shortcut": "VSHL",
+    "material": "Schottky Diode",
+    "fits": 10.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 20.0,
+      "Kurzschluss": 80.0
+    },
+    "created_at": "2026-03-17T11:48:52.803304",
+    "updated_at": "2026-03-17T11:48:52.803304"
+  },
+  {
+    "id": "compdb_f1cf7cb8",
+    "display_name": "VSPe",
+    "shortcut": "VSPE",
+    "material": "Transorb, Suppressordiode, Leistung",
+    "fits": 43.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss": 85.0,
+      "Unterbrechung": 5.0,
+      "Wertänderung Spannung 1,5-fache der maximal spezifizierten Toleranz": 5.0,
+      "Sperrstrom 10-fach": 5.0
+    },
+    "created_at": "2026-03-17T11:48:52.803676",
+    "updated_at": "2026-03-17T11:48:52.803676"
+  },
+  {
+    "id": "compdb_c1dbe8e8",
+    "display_name": "VSe",
+    "shortcut": "VSE",
+    "material": "Transorb, Suppressordiode",
+    "fits": 3.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss": 85.0,
+      "Unterbrechung": 5.0,
+      "Wertänderung Spannung 1,5-fache der maximal spezifizierten Toleranz": 5.0,
+      "Sperrstrom 10-fach": 5.0
+    },
+    "created_at": "2026-03-17T11:48:52.803676",
+    "updated_at": "2026-03-17T11:48:52.803676"
+  },
+  {
+    "id": "compdb_c6d368f8",
+    "display_name": "VU",
+    "shortcut": "VU",
+    "material": "Universaldiode",
+    "fits": 1.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 20.0,
+      "Kurzschluss": 80.0,
+      "Wertänderung -0,5U": 0.0,
+      "Wertänderung +0,5U": 0.0
+    },
+    "created_at": "2026-03-17T11:48:52.804693",
+    "updated_at": "2026-03-17T11:48:52.804693"
+  },
+  {
+    "id": "compdb_1056254c",
+    "display_name": "VZ",
+    "shortcut": "VZ",
+    "material": "Zener-Dioden",
+    "fits": 1.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 20.0,
+      "Kurzschluss": 70.0,
+      "Wertänderung 0,5VZ": 5.0,
+      "Wertänderung 2VZ": 5.0
+    },
+    "created_at": "2026-03-17T11:48:52.804693",
+    "updated_at": "2026-03-17T11:48:52.804693"
+  },
+  {
+    "id": "compdb_04c089b6",
+    "display_name": "VZ1e",
+    "shortcut": "VZ1E",
+    "material": "Zener/Referenzdioden <500mW",
+    "fits": 1.1,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss": 55.00000000000001,
+      "Unterbrechung": 15.0,
+      "Wertänderung Spannung 20%": 15.0,
+      "Sperrstrom 10-fach": 15.0
+    },
+    "created_at": "2026-03-17T11:48:52.805692",
+    "updated_at": "2026-03-17T11:48:52.805692"
+  },
+  {
+    "id": "compdb_8179b892",
+    "display_name": "VZ2e",
+    "shortcut": "VZ2E",
+    "material": "Zener/Spannungsstabilisierung/\nShunt-Regler 0,5…1,5W",
+    "fits": 5.6,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss": 55.00000000000001,
+      "Unterbrechung": 15.0,
+      "Wertänderung Spannung 20%": 15.0,
+      "Sperrstrom 10-fach": 15.0
+    },
+    "created_at": "2026-03-17T11:48:52.806690",
+    "updated_at": "2026-03-17T11:48:52.806690"
+  },
+  {
+    "id": "compdb_8cb96985",
+    "display_name": "VZ3e",
+    "shortcut": "VZ3E",
+    "material": "Zener/Snubber/Shunt-Regler \n>1,5W",
+    "fits": 16.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss": 55.00000000000001,
+      "Unterbrechung": 15.0,
+      "Wertänderung Spannung 20%": 15.0,
+      "Sperrstrom 10-fach": 15.0
+    },
+    "created_at": "2026-03-17T11:48:52.807690",
+    "updated_at": "2026-03-17T11:48:52.807690"
+  },
+  {
+    "id": "compdb_3ff82a31",
+    "display_name": "XSR",
+    "shortcut": "XSR",
+    "material": "Schraubklemme 1pol.",
+    "fits": 0.5,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 20.0,
+      "Kurzschluss": 80.0
+    },
+    "created_at": "2026-03-17T11:48:52.807690",
+    "updated_at": "2026-03-17T11:48:52.807690"
+  },
+  {
+    "id": "compdb_be4a2250",
+    "display_name": "XSRST",
+    "shortcut": "XSRS",
+    "material": "Schraubsteckklemmen 10pol.",
+    "fits": 8.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 20.0,
+      "Kurzschluss": 0.0
+    },
+    "created_at": "2026-03-17T11:48:52.808690",
+    "updated_at": "2026-03-17T11:48:52.808690"
+  },
+  {
+    "id": "compdb_99587be3",
+    "display_name": "XST",
+    "shortcut": "XST",
+    "material": "Steckverbinder 14pol.",
+    "fits": 4.2,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 20.0,
+      "Kurzschluss": 0.0
+    },
+    "created_at": "2026-03-17T11:48:52.809696",
+    "updated_at": "2026-03-17T11:48:52.809696"
+  },
+  {
+    "id": "compdb_1b6df376",
+    "display_name": "XSTAUFEe",
+    "shortcut": "XSTA",
+    "material": "2",
+    "fits": 1.9,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss zwischen zwei angrenzenden \nKontakten": 1.0,
+      "Unterbrechung eines einzelnen Kontaktes": 99.0
+    },
+    "created_at": "2026-03-17T11:48:52.811692",
+    "updated_at": "2026-03-17T11:48:52.811692"
+  },
+  {
+    "id": "compdb_c2cb2a45",
+    "display_name": "XSTAUe",
+    "shortcut": "XSTA",
+    "material": "2",
+    "fits": 2.4,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss zwischen zwei angrenzenden \nKontakten": 20.0,
+      "Unterbrechung eines einzelnen Kontaktes": 80.0
+    },
+    "created_at": "2026-03-17T11:48:52.813691",
+    "updated_at": "2026-03-17T11:48:52.813691"
+  },
+  {
+    "id": "compdb_416f57b2",
+    "display_name": "XSTSNFEe",
+    "shortcut": "XSTS",
+    "material": "2",
+    "fits": 5.8,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss zwischen zwei angrenzenden \nKontakten": 1.0,
+      "Unterbrechung eines einzelnen Kontaktes": 99.0
+    },
+    "created_at": "2026-03-17T11:48:52.814693",
+    "updated_at": "2026-03-17T11:48:52.814693"
+  },
+  {
+    "id": "compdb_fc3dec35",
+    "display_name": "XSTSNe",
+    "shortcut": "XSTS",
+    "material": "2",
+    "fits": 7.3,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Kurzschluss zwischen zwei angrenzenden \nKontakten": 20.0,
+      "Unterbrechung eines einzelnen Kontaktes": 80.0
+    },
+    "created_at": "2026-03-17T11:48:52.819279",
+    "updated_at": "2026-03-17T11:48:52.819279"
+  },
+  {
+    "id": "compdb_18752e28",
+    "display_name": "ZF",
+    "shortcut": "ZF",
+    "material": "Ferrit",
+    "fits": 4.0,
+    "database": "UTEC 80-810",
+    "failure_modes": {
+      "Unterbrechung": 50.0,
+      "Kurzschluss": 50.0
+    },
+    "created_at": "2026-03-17T11:48:52.820476",
+    "updated_at": "2026-03-17T11:48:52.820476"
+  }
+]
