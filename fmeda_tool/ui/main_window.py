@@ -54,6 +54,7 @@ class MainWindow(QMainWindow):
         
         # Current project
         self.current_project: Optional[Project] = None
+        self.undo_stack = []
         
         # Track if we're editing a diagnostic measure and which row
         self.editing_diagnostic_measure_row: Optional[int] = None
@@ -90,6 +91,7 @@ class MainWindow(QMainWindow):
         
         # Create unit editor view (Page 2)
         self.unit_editor_view = UnitEditorView()
+        self.unit_editor_view.main_window = self
         self.unit_editor_view.save_requested.connect(self._on_save_project_from_editor)
         self.unit_editor_view.back_requested.connect(self._on_fmeda_back)
         self.unit_editor_view.next_requested.connect(self._on_fmeda_next)
@@ -655,10 +657,52 @@ class MainWindow(QMainWindow):
         # TODO: Implement JSON export
     
     # Edit Menu Actions
+    def push_undo_state(self, action_desc: str):
+        if self.current_project is not None:
+            # Serialize the current project state (before modification)
+            project_dump = self.current_project.model_dump()
+            self.undo_stack.append((project_dump, action_desc))
+            
+            # Limit the size of the stack
+            if len(self.undo_stack) > 50:
+                self.undo_stack.pop(0)
+                
+            # Enable undo button and update its tooltip
+            self.unit_editor_view.undo_btn.setEnabled(True)
+            self.unit_editor_view.undo_btn.setToolTip(f"Undo: {action_desc}")
+            
+            # Mark unsaved changes
+            self.has_unsaved_changes = True
+
     def _on_undo(self):
         """Handle Edit -> Undo"""
-        print("Undo clicked")
-        # TODO: Implement undo functionality
+        if not self.undo_stack:
+            return
+            
+        # Pop the last state
+        project_dump, action_desc = self.undo_stack.pop()
+        
+        # Restore the project from the serialized dump
+        self.current_project = Project.model_validate(project_dump)
+        
+        # Recalculate
+        from fmeda_tool.services.calculation_service import CalculationService
+        CalculationService.calculate_project(self.current_project)
+        
+        # Update editor project reference and load it
+        self.unit_editor_view.load_project(self.current_project)
+        
+        # Update undo button state and tooltip
+        if self.undo_stack:
+            next_action_desc = self.undo_stack[-1][1]
+            self.unit_editor_view.undo_btn.setEnabled(True)
+            self.unit_editor_view.undo_btn.setToolTip(f"Undo: {next_action_desc}")
+        else:
+            self.unit_editor_view.undo_btn.setEnabled(False)
+            self.unit_editor_view.undo_btn.setToolTip("Nothing to undo")
+            
+        # Set unsaved changes to true when undoing
+        self.has_unsaved_changes = True
         
     def _on_redo(self):
         """Handle Edit -> Redo"""

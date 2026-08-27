@@ -9,7 +9,15 @@ from typing import List, Dict, Optional
 import json
 from pathlib import Path
 
-from fmeda_tool.models import BOMComponent, ComponentDB, ComponentMapping, Unit
+# from fmeda_tool.models import BOMComponent, ComponentDB, ComponentMapping, Unit
+from fmeda_tool.models import (
+    BOMComponent,
+    ComponentDB,
+    ComponentMapping,
+    Unit,
+    Component,
+    FailureModeAssignment
+)
 from fmeda_tool.services import MappingService
 
 
