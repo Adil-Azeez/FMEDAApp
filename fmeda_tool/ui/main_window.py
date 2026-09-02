@@ -116,6 +116,7 @@ class MainWindow(QMainWindow):
         
         # Create components database view
         self.components_db_view = ComponentsDBView()
+        self.components_db_view.back_to_menu_requested.connect(lambda: self.show_view("main_menu"))
         self.add_view("components_db", self.components_db_view)
         
     def _create_menu_bar(self):
@@ -417,7 +418,7 @@ class MainWindow(QMainWindow):
         # Newly created project has unsaved changes until saved to disk
         self.has_unsaved_changes = True
         
-        print(f"✓ Project created: {project.name}")
+        print(f"[OK] Project created: {project.name}")
         print(f"  ID: {project.id}")
         print(f"  Version: {project.version}")
         

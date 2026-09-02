@@ -26,7 +26,8 @@ from fmeda_tool.ui.dialogs import (
     BOMImportDialog, ComponentMappingDialog
 )
 from fmeda_tool.ui.unit_table_view import UnitTableView
-from fmeda_tool.services import ValidationService
+from fmeda_tool.services import ValidationService, ComponentLibraryService
+
 
 
 class ComponentGraphicsItem(QGraphicsRectItem):
@@ -1649,7 +1650,8 @@ class FunctionalGroupTab(QWidget):
         if not self.unit.bom_components:
             QMessageBox.warning(self, "No BOM Imported", "Please import a BOM first before mapping components.")
             return
-        dialog = ComponentMappingDialog(self.unit, self)
+        prof = getattr(self.project, "selected_profile", "Profile 1") if hasattr(self, "project") and self.project else "Profile 1"
+        dialog = ComponentMappingDialog(self.unit, project_profile=prof, parent=self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self._load_fmeda_table()
             self._trigger_recalculation()
@@ -1753,18 +1755,42 @@ class FunctionalGroupTab(QWidget):
         QMessageBox.information(self, "Calculate", "Calculations refreshed.")
         
     def _load_components_from_db(self):
+        templates = []
         try:
-            db_path = Path("data/components_db.json")
-            if db_path.exists():
-                with open(db_path, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                return [ComponentDB(**comp) for comp in data]
+            prof = getattr(self.project, "selected_profile", "Profile 1") if hasattr(self, "project") and self.project else "Profile 1"
+            exida_comps = ComponentLibraryService.search_exida_components(profile=prof)
+            for c in exida_comps:
+                snap = ComponentLibraryService.get_exida_component_snapshot(c["id"], prof)
+                if snap:
+                    templates.append(ComponentDB(
+                        id=snap["library_component_id"],
+                        display_name=snap["displayed_label"],
+                        shortcut=snap.get("failure_rate_id"),
+                        material=snap.get("component_type"),
+                        fits=snap.get("failure_rate"),
+                        database="exida",
+                        failure_modes=snap.get("failure_modes", {})
+                    ))
+            legacy_comps = ComponentLibraryService.search_legacy_components()
+            for l in legacy_comps:
+                snap = ComponentLibraryService.get_legacy_component_snapshot(l["id"])
+                if snap:
+                    templates.append(ComponentDB(
+                        id=snap["library_component_id"],
+                        display_name=snap["display_name"],
+                        shortcut=snap.get("shortcut"),
+                        material=snap.get("material"),
+                        fits=snap.get("failure_rate"),
+                        database="Legacy",
+                        failure_modes=snap.get("failure_modes", {})
+                    ))
         except Exception as e:
-            print(f"Error loading components database: {e}")
-        return []
+            print(f"Error loading components database from SQLite: {e}")
+        return templates
         
     def _on_add_component_at_position(self, position: QPointF):
-        dialog = ComponentSelectionDialog(self)
+        prof = getattr(self.project, "selected_profile", "Profile 1") if hasattr(self, "project") and self.project else "Profile 1"
+        dialog = ComponentSelectionDialog(project_profile=prof, parent=self)
         dialog.component_selected.connect(
             lambda component: self._add_component_to_canvas(component, position)
         )

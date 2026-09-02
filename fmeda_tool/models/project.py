@@ -59,6 +59,7 @@ class Project(BaseModel):
     # Traceability and DB sources
     source_documents_list: List[SourceDocument] = Field(default_factory=list, description="Structured source documents")
     reliability_database_source: Optional[str] = Field(default=None, description="Reliability database source")
+    selected_profile: str = Field(default="Profile 1", description="Selected Exida reliability profile (Profile 1 to Profile 5)")
     environmental_profile: Optional[str] = Field(default=None, description="Environmental or operating profile")
     diagnostic_test_interval: Optional[float] = Field(default=None, description="Diagnostic test interval in hours")
     
