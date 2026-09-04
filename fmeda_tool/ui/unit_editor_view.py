@@ -2,16 +2,16 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTabWidget, QGraphicsView,
     QGraphicsScene, QPushButton, QLabel, QFrame, QMenu,
     QGraphicsRectItem, QGraphicsTextItem, QScrollArea, QGridLayout,
-    QMessageBox, QStackedWidget, QTableWidget, QTableWidgetItem, QHeaderView,
+    QMessageBox, QStackedWidget, QTableView, QHeaderView,
     QComboBox, QDoubleSpinBox, QLineEdit, QDialog, QDialogButtonBox, QFormLayout,
-    QTextEdit, QCheckBox
+    QTextEdit, QCheckBox, QFileDialog, QAbstractItemView
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QPointF, QRectF
+from PyQt6.QtCore import Qt, pyqtSignal, QPointF, QRectF, QModelIndex
 from PyQt6.QtGui import (
     QFont, QPainter, QWheelEvent, QMouseEvent, QContextMenuEvent,
     QColor, QPen, QBrush
 )
-from typing import Optional, List, Dict, Tuple
+from typing import Optional, List, Dict, Tuple, Any
 import uuid
 import time
 import json
@@ -19,14 +19,407 @@ from pathlib import Path
 
 from fmeda_tool.models import (
     Unit, Component, Project, ComponentDB, FailureModeAssignment,
-    Deviation, Mitigation, DiagnosticMeasure, DeviationType, DeviationSeverity
+    Deviation, Mitigation, DiagnosticMeasure, DeviationType, DeviationSeverity, MitigationType
 )
 from fmeda_tool.ui.dialogs import (
     ComponentSelectionDialog, ComponentInstanceDialog, DeviationDialog, MitigationDialog,
     BOMImportDialog, ComponentMappingDialog
 )
-from fmeda_tool.ui.unit_table_view import UnitTableView
-from fmeda_tool.services import ValidationService
+from fmeda_tool.ui.models.fmeda_table_model import FmedaTableModel, FmedaRowEntry, COLUMN_HEADERS
+from fmeda_tool.ui.delegates.fmeda_delegates import (
+    FmedaComboBoxDelegate, FmedaSpinBoxDelegate, FmedaLineEditDelegate
+)
+from fmeda_tool.services import ValidationService, ComponentLibraryService
+from fmeda_tool.utils.performance import PerformanceTimer
+
+
+class DiagnosticMeasureMiniDialog(QDialog):
+    """Dialog to create or edit a single Diagnostic Measure"""
+    def __init__(self, dm: Optional[DiagnosticMeasure] = None, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Add Diagnostic Measure" if dm is None else "Edit Diagnostic Measure")
+        self.setMinimumWidth(450)
+        self.dm = dm
+        self._setup_ui()
+        if self.dm:
+            self._load_data()
+            
+    def _setup_ui(self):
+        layout = QVBoxLayout(self)
+        form = QFormLayout()
+        
+        self.desc_input = QLineEdit()
+        form.addRow("Description / Test Name*:", self.desc_input)
+        
+        self.dc_input = QDoubleSpinBox()
+        self.dc_input.setRange(0.0, 100.0)
+        self.dc_input.setValue(90.0)
+        self.dc_input.setSuffix("%")
+        form.addRow("Diagnostic Coverage (DC %)*:", self.dc_input)
+        
+        self.notes_input = QTextEdit()
+        self.notes_input.setMaximumHeight(80)
+        self.notes_input.setPlaceholderText("Optional engineering notes or references...")
+        form.addRow("Notes:", self.notes_input)
+        
+        layout.addLayout(form)
+        
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons.accepted.connect(self._on_accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+        
+    def _on_accept(self):
+        desc = self.desc_input.text().strip()
+        if not desc:
+            QMessageBox.warning(self, "Validation Error", "Description is required.")
+            return
+            
+        dm_id = self.dm.id if self.dm else f"dm_{uuid.uuid4().hex[:8]}"
+        self.dm = DiagnosticMeasure(
+            id=dm_id,
+            description=desc,
+            dc=self.dc_input.value(),
+            notes=self.notes_input.toPlainText().strip() or None
+        )
+        self.accept()
+        
+    def _load_data(self):
+        self.desc_input.setText(self.dm.description)
+        self.dc_input.setValue(self.dm.dc)
+        self.notes_input.setPlainText(getattr(self.dm, "notes", "") or "")
+
+
+class DiagnosticMeasureManagerDialog(QDialog):
+    """Dialog to manage the project's library of diagnostic measures"""
+    def __init__(self, project: Project, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(f"Diagnostic Measures Library - {project.name}")
+        self.setMinimumSize(700, 400)
+        self.project = project
+        self._setup_ui()
+        
+    def _setup_ui(self):
+        layout = QVBoxLayout(self)
+        
+        from PyQt6.QtWidgets import QTableWidget
+        self.table = QTableWidget()
+        self.table.setColumnCount(3)
+        self.table.setHorizontalHeaderLabels(["Description / Test", "DC %", "Notes"])
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        self.table.verticalHeader().setVisible(False)
+        layout.addWidget(self.table)
+        
+        btn_lay = QHBoxLayout()
+        self.add_btn = QPushButton("➕ Add Measure")
+        self.add_btn.clicked.connect(self._on_add)
+        btn_lay.addWidget(self.add_btn)
+        
+        self.edit_btn = QPushButton("✏️ Edit Measure")
+        self.edit_btn.clicked.connect(self._on_edit)
+        btn_lay.addWidget(self.edit_btn)
+        
+        self.remove_btn = QPushButton("❌ Remove Measure")
+        self.remove_btn.clicked.connect(self._on_remove)
+        btn_lay.addWidget(self.remove_btn)
+        
+        btn_lay.addStretch()
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(self.accept)
+        btn_lay.addWidget(close_btn)
+        layout.addLayout(btn_lay)
+        
+        self._refresh_table()
+        
+    def _refresh_table(self):
+        from PyQt6.QtWidgets import QTableWidgetItem
+        self.table.setRowCount(len(self.project.diagnostic_measures))
+        for r, dm in enumerate(self.project.diagnostic_measures):
+            it_desc = QTableWidgetItem(dm.description)
+            it_desc.setData(Qt.ItemDataRole.UserRole, dm)
+            self.table.setItem(r, 0, it_desc)
+            self.table.setItem(r, 1, QTableWidgetItem(f"{dm.dc:.1f}%"))
+            self.table.setItem(r, 2, QTableWidgetItem(getattr(dm, "notes", "") or ""))
+            
+    def _on_add(self):
+        dialog = DiagnosticMeasureMiniDialog(parent=self)
+        if dialog.exec() == QDialog.DialogCode.Accepted and dialog.dm:
+            self.project.diagnostic_measures.append(dialog.dm)
+            self._refresh_table()
+            
+    def _on_edit(self):
+        row = self.table.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "Selection Required", "Please select a diagnostic measure to edit.")
+            return
+        dm = self.table.item(row, 0).data(Qt.ItemDataRole.UserRole)
+        dialog = DiagnosticMeasureMiniDialog(dm, parent=self)
+        if dialog.exec() == QDialog.DialogCode.Accepted and dialog.dm:
+            self.project.diagnostic_measures[row] = dialog.dm
+            self._refresh_table()
+            
+    def _on_remove(self):
+        row = self.table.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "Selection Required", "Please select a diagnostic measure to remove.")
+            return
+        dm = self.table.item(row, 0).data(Qt.ItemDataRole.UserRole)
+        
+        assigned_locations = []
+        for u in self.project.units:
+            for comp in u.components:
+                for a in comp.failure_mode_assignments:
+                    if a.diagnostic_measure_id == dm.id:
+                        assigned_locations.append((u, comp, a))
+                        
+        if assigned_locations:
+            reply = QMessageBox.question(
+                self, "Confirm Remove",
+                f"Diagnostic measure '{dm.description}' is currently assigned to {len(assigned_locations)} failure modes.\n"
+                "Removing it will clear the diagnostic measure from those rows. Continue?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+            for u, comp, a in assigned_locations:
+                a.diagnostic_measure_id = None
+                
+        self.project.diagnostic_measures.pop(row)
+        self._refresh_table()
+
+
+class DeviationManagerDialog(QDialog):
+    """Dialog to manage the project's library of deviations"""
+    def __init__(self, project: Project, unit_name: Optional[str] = None, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(f"Deviations / Failure Effects Library - {project.name}")
+        self.setMinimumSize(700, 400)
+        self.project = project
+        self.unit_name = unit_name or (parent.unit.name if parent and hasattr(parent, "unit") and parent.unit else "Project / Global")
+        self._setup_ui()
+        
+    def _setup_ui(self):
+        layout = QVBoxLayout(self)
+        from PyQt6.QtWidgets import QTableWidget
+        self.table = QTableWidget()
+        self.table.setColumnCount(3)
+        self.table.setHorizontalHeaderLabels(["Name", "Type", "Description"])
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        self.table.verticalHeader().setVisible(False)
+        layout.addWidget(self.table)
+        
+        btn_lay = QHBoxLayout()
+        self.add_btn = QPushButton("➕ Add Deviation")
+        self.add_btn.clicked.connect(self._on_add)
+        btn_lay.addWidget(self.add_btn)
+        
+        self.edit_btn = QPushButton("✏️ Edit Deviation")
+        self.edit_btn.clicked.connect(self._on_edit)
+        btn_lay.addWidget(self.edit_btn)
+        
+        self.remove_btn = QPushButton("❌ Remove Deviation")
+        self.remove_btn.clicked.connect(self._on_remove)
+        btn_lay.addWidget(self.remove_btn)
+        
+        btn_lay.addStretch()
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(self.accept)
+        btn_lay.addWidget(close_btn)
+        layout.addLayout(btn_lay)
+        
+        self._refresh_table()
+        
+    def _refresh_table(self):
+        from PyQt6.QtWidgets import QTableWidgetItem
+        self.table.setRowCount(len(self.project.deviations))
+        for r, dev in enumerate(self.project.deviations):
+            it = QTableWidgetItem(dev.name)
+            it.setData(Qt.ItemDataRole.UserRole, dev)
+            self.table.setItem(r, 0, it)
+            dtype = dev.deviation_type.value if hasattr(dev.deviation_type, "value") else str(dev.deviation_type)
+            self.table.setItem(r, 1, QTableWidgetItem(dtype.replace("_", " ").title()))
+            self.table.setItem(r, 2, QTableWidgetItem(dev.description or ""))
+            
+    def _on_add(self):
+        dialog = DeviationDialog(unit_name=self.unit_name, parent=self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        new_dev = dialog.get_deviation()
+        if not new_dev:
+            return
+        self.project.deviations.append(new_dev)
+        for mit in dialog.get_mitigations():
+            if mit.id not in [m.id for m in self.project.mitigations]:
+                self.project.mitigations.append(mit)
+        self._refresh_table()
+        if self.parent() and hasattr(self.parent(), "main_editor") and self.parent().main_editor:
+            self.parent().main_editor.project_changed.emit()
+            
+    def _on_edit(self):
+        row = self.table.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "Selection Required", "Please select a deviation to edit.")
+            return
+        dev = self.table.item(row, 0).data(Qt.ItemDataRole.UserRole)
+        associated_mitigations = [m for m in self.project.mitigations if m.id in getattr(dev, "mitigation_ids", [])]
+        dialog = DeviationDialog(unit_name=self.unit_name, deviation=dev, mitigations=associated_mitigations, parent=self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        self._refresh_table()
+        if self.parent() and hasattr(self.parent(), "main_editor") and self.parent().main_editor:
+            self.parent().main_editor.project_changed.emit()
+            
+    def _on_remove(self):
+        row = self.table.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "Selection Required", "Please select a deviation to remove.")
+            return
+        dev = self.table.item(row, 0).data(Qt.ItemDataRole.UserRole)
+        
+        assigned_count = 0
+        for u in self.project.units:
+            for comp in u.components:
+                for a in comp.failure_mode_assignments:
+                    if a.deviation_id == dev.id:
+                        assigned_count += 1
+                        
+        if assigned_count > 0:
+            reply = QMessageBox.question(
+                self, "Confirm Remove",
+                f"Deviation '{dev.name}' is currently assigned to {assigned_count} failure modes.\n"
+                "Removing it will clear the deviation from those rows. Continue?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+            for u in self.project.units:
+                for comp in u.components:
+                    for a in comp.failure_mode_assignments:
+                        if a.deviation_id == dev.id:
+                            a.deviation_id = None
+                            
+        self.project.deviations.pop(row)
+        self._refresh_table()
+        if self.parent() and hasattr(self.parent(), "main_editor") and self.parent().main_editor:
+            self.parent().main_editor.project_changed.emit()
+
+
+class MitigationManagerDialog(QDialog):
+    """Dialog to manage the project's library of mitigations"""
+    def __init__(self, project: Project, unit_name: Optional[str] = None, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(f"Mitigations Library - {project.name}")
+        self.setMinimumSize(700, 400)
+        self.project = project
+        self.unit_name = unit_name or (parent.unit.name if parent and hasattr(parent, "unit") and parent.unit else "Global / Project")
+        self._setup_ui()
+        
+    def _setup_ui(self):
+        layout = QVBoxLayout(self)
+        from PyQt6.QtWidgets import QTableWidget
+        self.table = QTableWidget()
+        self.table.setColumnCount(3)
+        self.table.setHorizontalHeaderLabels(["Name", "Type", "Description"])
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        self.table.verticalHeader().setVisible(False)
+        layout.addWidget(self.table)
+        
+        btn_lay = QHBoxLayout()
+        self.add_btn = QPushButton("➕ Add Mitigation")
+        self.add_btn.clicked.connect(self._on_add)
+        btn_lay.addWidget(self.add_btn)
+        
+        self.edit_btn = QPushButton("✏️ Edit Mitigation")
+        self.edit_btn.clicked.connect(self._on_edit)
+        btn_lay.addWidget(self.edit_btn)
+        
+        self.remove_btn = QPushButton("❌ Remove Mitigation")
+        self.remove_btn.clicked.connect(self._on_remove)
+        btn_lay.addWidget(self.remove_btn)
+        
+        btn_lay.addStretch()
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(self.accept)
+        btn_lay.addWidget(close_btn)
+        layout.addLayout(btn_lay)
+        
+        self._refresh_table()
+        
+    def _refresh_table(self):
+        from PyQt6.QtWidgets import QTableWidgetItem
+        self.table.setRowCount(len(self.project.mitigations))
+        for r, mit in enumerate(self.project.mitigations):
+            it = QTableWidgetItem(mit.name or mit.id)
+            it.setData(Qt.ItemDataRole.UserRole, mit)
+            self.table.setItem(r, 0, it)
+            mtype = mit.mitigation_type.value if hasattr(mit.mitigation_type, "value") else str(mit.mitigation_type)
+            self.table.setItem(r, 1, QTableWidgetItem(mtype.replace("_", " ").title()))
+            self.table.setItem(r, 2, QTableWidgetItem(mit.description or ""))
+            
+    def _on_add(self):
+        dialog = MitigationDialog(unit_name=self.unit_name, parent=self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        new_mit = dialog.get_mitigation()
+        if not new_mit:
+            return
+        self.project.mitigations.append(new_mit)
+        self._refresh_table()
+        if self.parent() and hasattr(self.parent(), "main_editor") and self.parent().main_editor:
+            self.parent().main_editor.project_changed.emit()
+            
+    def _on_edit(self):
+        row = self.table.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "Selection Required", "Please select a mitigation to edit.")
+            return
+        mit = self.table.item(row, 0).data(Qt.ItemDataRole.UserRole)
+        dialog = MitigationDialog(unit_name=self.unit_name, mitigation=mit, parent=self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        self._refresh_table()
+        if self.parent() and hasattr(self.parent(), "main_editor") and self.parent().main_editor:
+            self.parent().main_editor.project_changed.emit()
+            
+    def _on_remove(self):
+        row = self.table.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "Selection Required", "Please select a mitigation to remove.")
+            return
+        mit = self.table.item(row, 0).data(Qt.ItemDataRole.UserRole)
+        
+        assigned_count = 0
+        for u in self.project.units:
+            for comp in u.components:
+                for a in comp.failure_mode_assignments:
+                    if a.mitigation_id == mit.id:
+                        assigned_count += 1
+                        
+        if assigned_count > 0:
+            reply = QMessageBox.question(
+                self, "Confirm Remove",
+                f"Mitigation '{mit.name}' is currently assigned to {assigned_count} failure modes.\n"
+                "Removing it will clear the mitigation from those rows. Continue?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+            for u in self.project.units:
+                for comp in u.components:
+                    for a in comp.failure_mode_assignments:
+                        if a.mitigation_id == mit.id:
+                            a.mitigation_id = None
+                            
+        self.project.mitigations.pop(row)
+        self._refresh_table()
+        if self.parent() and hasattr(self.parent(), "main_editor") and self.parent().main_editor:
+            self.parent().main_editor.project_changed.emit()
 
 
 class ComponentGraphicsItem(QGraphicsRectItem):
@@ -147,53 +540,35 @@ class ComponentCanvas(QGraphicsView):
         event.accept()
     
     def contextMenuEvent(self, event: QContextMenuEvent):
-        scene_pos = self.mapToScene(event.pos())
-        menu = QMenu(self)
-        add_action = menu.addAction("Add Component")
-        add_action.triggered.connect(lambda: self.add_component_requested.emit(scene_pos))
-        menu.exec(event.globalPos())
-        
-    def reset_view(self):
-        self.resetTransform()
-        self.zoom_level = 1.0
-        self.centerOn(0, 0)
-        
-    def component_clicked(self, component_item: ComponentGraphicsItem):
-        if self.tab_parent and hasattr(self.tab_parent, '_on_component_clicked'):
-            self.tab_parent._on_component_clicked(component_item)
+        super().contextMenuEvent(event)
 
 
 class ChangeHistoryDialog(QDialog):
-    """Dialog showing the project's modification change history log"""
-    
+    """Dialog to display the chronological change history log of a project"""
     def __init__(self, project: Project, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Project Change History Log")
-        self.setMinimumSize(750, 450)
+        self.setWindowTitle(f"Project Change History - {project.name}")
+        self.setMinimumSize(800, 450)
         self.project = project
         self._setup_ui()
         
     def _setup_ui(self):
         layout = QVBoxLayout(self)
-        
-        title = QLabel(f"Change History: {self.project.name}")
-        title.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-        layout.addWidget(title)
-        
+        from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem
         self.table = QTableWidget()
         self.table.setColumnCount(4)
         self.table.setHorizontalHeaderLabels(["Timestamp", "User", "Action", "Details"])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        self.table.verticalHeader().setVisible(False)
         layout.addWidget(self.table)
         
-        # Populate table
-        logs = getattr(self.project, "change_history", []) or []
-        self.table.setRowCount(0)
-        for entry in reversed(logs):
-            row = self.table.rowCount()
-            self.table.insertRow(row)
-            self.table.setItem(row, 0, QTableWidgetItem(entry.get("timestamp", "")))
+        history = getattr(self.project, "change_history", []) or []
+        self.table.setRowCount(len(history))
+        for row, entry in enumerate(history):
+            ts = entry.get("timestamp", "")
+            ts_str = ts[:19].replace("T", " ") if ts else ""
+            self.table.setItem(row, 0, QTableWidgetItem(ts_str))
             self.table.setItem(row, 1, QTableWidgetItem(entry.get("user", "")))
             self.table.setItem(row, 2, QTableWidgetItem(entry.get("action", "")))
             self.table.setItem(row, 3, QTableWidgetItem(entry.get("details", "")))
@@ -228,13 +603,11 @@ class ProjectOverviewTab(QScrollArea):
         self.grid.setSpacing(15)
         layout.addLayout(self.grid)
         
-        # Separator line
         div = QFrame()
         div.setFrameShape(QFrame.Shape.HLine)
         div.setStyleSheet("color: #dee2e6;")
         layout.addWidget(div)
         
-        # Review Workflow Panel
         rev_box = QFrame()
         rev_box.setStyleSheet("background-color: #f8f9fa; border-radius: 6px; border: 1px solid #ced4da; padding: 15px;")
         rev_lay = QGridLayout(rev_box)
@@ -260,7 +633,6 @@ class ProjectOverviewTab(QScrollArea):
         
         layout.addWidget(rev_box)
         
-        # View History Log Button
         self.view_history_btn = QPushButton("📜 View Project Change History Log")
         self.view_history_btn.setStyleSheet("background-color: #6c757d; color: white; padding: 8px 16px; border-radius: 4px; font-weight: bold;")
         self.view_history_btn.clicked.connect(self._on_view_history)
@@ -272,11 +644,10 @@ class ProjectOverviewTab(QScrollArea):
     def refresh(self, project: Project):
         self.project = project
         
-        # Temporarily block signals to avoid triggering handlers while loading values
         self.status_combo.blockSignals(True)
         self.reviewer_input.blockSignals(True)
         
-        self.reviewer_input.setText(project.reviewer or "")
+        self.reviewer_input.setText(getattr(project, "reviewer", None) or "")
         status_val = project.status.value if project.status else "draft"
         idx = self.status_combo.findData(status_val)
         if idx >= 0:
@@ -286,12 +657,13 @@ class ProjectOverviewTab(QScrollArea):
         self.reviewer_input.blockSignals(False)
         
         for i in reversed(range(self.grid.count())):
-            self.grid.itemAt(i).widget().setParent(None)
+            item = self.grid.itemAt(i)
+            if item and item.widget():
+                item.widget().setParent(None)
             
         if not project:
             return
             
-        row = 0
         def add_info_row(label: str, value: str, r: int, c: int, word_wrap: bool = False):
             lbl = QLabel(f"<b>{label}</b>")
             lbl.setStyleSheet("color: #495057;")
@@ -305,7 +677,7 @@ class ProjectOverviewTab(QScrollArea):
         add_info_row("Project Name:", project.name, 0, 0)
         add_info_row("Project Number:", project.project_number or "N/A", 0, 2)
         add_info_row("Version:", project.version, 1, 0)
-        add_info_row("Status:", project.status.value.replace("_", " ").title(), 1, 2)
+        add_info_row("Status:", project.status.value.replace("_", " ").title() if project.status else "Draft", 1, 2)
         add_info_row("Created By:", project.created_by or "N/A", 2, 0)
         add_info_row("Reviewer:", project.reviewer or "N/A", 2, 2)
         add_info_row("Safety Standard:", project.safety_standard.value if project.safety_standard else "N/A", 3, 0)
@@ -360,7 +732,7 @@ class ProjectOverviewTab(QScrollArea):
         add_info_row("Achieved SIL:", project.achieved_sil or "N/A", 15, 2)
 
     def _on_reviewer_changed(self):
-        if not self.project:
+        if not self.project or getattr(self.main_editor, "is_loading_project", False):
             return
         old_val = self.project.reviewer
         new_val = self.reviewer_input.text().strip()
@@ -375,7 +747,7 @@ class ProjectOverviewTab(QScrollArea):
             self.main_editor.project_changed.emit()
             
     def _on_status_changed(self, idx: int):
-        if not self.project:
+        if not self.project or getattr(self.main_editor, "is_loading_project", False):
             return
         new_status = self.status_combo.itemData(idx)
         old_status = self.project.status.value if self.project.status else "draft"
@@ -418,367 +790,90 @@ class ProjectOverviewTab(QScrollArea):
         dialog.exec()
 
 
-class DiagnosticMeasureMiniDialog(QDialog):
-    """Simple form dialog to add/edit diagnostic measures"""
-    
-    def __init__(self, dm: Optional[DiagnosticMeasure] = None, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Add Diagnostic Measure" if dm is None else "Edit Diagnostic Measure")
-        self.dm = dm
-        self._setup_ui()
-        if self.dm:
-            self._load_data()
-            
-    def _setup_ui(self):
-        layout = QVBoxLayout(self)
-        form = QFormLayout()
-        
-        self.desc_input = QLineEdit()
-        form.addRow("Description*:", self.desc_input)
-        
-        self.dc_input = QDoubleSpinBox()
-        self.dc_input.setRange(0, 100)
-        self.dc_input.setValue(90.0)
-        self.dc_input.setSuffix(" %")
-        form.addRow("Diagnostic Coverage (DC%)*:", self.dc_input)
-        
-        self.notes_input = QLineEdit()
-        form.addRow("Notes:", self.notes_input)
-        
-        layout.addLayout(form)
-        
-        self.buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
-            Qt.Orientation.Horizontal,
-            self
-        )
-        self.buttons.accepted.connect(self._on_accept)
-        self.buttons.rejected.connect(self.reject)
-        layout.addWidget(self.buttons)
-        
-    def _on_accept(self):
-        if not self.desc_input.text().strip():
-            QMessageBox.warning(self, "Validation Error", "Description is required.")
-            return
-            
-        if self.dm:
-            self.dm.description = self.desc_input.text().strip()
-            self.dm.dc = self.dc_input.value()
-            self.dm.notes = self.notes_input.text().strip() or None
-            from datetime import datetime
-            self.dm.updated_at = datetime.now()
-        else:
-            dm_id = f"dm_{uuid.uuid4().hex[:8]}"
-            self.dm = DiagnosticMeasure(
-                id=dm_id,
-                description=self.desc_input.text().strip(),
-                dc=self.dc_input.value(),
-                notes=self.notes_input.text().strip() or None
-            )
-        self.accept()
-        
-    def _load_data(self):
-        self.desc_input.setText(self.dm.description)
-        self.dc_input.setValue(self.dm.dc)
-        self.notes_input.setText(self.dm.notes or "")
+class TableItemProxy:
+    """Proxy object allowing legacy code and tests to access cell values as table.item(r, c).text()."""
+    def __init__(self, model: FmedaTableModel, row: int, col: int):
+        self.model = model
+        self.row = row
+        self.col = col
 
+    def text(self) -> str:
+        idx = self.model.index(self.row, self.col)
+        return str(self.model.data(idx, Qt.ItemDataRole.DisplayRole) or "")
 
-class DiagnosticMeasureManagerDialog(QDialog):
-    """Dialog to manage diagnostic measures list on a project"""
-    
-    def __init__(self, project: Project, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Manage Diagnostic Measures")
-        self.setMinimumSize(700, 450)
-        self.project = project
-        self._setup_ui()
-        self._refresh_table()
-        
-    def _setup_ui(self):
-        layout = QVBoxLayout(self)
-        
-        btn_lay = QHBoxLayout()
-        add_btn = QPushButton("+ Add Diagnostic Measure")
-        add_btn.clicked.connect(self._on_add)
-        btn_lay.addWidget(add_btn)
-        btn_lay.addStretch()
-        layout.addLayout(btn_lay)
-        
-        self.table = QTableWidget()
-        self.table.setColumnCount(4)
-        self.table.setHorizontalHeaderLabels(["Description", "DC%", "Notes", "Actions"])
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        layout.addWidget(self.table)
-        
-        self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, Qt.Orientation.Horizontal, self)
-        self.buttons.rejected.connect(self.accept)
-        layout.addWidget(self.buttons)
-        
-    def _refresh_table(self):
-        self.table.setRowCount(0)
-        for idx, dm in enumerate(self.project.diagnostic_measures):
-            row = self.table.rowCount()
-            self.table.insertRow(row)
-            self.table.setItem(row, 0, QTableWidgetItem(dm.description))
-            self.table.setItem(row, 1, QTableWidgetItem(f"{dm.dc:.1f}%"))
-            self.table.setItem(row, 2, QTableWidgetItem(getattr(dm, "notes", None) or ""))
-            
-            actions = QWidget()
-            lay = QHBoxLayout(actions)
-            lay.setContentsMargins(2, 2, 2, 2)
-            
-            edit = QPushButton("Edit")
-            edit.clicked.connect(lambda checked, i=idx: self._on_edit(i))
-            lay.addWidget(edit)
-            
-            delete = QPushButton("Delete")
-            delete.clicked.connect(lambda checked, i=idx: self._on_delete(i))
-            lay.addWidget(delete)
-            
-            self.table.setCellWidget(row, 3, actions)
-            
-    def _on_add(self):
-        dialog = DiagnosticMeasureMiniDialog(parent=self)
-        if dialog.exec() == QDialog.DialogCode.Accepted and dialog.dm:
-            self.project.diagnostic_measures.append(dialog.dm)
-            self._refresh_table()
-            if self.parent() and hasattr(self.parent(), "main_editor"):
-                self.parent().main_editor.project_changed.emit()
-            
-    def _on_edit(self, idx: int):
-        dialog = DiagnosticMeasureMiniDialog(self.project.diagnostic_measures[idx], parent=self)
-        if dialog.exec() == QDialog.DialogCode.Accepted and dialog.dm:
-            self.project.diagnostic_measures[idx] = dialog.dm
-            self._refresh_table()
-            if self.parent() and hasattr(self.parent(), "main_editor"):
-                self.parent().main_editor.project_changed.emit()
-            
-    def _on_delete(self, idx: int):
-        dm = self.project.diagnostic_measures[idx]
-        assigned_locations = []
-        for unit in self.project.units:
-            for comp in unit.components:
-                for assignment in comp.failure_mode_assignments:
-                    if assignment.diagnostic_measure_id == dm.id:
-                        assigned_locations.append((unit, comp, assignment))
-                        
-        if assigned_locations:
-            msg = f"This diagnostic measure is assigned to {len(assigned_locations)} failure mode(s).\n\n"
-            msg += "If you delete it, these assignments will be cleared.\n\n"
-            msg += "Are you sure you want to delete this diagnostic measure?"
-            reply = QMessageBox.warning(
-                self,
-                "Delete Assigned Measure",
-                msg,
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No
-            )
-            if reply != QMessageBox.StandardButton.Yes:
-                return
-        else:
-            reply = QMessageBox.question(
-                self,
-                "Confirm Deletion",
-                f"Are you sure you want to delete the diagnostic measure '{dm.description}'?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No
-            )
-            if reply != QMessageBox.StandardButton.Yes:
-                return
-                
-        # Clear assignments to prevent broken references
-        for unit, comp, assignment in assigned_locations:
-            assignment.diagnostic_measure_id = None
-            
-        self.project.diagnostic_measures.pop(idx)
-        self._refresh_table()
-        if self.parent() and hasattr(self.parent(), "main_editor"):
-            self.parent().main_editor.project_changed.emit()
-
-
-class DeviationManagerDialog(QDialog):
-    """Dialog to list and configure deviations on a project"""
-    
-    def __init__(self, project: Project, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Manage Deviations")
-        self.setMinimumSize(800, 500)
-        self.project = project
-        self._setup_ui()
-        self._refresh_table()
-        
-    def _setup_ui(self):
-        layout = QVBoxLayout(self)
-        
-        btn_lay = QHBoxLayout()
-        add_btn = QPushButton("+ Add Deviation")
-        add_btn.clicked.connect(self._on_add)
-        btn_lay.addWidget(add_btn)
-        btn_lay.addStretch()
-        layout.addLayout(btn_lay)
-        
-        self.table = QTableWidget()
-        self.table.setColumnCount(4)
-        self.table.setHorizontalHeaderLabels(["Name", "Description", "Severity", "Actions"])
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        layout.addWidget(self.table)
-        
-        self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, Qt.Orientation.Horizontal, self)
-        self.buttons.rejected.connect(self.accept)
-        layout.addWidget(self.buttons)
-        
-    def _refresh_table(self):
-        self.table.setRowCount(0)
-        for idx, dev in enumerate(self.project.deviations):
-            row = self.table.rowCount()
-            self.table.insertRow(row)
-            self.table.setItem(row, 0, QTableWidgetItem(dev.name))
-            self.table.setItem(row, 1, QTableWidgetItem(dev.description or ""))
-            self.table.setItem(row, 2, QTableWidgetItem(dev.severity.value if dev.severity else ""))
-            
-            actions = QWidget()
-            lay = QHBoxLayout(actions)
-            lay.setContentsMargins(2, 2, 2, 2)
-            
-            edit = QPushButton("Edit")
-            edit.clicked.connect(lambda checked, i=idx: self._on_edit(i))
-            lay.addWidget(edit)
-            
-            delete = QPushButton("Delete")
-            delete.clicked.connect(lambda checked, i=idx: self._on_delete(i))
-            lay.addWidget(delete)
-            
-            self.table.setCellWidget(row, 3, actions)
-            
-    def _on_add(self):
-        dialog = DeviationDialog("Global Project Context", parent=self)
-        dialog.deviation_saved.connect(self._on_deviation_saved)
-        dialog.exec()
-        
-    def _on_deviation_saved(self, deviation: Deviation, mitigations: List[Mitigation]):
-        self.project.deviations.append(deviation)
-        for mit in mitigations:
-            if mit.id not in [m.id for m in self.project.mitigations]:
-                self.project.mitigations.append(mit)
-        self._refresh_table()
-        
-    def _on_edit(self, idx: int):
-        deviation = self.project.deviations[idx]
-        dialog = DeviationDialog("Global Project Context", deviation, self.project.mitigations, parent=self)
-        dialog.deviation_saved.connect(lambda dev, mits: self._on_deviation_updated(idx, dev, mits))
-        dialog.exec()
-        
-    def _on_deviation_updated(self, idx: int, deviation: Deviation, mitigations: List[Mitigation]):
-        self.project.deviations[idx] = deviation
-        for mit in mitigations:
-            if mit.id not in [m.id for m in self.project.mitigations]:
-                self.project.mitigations.append(mit)
-        self._refresh_table()
-        
-    def _on_delete(self, idx: int):
-        self.project.deviations.pop(idx)
-        self._refresh_table()
-
-
-class MitigationManagerDialog(QDialog):
-    """Dialog to list and configure mitigations on a project"""
-    
-    def __init__(self, project: Project, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Manage Mitigations")
-        self.setMinimumSize(800, 500)
-        self.project = project
-        self._setup_ui()
-        self._refresh_table()
-        
-    def _setup_ui(self):
-        layout = QVBoxLayout(self)
-        
-        btn_lay = QHBoxLayout()
-        add_btn = QPushButton("+ Add Mitigation")
-        add_btn.clicked.connect(self._on_add)
-        btn_lay.addWidget(add_btn)
-        btn_lay.addStretch()
-        layout.addLayout(btn_lay)
-        
-        self.table = QTableWidget()
-        self.table.setColumnCount(4)
-        self.table.setHorizontalHeaderLabels(["Name/ID", "Description", "Type", "Actions"])
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        layout.addWidget(self.table)
-        
-        self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, Qt.Orientation.Horizontal, self)
-        self.buttons.rejected.connect(self.accept)
-        layout.addWidget(self.buttons)
-        
-    def _refresh_table(self):
-        self.table.setRowCount(0)
-        for idx, mit in enumerate(self.project.mitigations):
-            row = self.table.rowCount()
-            self.table.insertRow(row)
-            self.table.setItem(row, 0, QTableWidgetItem(mit.name or mit.id))
-            self.table.setItem(row, 1, QTableWidgetItem(mit.description or ""))
-            self.table.setItem(row, 2, QTableWidgetItem(mit.mitigation_type.value if mit.mitigation_type else ""))
-            
-            actions = QWidget()
-            lay = QHBoxLayout(actions)
-            lay.setContentsMargins(2, 2, 2, 2)
-            
-            edit = QPushButton("Edit")
-            edit.clicked.connect(lambda checked, i=idx: self._on_edit(i))
-            lay.addWidget(edit)
-            
-            delete = QPushButton("Delete")
-            delete.clicked.connect(lambda checked, i=idx: self._on_delete(i))
-            lay.addWidget(delete)
-            
-            self.table.setCellWidget(row, 3, actions)
-            
-    def _on_add(self):
-        dialog = MitigationDialog(parent=self)
-        dialog.mitigation_saved.connect(self._on_mitigation_saved)
-        dialog.exec()
-        
-    def _on_mitigation_saved(self, mitigation: Mitigation):
-        self.project.mitigations.append(mitigation)
-        self._refresh_table()
-        
-    def _on_edit(self, idx: int):
-        mitigation = self.project.mitigations[idx]
-        # dialog = MitigationDialog(mitigation, parent=self)
-        dialog = MitigationDialog(mitigation=mitigation,parent=self)
-        dialog.mitigation_saved.connect(lambda mit: self._on_mitigation_updated(idx, mit))
-        dialog.exec()
-        
-    def _on_mitigation_updated(self, idx: int, mitigation: Mitigation):
-        self.project.mitigations[idx] = mitigation
-        self._refresh_table()
-        
-    def _on_delete(self, idx: int):
-        self.project.mitigations.pop(idx)
-        self._refresh_table()
+    def data(self, role: int = Qt.ItemDataRole.UserRole) -> Any:
+        if self.row < 0 or self.row >= len(self.model.rows):
+            return None
+        entry = self.model.rows[self.row]
+        if role == Qt.ItemDataRole.UserRole:
+            if self.col == 0:
+                return entry.component
+            elif self.col == 7:
+                return entry.assignment
+        idx = self.model.index(self.row, self.col)
+        return self.model.data(idx, role)
 
 
 class FunctionalGroupTab(QWidget):
-    """Workspace tab representing a single Functional Group (Unit)"""
+    """
+    Workspace tab representing a single Functional Group (Unit).
+    Uses QTableView + FmedaTableModel with lightweight delegates and Locked View Mode.
+    """
     
     def __init__(self, unit: Unit, project: Project, main_editor, parent=None):
         super().__init__(parent)
         self.unit = unit
         self.project = project
         self.main_editor = main_editor
+        self.is_populated = False
+        self.is_dirty = False
+        self.ui_initialized = False
+        self.is_in_edit_mode = False
+        self.unit_snapshot: Optional[Dict[str, Any]] = None
+        self.model: Optional[FmedaTableModel] = None
         self._setup_ui()
-        self._load_components_to_canvas()
-        self._load_fmeda_table()
         
-    def _setup_ui(self):
+    def _setup_ui(self, timer: Optional[PerformanceTimer] = None):
+        """Constructs tab UI elements."""
+        if self.ui_initialized:
+            return
+            
         layout = QVBoxLayout(self)
         layout.setContentsMargins(15, 15, 15, 15)
         layout.setSpacing(10)
         
-        # Toolbar layout
+        # Toolbar
         self.toolbar = QHBoxLayout()
         self.toolbar.setSpacing(8)
+        
+        # View / Edit Mode Indicator badge
+        self.mode_badge = QLabel("🔒 View Mode (Locked)")
+        self.mode_badge.setStyleSheet("background-color: #e9ecef; color: #495057; font-weight: bold; padding: 6px 12px; border-radius: 4px; border: 1px solid #ced4da;")
+        self.toolbar.addWidget(self.mode_badge)
+        
+        # Enable Editing button
+        self.toggle_edit_btn = QPushButton("✏️ Enable Editing")
+        self.toggle_edit_btn.setStyleSheet("background-color: #0d6efd; color: white; font-weight: bold; padding: 6px 14px; border-radius: 4px;")
+        self.toggle_edit_btn.clicked.connect(self.enable_editing)
+        self.toolbar.addWidget(self.toggle_edit_btn)
+        
+        # Confirm and Cancel Changes buttons (hidden by default in View Mode)
+        self.confirm_edit_btn = QPushButton("💾 Confirm Changes")
+        self.confirm_edit_btn.setStyleSheet("background-color: #198754; color: white; font-weight: bold; padding: 6px 14px; border-radius: 4px;")
+        self.confirm_edit_btn.clicked.connect(self.confirm_changes)
+        self.confirm_edit_btn.hide()
+        self.toolbar.addWidget(self.confirm_edit_btn)
+        
+        self.cancel_edit_btn = QPushButton("❌ Cancel Changes")
+        self.cancel_edit_btn.setStyleSheet("background-color: #dc3545; color: white; font-weight: bold; padding: 6px 14px; border-radius: 4px;")
+        self.cancel_edit_btn.clicked.connect(self.cancel_changes)
+        self.cancel_edit_btn.hide()
+        self.toolbar.addWidget(self.cancel_edit_btn)
+        
+        div_bar = QFrame()
+        div_bar.setFrameShape(QFrame.Shape.VLine)
+        div_bar.setStyleSheet("color: #ced4da;")
+        self.toolbar.addWidget(div_bar)
         
         self.add_comp_type_btn = QPushButton("Add Component Type")
         self.add_bom_man_btn = QPushButton("Add Component Manually")
@@ -791,14 +886,6 @@ class FunctionalGroupTab(QWidget):
         self.calculate_btn = QPushButton("Calculate Group")
         self.save_btn = QPushButton("Save Project")
         
-        # Legacy canvas toggle is hidden.
-        # The canvas remains internally because component creation still uses it.
-        # self.toggle_view_btn = QPushButton("📺 Toggle Table/Canvas")
-        # self.toggle_view_btn.setStyleSheet(
-        #     "background-color: #0dcaf0; font-weight: bold;"
-        # )
-        # self.toggle_view_btn.clicked.connect(self._toggle_view)
-        
         for btn in [
             self.add_comp_type_btn, self.add_bom_man_btn, self.import_csv_btn,
             self.map_bom_btn, self.manage_dev_btn, self.manage_mit_btn,
@@ -809,13 +896,8 @@ class FunctionalGroupTab(QWidget):
             self.toolbar.addWidget(btn)
             
         self.toolbar.addStretch()
-
-        # Toggle button intentionally hidden.
-        # self.toolbar.addWidget(self.toggle_view_btn)
-
         layout.addLayout(self.toolbar)
         
-        # Button connections
         self.save_btn.clicked.connect(lambda: self.main_editor.save_requested.emit())
         self.import_csv_btn.clicked.connect(self._on_import_bom_csv)
         self.map_bom_btn.clicked.connect(self._on_map_bom_components)
@@ -827,17 +909,14 @@ class FunctionalGroupTab(QWidget):
         self.validate_btn.clicked.connect(self._on_validate_clicked)
         self.calculate_btn.clicked.connect(self._on_calculate_clicked)
         
-        # Stacked area for Table vs Graphical Canvas
         self.stacked_view = QStackedWidget()
         layout.addWidget(self.stacked_view)
         
-        # Page 0: The Central FMEDA spreadsheet view
         table_container = QWidget()
         table_layout = QVBoxLayout(table_container)
         table_layout.setContentsMargins(0, 0, 0, 0)
         table_layout.setSpacing(8)
         
-        # Checkboxes for toggling column groups
         group_layout = QHBoxLayout()
         group_layout.setContentsMargins(5, 5, 5, 0)
         group_layout.addWidget(QLabel("<b>Show Column Groups:</b>"))
@@ -870,41 +949,42 @@ class FunctionalGroupTab(QWidget):
         group_layout.addStretch()
         table_layout.addLayout(group_layout)
         
-        self.table = QTableWidget()
-        self.table.setColumnCount(41)
-        self.table.setHorizontalHeaderLabels([
-            # Component/BOM Columns
-            "Component ID / Designator", "Status", "Function", "Value / Description",
-            "Internal Part Number", "Fitted Status", "Component Type",
-            # Failure Model Columns
-            "Failure Mode", "Failure-Mode %", "Base Failure Rate (FIT)",
-            "Reliability Source", "Source Reference", "Environmental Profile",
-            # Manual Engineering Columns
-            "Failure Effect / Deviation", "Diagnostic Function", "Failure Classification",
-            "Dangerous %", "Safe %",
-            "Diagnostic Measure ID", "Detection % (DC)", "DC Test Ref", "Mitigation",
-            "Comments / Justification", "Review Status",
-            # Proof-Test Columns
-            "Proof Test A", "Proof Test B", "Proof Test C", "No Part / No Effect",
-            # Calculated Result Columns
-            "lambda (FIT)", "lambda_safe (FIT)", "lambda_dangerous (FIT)",
-            "lambda_sd (FIT)", "lambda_su (FIT)", "lambda_dd (FIT)", "lambda_du (FIT)",
-            "lambda_no_part (FIT)", "lambda_no_effect (FIT)", "SFF %", "DC %", "MTBF (h)", "MTTFd (y)"
-        ])
-
-        # Keep the column internally, but hide it from the interface.
-        self.table.setColumnHidden(20, True)
-        self.table.horizontalHeader().setSectionResizeMode(
-            QHeaderView.ResizeMode.Interactive
-        )
+        # QTableView and FmedaTableModel
+        self.table = QTableView()
+        self.model = FmedaTableModel(self.unit, self.project, parent=self)
+        self.table.setModel(self.model)
         
+        # Attach custom lightweight delegates
+        self.combo_delegate = FmedaComboBoxDelegate(parent=self.table)
+        self.spin_delegate = FmedaSpinBoxDelegate(parent=self.table)
+        self.text_delegate = FmedaLineEditDelegate(parent=self.table)
+        
+        for col in (5, 13, 15, 18, 21, 23):
+            self.table.setItemDelegateForColumn(col, self.combo_delegate)
+            
+        for col in (8, 16, 17, 19, 24, 25, 26):
+            self.table.setItemDelegateForColumn(col, self.spin_delegate)
+            
+        for col in (2, 3, 4, 14, 22):
+            self.table.setItemDelegateForColumn(col, self.text_delegate)
+            
+        # Hide col 20 (DC Test Ref)
+        self.table.setColumnHidden(20, True)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.table.customContextMenuRequested.connect(self._on_table_context_menu)
+        
+        # Backward compatibility helpers on table instance
+        self.table.item = lambda r, c: TableItemProxy(self.model, r, c)
+        self.table.rowCount = lambda: self.model.rowCount() if self.model else 0
+        self.table.columnCount = lambda: self.model.columnCount() if self.model else 0
+        self.table.cellWidget = lambda r, c: None
+        
         table_layout.addWidget(self.table)
         
-        # Legend Display
         legend = QFrame()
         legend.setStyleSheet("background-color: #f1f3f5; border-radius: 4px; border: 1px solid #dee2e6;")
         legend.setFixedHeight(35)
@@ -919,98 +999,179 @@ class FunctionalGroupTab(QWidget):
         
         self.stacked_view.addWidget(table_container)
         
-        # Page 1: Legacy Whiteboard Canvas
+        if timer:
+            timer.start_phase("canvas_or_hidden_view_construction")
         self.canvas = ComponentCanvas(self)
         self.canvas.add_component_requested.connect(self._on_add_component_at_position)
         self.stacked_view.addWidget(self.canvas)
-        
+        if timer:
+            timer.end_phase("canvas_or_hidden_view_construction")
+            
         self.stacked_view.setCurrentIndex(0)
+        self.ui_initialized = True
+
+    def enable_editing(self) -> bool:
+        """Enters Edit Mode for this functional group tab."""
+        if self.is_in_edit_mode:
+            return True
+            
+        # Check if another functional group tab is in edit mode
+        if self.main_editor:
+            for idx in range(self.main_editor.unit_tabs.count()):
+                widget = self.main_editor.unit_tabs.widget(idx)
+                if isinstance(widget, FunctionalGroupTab) and widget != self and widget.is_in_edit_mode:
+                    QMessageBox.warning(
+                        self,
+                        "Editing Lock",
+                        f"Functional group '{widget.unit.name}' is currently in Edit Mode.\n"
+                        "Please confirm or cancel changes in that group before editing another group."
+                    )
+                    return False
+                    
+        self.ensure_populated()
+        self.unit_snapshot = self.unit.model_dump(mode='json')
+        self.is_in_edit_mode = True
+        if self.model:
+            self.model.set_edit_mode(True)
+        self._update_edit_mode_ui()
+        return True
+
+    def confirm_changes(self) -> None:
+        """Validates, recalculates, commits single coherent Undo state, and returns to View Mode."""
+        if not self.is_in_edit_mode:
+            return
+            
+        self.table.setFocus()
         
+        from fmeda_tool.services.calculation_service import CalculationService
+        CalculationService.calculate_project(self.project)
+        
+        if self.model:
+            self.model.refresh_all_metrics()
+            self.model.set_edit_mode(False)
+            
+        if self.main_editor and hasattr(self.main_editor, "main_window") and self.main_editor.main_window:
+            self.main_editor.main_window.push_undo_state(f"Edit FMEDA Table: {self.unit.name}")
+            
+        if self.main_editor and hasattr(self.main_editor, "project_changed"):
+            self.main_editor.project_changed.emit()
+            
+        self.unit_snapshot = None
+        self.is_in_edit_mode = False
+        self._update_edit_mode_ui()
+
+    def cancel_changes(self) -> None:
+        """Restores functional group state before editing, discards edits, and returns to View Mode."""
+        if not self.is_in_edit_mode:
+            return
+            
+        self.table.setFocus()
+        
+        if self.unit_snapshot:
+            restored = Unit.model_validate(self.unit_snapshot)
+            self.unit.components = restored.components
+            self.unit.name = restored.name
+            self.unit.description = restored.description
+            self.unit.notes = restored.notes
+            
+        from fmeda_tool.services.calculation_service import CalculationService
+        CalculationService.calculate_project(self.project)
+        
+        if self.model:
+            self.model.reload_data()
+            self.model.set_edit_mode(False)
+            
+        self.unit_snapshot = None
+        self.is_in_edit_mode = False
+        self._update_edit_mode_ui()
+
+    def _update_edit_mode_ui(self) -> None:
+        """Updates toolbar badges and buttons based on edit mode."""
+        if self.is_in_edit_mode:
+            self.mode_badge.setText("✏️ Edit Mode (Unconfirmed)")
+            self.mode_badge.setStyleSheet("background-color: #fff3cd; color: #664d03; font-weight: bold; padding: 6px 12px; border-radius: 4px; border: 1px solid #ffecb5;")
+            self.toggle_edit_btn.hide()
+            self.confirm_edit_btn.show()
+            self.cancel_edit_btn.show()
+        else:
+            self.mode_badge.setText("🔒 View Mode (Locked)")
+            self.mode_badge.setStyleSheet("background-color: #e9ecef; color: #495057; font-weight: bold; padding: 6px 12px; border-radius: 4px; border: 1px solid #ced4da;")
+            self.toggle_edit_btn.show()
+            self.confirm_edit_btn.hide()
+            self.cancel_edit_btn.hide()
+
+    def ensure_populated(self, timer: Optional[PerformanceTimer] = None, reason: str = "initial"):
+        """Ensures tab UI and FMEDA table model are initialized and loaded."""
+        if self.is_populated and not self.is_dirty:
+            return
+            
+        if not self.ui_initialized:
+            t0 = time.perf_counter()
+            self._setup_ui(timer=timer)
+            if timer:
+                timer.log_lazy_event(self.unit.id, self.unit.name, "editor_created", duration_ms=(time.perf_counter()-t0)*1000)
+                
+        t0 = time.perf_counter()
+        self._load_fmeda_table(timer=timer, reason=reason)
+        self.is_populated = True
+        self.is_dirty = False
+        
+        if timer:
+            row_cnt = self.model.rowCount() if self.model else 0
+            timer.log_lazy_event(self.unit.id, self.unit.name, "table_populated", row_count=row_cnt, duration_ms=(time.perf_counter()-t0)*1000, reason=reason)
+
     def _toggle_view(self):
         cur = self.stacked_view.currentIndex()
         new_idx = 1 - cur
         self.stacked_view.setCurrentIndex(new_idx)
         if new_idx == 0:
-            self._load_fmeda_table()
-            
-    # def _toggle_column_groups(self):
-    #     # Component/BOM: 0-6
-    #     show_bom = self.cb_bom.isChecked()
-    #     for c in range(0, 7):
-    #         (c, not show_bom)
-            
-    #     # Failure Model: 7-12
-    #     show_fail = self.cb_fail.isChecked()
-    #     for c in range(7, 13):
-    #         (c, not show_fail)
-            
-    #     # Manual Engineering: 13-21
-    #     show_eng = self.cb_eng.isChecked()
-    #     for c in range(13, 22):
-    #         (c, not show_eng)
-            
-    #     # Proof-Test: 22-25
-    #     show_proof = self.cb_proof.isChecked()
-    #     for c in range(22, 26):
-    #         (c, not show_proof)
-            
-    #     # Calculated: 26-39
-    #     show_calc = self.cb_calc.isChecked()
-    #     for c in range(26, 39):
-    #         (c, not show_calc)
+            self.ensure_populated(reason="view_toggle")
+        elif new_idx == 1:
+            self._load_components_to_canvas()
 
     def _toggle_column_groups(self):
-        # Component/BOM: columns 0-6
         show_bom = self.cb_bom.isChecked()
-
         for c in range(0, 7):
             self.table.setColumnHidden(c, not show_bom)
 
-        # Failure Model: columns 7-12
         show_fail = self.cb_fail.isChecked()
-
         for c in range(7, 13):
             self.table.setColumnHidden(c, not show_fail)
 
-        # Manual Engineering: columns 13-23
         show_eng = self.cb_eng.isChecked()
-
         for c in range(13, 24):
             self.table.setColumnHidden(c, not show_eng)
 
-        # Always keep DC Test Ref, column 20, hidden.
         self.table.setColumnHidden(20, True)
 
-        # Proof-Test: columns 24-27
         show_proof = self.cb_proof.isChecked()
-
         for c in range(24, 28):
             self.table.setColumnHidden(c, not show_proof)
 
-        # Calculated Results: columns 28-40
         show_calc = self.cb_calc.isChecked()
-
         for c in range(28, 41):
             self.table.setColumnHidden(c, not show_calc)
 
-
     def _on_table_context_menu(self, pos):
-        selected_rows = self.table.selectionModel().selectedRows()
-        if not selected_rows:
+        if not self.model:
             return
             
-        row = selected_rows[0].row()
-        # Find which component/assignment is at this row
-        item0 = self.table.item(row, 0)
-        item7 = self.table.item(row, 7)
-        target_comp = item0.data(Qt.ItemDataRole.UserRole) if item0 else None
-        target_assignment = item7.data(Qt.ItemDataRole.UserRole) if item7 else None
+        index = self.table.indexAt(pos)
+        if not index.isValid():
+            return
+            
+        row = index.row()
+        if row < 0 or row >= len(self.model.rows):
+            return
+            
+        entry = self.model.rows[row]
+        if entry.is_separator or not entry.component or not entry.assignment:
+            return
+            
+        target_comp = entry.component
+        target_assignment = entry.assignment
         
-        if not target_comp or not target_assignment:
-            return
-            
         menu = QMenu(self)
-        
         act_dev = menu.addAction("Copy Deviation to all rows of this Component")
         act_class = menu.addAction("Copy Classification to all rows of this Component")
         act_dm = menu.addAction("Copy Diagnostic Measure & DC to all rows of this Component")
@@ -1021,12 +1182,18 @@ class FunctionalGroupTab(QWidget):
         if not action:
             return
             
-        # Perform propagation
+        if not self.is_in_edit_mode:
+            self.enable_editing()
+            
         for a in target_comp.failure_mode_assignments:
             if action == act_dev:
                 a.deviation_id = target_assignment.deviation_id
             elif action == act_class:
                 a.classification = target_assignment.classification
+                if a.classification == "safe_failure":
+                    a.dangerous_failure_percentage = 0.0
+                elif a.classification == "dangerous_failure":
+                    a.dangerous_failure_percentage = 100.0
             elif action == act_dm:
                 a.diagnostic_measure_id = target_assignment.diagnostic_measure_id
                 a.detection_percentage = target_assignment.detection_percentage
@@ -1036,396 +1203,23 @@ class FunctionalGroupTab(QWidget):
                 a.notes = target_assignment.notes
                 
         self._trigger_recalculation()
-        self._load_fmeda_table()
+        self.model.refresh_all_metrics()
 
-    def _load_fmeda_table(self):
-        # Disable sorting temporarily during load
-        self.table.setSortingEnabled(False)
-        self.table.setRowCount(0)
-        
-        from fmeda_tool.services.calculation_service import CalculationService
-        
-        class_map_rev = {
-            "not_evaluated": "Not Evaluated",
-            "safe_failure": "Safe Failure",
-            "dangerous_failure": "Dangerous Failure"
-        }
-        
-        is_first_comp = True
-        for comp in self.unit.components:
-            if not is_first_comp:
-                # Insert exactly one blank visual separator row between different components
-                sep_row = self.table.rowCount()
-                self.table.insertRow(sep_row)
-                for c in range(self.table.columnCount()):
-                    sep_item = QTableWidgetItem("")
-                    sep_item.setFlags(Qt.ItemFlag.NoItemFlags)
-                    sep_item.setBackground(QColor("#f8f9fa"))  # Neutral light gray background
-                    self.table.setItem(sep_row, c, sep_item)
-                self.table.setRowHeight(sep_row, 10)  # Small height
-                
-            is_first_comp = False
+    def _load_fmeda_table(self, timer: Optional[PerformanceTimer] = None, reason: str = "initial"):
+        if timer:
+            timer.counters.full_table_refresh_count += 1
+            timer.start_phase("every_call_to_populate_or_refresh_table")
             
-            for fm_name, fm_percentage in comp.failure_modes.items():
-                row = self.table.rowCount()
-                self.table.insertRow(row)
-                
-                # Get assignment
-                assignment = next((a for a in comp.failure_mode_assignments if a.failure_mode_name == fm_name), None)
-                if not assignment:
-                    assignment = FailureModeAssignment(
-                        failure_mode_name=fm_name,
-                        failure_rate_percentage=fm_percentage,
-                        classification="not_evaluated",
-                        dangerous_failure_percentage=100.0,
-                        detection_percentage=0.0
-                    )
-                    comp.failure_mode_assignments.append(assignment)
-                    
-                # Calculate detailed row metrics via calculation service
-                local_fit = (comp.failure_rate or 0.0) * (fm_percentage / 100.0)
-                classif = getattr(assignment, "classification", "not_evaluated")
-                dp = assignment.dangerous_failure_percentage if assignment.dangerous_failure_percentage is not None else 100.0
-                det = assignment.detection_percentage if assignment.detection_percentage is not None else 0.0
-                
-                # Backwards compatible mapping if it is no_part_failure/no_effect_failure/diagnostic_function_failure
-                if classif in ["no_part_failure", "no_effect_failure", "diagnostic_function_failure"]:
-                    assignment.dont_care = True
-                    assignment.dangerous_failure_percentage = 0.0
-                    assignment.classification = "safe_failure"
-                    classif = "safe_failure"
-                    dp = 0.0
-                
-                row_metrics = CalculationService.calculate_row_detailed(local_fit, classif, dp, det)
-                
-                # ----------------- Component/BOM Columns (0-6) -----------------
-                # Column 0: Designator (ReadOnly)
-                des_item = self._read_only_item(comp.position)
-                des_item.setData(Qt.ItemDataRole.UserRole, comp)
-                self.table.setItem(row, 0, des_item)
-                
-                # Column 1: Status Code (Will be styled in _style_row)
-                status_item = QTableWidgetItem("🟢")
-                status_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                self.table.setItem(row, 1, status_item)
-                
-                # Column 2: Function (Component Level edit)
-                fn_edit = QLineEdit(comp.function or "")
-                fn_edit.textChanged.connect(lambda txt, c=comp: self._on_comp_text_changed(txt, "function", c))
-                self.table.setCellWidget(row, 2, fn_edit)
-                
-                # Column 3: Value / Description (Component Level edit)
-                val_edit = QLineEdit(comp.value or "")
-                val_edit.textChanged.connect(lambda txt, c=comp: self._on_comp_text_changed(txt, "value", c))
-                self.table.setCellWidget(row, 3, val_edit)
-                
-                # Column 4: Internal Part Number (Component Level edit)
-                pn_edit = QLineEdit(comp.internal_pn or "")
-                pn_edit.textChanged.connect(lambda txt, c=comp: self._on_comp_text_changed(txt, "internal_pn", c))
-                self.table.setCellWidget(row, 4, pn_edit)
-                
-                # Column 5: Fitted Status (Component Level edit)
-                fit_combo = QComboBox()
-                fit_combo.addItems(["Fitted", "Not Fitted"])
-                fit_combo.setCurrentText(comp.fitted_status or "Fitted")
-                fit_combo.currentTextChanged.connect(lambda txt, c=comp: self._on_fitted_changed(txt, c))
-                self.table.setCellWidget(row, 5, fit_combo)
-                
-                # Column 6: Component Type (ReadOnly)
-                self.table.setItem(row, 6, self._read_only_item(comp.type))
-                
-                # ----------------- Failure Model Columns (7-12) -----------------
-                # Column 7: Failure Mode (ReadOnly)
-                fm_item = self._read_only_item(fm_name)
-                fm_item.setData(Qt.ItemDataRole.UserRole, assignment)
-                self.table.setItem(row, 7, fm_item)
-                
-                # Column 8: Distribution % (ReadOnly)
-                self.table.setItem(row, 8, self._read_only_item(f"{fm_percentage:.1f}%"))
-                
-                # Column 9: Base FIT (ReadOnly)
-                self.table.setItem(row, 9, self._read_only_item(f"{comp.failure_rate or 0.0:.4f}"))
-                
-                # Column 10: Reliability Source (ReadOnly)
-                rel_db = self.project.reliability_database_source or "MIL-HDBK-217F"
-                self.table.setItem(row, 10, self._read_only_item(rel_db))
-                
-                # Column 11: Source Reference (ReadOnly)
-                self.table.setItem(row, 11, self._read_only_item("Section 5"))
-                
-                # Column 12: Environmental Profile (ReadOnly)
-                env_prof = self.project.environmental_profile or "Ground Benign (GB)"
-                self.table.setItem(row, 12, self._read_only_item(env_prof))
-                
-                # ----------------- Manual Engineering Columns (13-23) -----------------
-                # Column 13: Deviation / Failure Effect
-                dev_combo = QComboBox()
-                dev_combo.addItem("-- None --", None)
-                for dev in self.project.deviations:
-                    dev_combo.addItem(dev.name, dev.id)
-                if assignment.deviation_id:
-                    dev_idx = dev_combo.findData(assignment.deviation_id)
-                    if dev_idx >= 0:
-                        dev_combo.setCurrentIndex(dev_idx)
-                dev_combo.currentIndexChanged.connect(
-                    lambda idx, a=assignment, c=comp, r=row, combo=dev_combo: self._on_dev_changed(combo.currentData(), a, c, r)
-                )
-                self.table.setCellWidget(row, 13, dev_combo)
-                
-                # Column 14: Diagnostic Function
-                diag_fn_edit = QLineEdit(assignment.diagnostic_function or "")
-                diag_fn_edit.textChanged.connect(
-                    lambda txt, a=assignment: self._on_assignment_text_changed(txt, "diagnostic_function", a)
-                )
-                self.table.setCellWidget(row, 14, diag_fn_edit)
-                
-                # Column 15: Failure Classification
-                class_combo = QComboBox()
-                class_combo.addItems([
-                    "Not Evaluated", "Safe Failure", "Dangerous Failure"
-                ])
-                class_combo.setCurrentText(class_map_rev.get(classif, "Not Evaluated"))
-                class_combo.currentTextChanged.connect(
-                    lambda txt, a=assignment, c=comp, r=row: self._on_classif_changed(txt, a, c, r)
-                )
-                self.table.setCellWidget(row, 15, class_combo)
-                
-                # Column 16: Dangerous %
-                dang_spin = QDoubleSpinBox()
-                dang_spin.setRange(0.0, 100.0)
-                dang_spin.setValue(dp)
-                dang_spin.setSuffix("%")
-                
-                # Column 17: Safe %
-                safe_spin = QDoubleSpinBox()
-                safe_spin.setRange(0.0, 100.0)
-                safe_spin.setValue(100.0 - dp)
-                safe_spin.setSuffix("%")
-                
-                dang_spin.valueChanged.connect(
-                    lambda val, a=assignment, s_spin=safe_spin, c=comp, r=row: self._on_dang_pct_changed(val, a, s_spin, c, r)
-                )
-                safe_spin.valueChanged.connect(
-                    lambda val, a=assignment, d_spin=dang_spin, c=comp, r=row: self._on_safe_pct_changed(val, a, d_spin, c, r)
-                )
-                self.table.setCellWidget(row, 16, dang_spin)
-                self.table.setCellWidget(row, 17, safe_spin)
-                
-                # Column 18: Diagnostic Measure ID
-                dm_combo = QComboBox()
-                dm_combo.addItem("-- None --", None)
-                for dm in self.project.diagnostic_measures:
-                    dm_combo.addItem(dm.description, dm.id)
-                if assignment.diagnostic_measure_id:
-                    dm_idx = dm_combo.findData(assignment.diagnostic_measure_id)
-                    if dm_idx >= 0:
-                        dm_combo.setCurrentIndex(dm_idx)
-                self.table.setCellWidget(row, 18, dm_combo)
-                
-                # Column 19: Detection % (DC)
-                det_spin = QDoubleSpinBox()
-                det_spin.setRange(0.0, 100.0)
-                det_spin.setValue(det)
-                det_spin.valueChanged.connect(
-                    lambda val, a=assignment, c=comp, r=row: self._on_det_changed(val, a, c, r)
-                )
-                self.table.setCellWidget(row, 19, det_spin)
-                
-                dm_combo.currentIndexChanged.connect(
-                    lambda idx, a=assignment, c=comp, r=row, combo=dm_combo, d_spin=det_spin: self._on_dm_changed(combo.currentData(), a, c, r, d_spin)
-                )
-                
-                # Column 21: Mitigation
-                mit_combo = QComboBox()
-                mit_combo.addItem("-- None --", None)
-                for mit in self.project.mitigations:
-                    mit_combo.addItem(mit.name or mit.id, mit.id)
-                if assignment.mitigation_id:
-                    mit_idx = mit_combo.findData(assignment.mitigation_id)
-                    if mit_idx >= 0:
-                        mit_combo.setCurrentIndex(mit_idx)
-                mit_combo.currentIndexChanged.connect(
-                    lambda idx, a=assignment, c=comp, r=row, combo=mit_combo: self._on_mit_changed(combo.currentData(), a, c, r)
-                )
-                self.table.setCellWidget(row, 21, mit_combo)
-                
-                # Column 22: Comments / Justification
-                comm_edit = QLineEdit(assignment.notes or "")
-                comm_edit.textChanged.connect(
-                    lambda txt, a=assignment: self._on_assignment_text_changed(txt, "notes", a)
-                )
-                self.table.setCellWidget(row, 22, comm_edit)
-                
-                # Column 23: Review Status
-                rev_combo = QComboBox()
-                rev_combo.addItems(["Draft", "Under Review", "Approved"])
-                rev_combo.setCurrentText((assignment.review_status or "Draft").title())
-                rev_combo.currentTextChanged.connect(
-                    lambda txt, a=assignment: self._on_assignment_text_changed(txt.lower(), "review_status", a)
-                )
-                self.table.setCellWidget(row, 23, rev_combo)
-                
-                # ----------------- Proof-Test Columns (24-27) -----------------
-                # Column 24: Proof Test A
-                pt_a_spin = QDoubleSpinBox()
-                pt_a_spin.setRange(0.0, 100.0)
-                pt_a_spin.setValue(getattr(assignment, "proof_test_a", 0.0) or 0.0)
-                pt_a_spin.valueChanged.connect(
-                    lambda val, a=assignment: self._on_pt_changed(val, "proof_test_a", a)
-                )
-                self.table.setCellWidget(row, 24, pt_a_spin)
-                
-                # Column 25: Proof Test B
-                pt_b_spin = QDoubleSpinBox()
-                pt_b_spin.setRange(0.0, 100.0)
-                pt_b_spin.setValue(getattr(assignment, "proof_test_b", 0.0) or 0.0)
-                pt_b_spin.valueChanged.connect(
-                    lambda val, a=assignment: self._on_pt_changed(val, "proof_test_b", a)
-                )
-                self.table.setCellWidget(row, 25, pt_b_spin)
-                
-                # Column 26: Proof Test C
-                pt_c_spin = QDoubleSpinBox()
-                pt_c_spin.setRange(0.0, 100.0)
-                pt_c_spin.setValue(getattr(assignment, "proof_test_c", 0.0) or 0.0)
-                pt_c_spin.valueChanged.connect(
-                    lambda val, a=assignment: self._on_pt_changed(val, "proof_test_c", a)
-                )
-                self.table.setCellWidget(row, 26, pt_c_spin)
-                
-                # Column 27: No Part / No Effect Checkbox
-                dc_check = QCheckBox()
-                dc_check.setChecked(getattr(assignment, "dont_care", False) or False)
-                dc_check.stateChanged.connect(
-                    lambda state, a=assignment, c=comp, r=row: self._on_dont_care_changed(state, a, c, r)
-                )
-                ch_widget = QWidget()
-                ch_lay = QHBoxLayout(ch_widget)
-                ch_lay.addWidget(dc_check)
-                ch_lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                ch_lay.setContentsMargins(0,0,0,0)
-                self.table.setCellWidget(row, 27, ch_widget)
-                
-                # ----------------- Calculated Result Columns (28-40) -----------------
-                self.table.setItem(row, 28, self._read_only_item(f"{row_metrics['lambda']:.4f}"))
-                self.table.setItem(row, 29, self._read_only_item(f"{row_metrics['lambda_safe']:.4f}"))
-                self.table.setItem(row, 30, self._read_only_item(f"{row_metrics['lambda_dangerous']:.4f}"))
-                self.table.setItem(row, 31, self._read_only_item(f"{row_metrics['lambda_sd']:.4f}"))
-                self.table.setItem(row, 32, self._read_only_item(f"{row_metrics['lambda_su']:.4f}"))
-                self.table.setItem(row, 33, self._read_only_item(f"{row_metrics['lambda_dd']:.4f}"))
-                self.table.setItem(row, 34, self._read_only_item(f"{row_metrics['lambda_du']:.4f}"))
-                self.table.setItem(row, 35, self._read_only_item(f"{row_metrics['lambda_no_part']:.4f}"))
-                self.table.setItem(row, 36, self._read_only_item(f"{row_metrics['lambda_no_effect']:.4f}"))
-                
-                self.table.setItem(row, 37, self._read_only_item(f"{row_metrics['sff']:.1f}%"))
-                self.table.setItem(row, 38, self._read_only_item(f"{row_metrics['dc']:.1f}%"))
-                
-                mtbf_str = f"{row_metrics['mtbf']:.1e}" if row_metrics['mtbf'] > 0 else "N/A"
-                self.table.setItem(row, 39, self._read_only_item(mtbf_str))
-                
-                mttfd_str = f"{row_metrics['mttfd']:.1f}" if row_metrics['mttfd'] > 0 else "N/A"
-                self.table.setItem(row, 40, self._read_only_item(mttfd_str))
-                
-                self._style_row(row, assignment, comp)
-                
-        # Re-apply toggled headers
-        self._toggle_column_groups()
+        try:
+            if self.model:
+                self.model.reload_data()
+            self._toggle_column_groups()
+        finally:
+            if timer:
+                timer.end_phase("every_call_to_populate_or_refresh_table")
 
-    def _read_only_item(self, text: str) -> QTableWidgetItem:
-        item = QTableWidgetItem(text)
-        item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-        return item
-        
-    def _trigger_recalculation(self):
-        from fmeda_tool.services.calculation_service import CalculationService
-        CalculationService.calculate_project(self.project)
-        self.main_editor.project_changed.emit()
-
-    def _on_comp_text_changed(self, text: str, field: str, comp: Component):
-        if self.main_editor and hasattr(self.main_editor, "main_window"):
-            last_act = self.main_editor.main_window.undo_stack[-1][1] if self.main_editor.main_window.undo_stack else ""
-            act = f"Edit {field.title().replace('_', ' ')} of {comp.position}"
-            if last_act != act:
-                self.main_editor.main_window.push_undo_state(act)
-        setattr(comp, field, text)
-        self.main_editor.project_changed.emit()
-        
-        # Update other repeated rows for the same component in real-time
-        col_map = {
-            "function": 2,
-            "value": 3,
-            "internal_pn": 4
-        }
-        col = col_map.get(field)
-        if col is not None:
-            active_sender = self.sender()
-            for r in range(self.table.rowCount()):
-                item = self.table.item(r, 0)
-                if item and item.text() == comp.position:
-                    widget = self.table.cellWidget(r, col)
-                    if isinstance(widget, QLineEdit) and widget != active_sender:
-                        widget.blockSignals(True)
-                        widget.setText(text)
-                        widget.blockSignals(False)
-
-    def _on_assignment_text_changed(self, text: str, field: str, assignment: FailureModeAssignment):
-        if self.main_editor and hasattr(self.main_editor, "main_window"):
-            last_act = self.main_editor.main_window.undo_stack[-1][1] if self.main_editor.main_window.undo_stack else ""
-            act = f"Edit {field.title().replace('_', ' ')} of {assignment.failure_mode_name}"
-            if last_act != act:
-                self.main_editor.main_window.push_undo_state(act)
-        setattr(assignment, field, text)
-        self.main_editor.project_changed.emit()
-
-    def _on_fitted_changed(self, text: str, comp: Component):
-        if self.main_editor and hasattr(self.main_editor, "main_window"):
-            self.main_editor.main_window.push_undo_state(f"Change Fitted Status of {comp.position}")
-        comp.fitted_status = text
-        self._trigger_recalculation()
-        
-        # Update other repeated rows' combo boxes and recalculate calculated columns
-        active_sender = self.sender()
-        for r in range(self.table.rowCount()):
-            item = self.table.item(r, 0)
-            if item and item.text() == comp.position:
-                widget = self.table.cellWidget(r, 5)
-                if isinstance(widget, QComboBox) and widget != active_sender:
-                    widget.blockSignals(True)
-                    widget.setCurrentText(text)
-                    widget.blockSignals(False)
-                
-                # Retrieve assignment for this row and update its calculated cells
-                item7 = self.table.item(r, 7)
-                assignment = item7.data(Qt.ItemDataRole.UserRole) if item7 else None
-                if assignment:
-                    self._update_row_calculated_cells(r, assignment, comp)
-
-    def _on_pt_changed(self, val: float, field: str, assignment: FailureModeAssignment):
-        if self.main_editor and hasattr(self.main_editor, "main_window"):
-            last_act = self.main_editor.main_window.undo_stack[-1][1] if self.main_editor.main_window.undo_stack else ""
-            act = f"Change Proof Test of {assignment.failure_mode_name}"
-            if last_act != act:
-                self.main_editor.main_window.push_undo_state(act)
-        setattr(assignment, field, val)
-        self._trigger_recalculation()
-
-    def _on_dont_care_changed(self, state: int, assignment: FailureModeAssignment, comp: Component, row: int):
-        if self.main_editor and hasattr(self.main_editor, "main_window"):
-            self.main_editor.main_window.push_undo_state(f"Change No Part of {comp.position}")
-        assignment.dont_care = (state == 2 or state == Qt.CheckState.Checked.value or state == True)
-        self._trigger_recalculation()
-        self._load_fmeda_table()
-
-    def _on_dev_changed(self, dev_id: Optional[str], assignment: FailureModeAssignment, component: Component, row: int):
-        if self.main_editor and hasattr(self.main_editor, "main_window"):
-            self.main_editor.main_window.push_undo_state(f"Change Deviation of {component.position}")
-        assignment.deviation_id = dev_id
-        self._style_row(row, assignment, component)
-        self._trigger_recalculation()
-        
     def _on_classif_changed(self, text: str, assignment: FailureModeAssignment, component: Component, row: int):
-        if self.main_editor and hasattr(self.main_editor, "main_window"):
-            self.main_editor.main_window.push_undo_state(f"Change Classification of {component.position}")
+        """Helper for programmatic or test classification changes."""
         class_map = {
             "Not Evaluated": "not_evaluated",
             "Safe Failure": "safe_failure",
@@ -1437,178 +1231,34 @@ class FunctionalGroupTab(QWidget):
         elif assignment.classification == "dangerous_failure":
             assignment.dangerous_failure_percentage = 100.0
             
+        if self.model:
+            self.model.refresh_all_metrics()
         self._trigger_recalculation()
-        self._load_fmeda_table()
 
-    def _on_dang_pct_changed(self, val: float, assignment: FailureModeAssignment, safe_spin: QDoubleSpinBox, component: Component, row: int):
-        if self.main_editor and hasattr(self.main_editor, "main_window"):
-            last_act = self.main_editor.main_window.undo_stack[-1][1] if self.main_editor.main_window.undo_stack else ""
-            act = f"Change Dangerous % of {component.position}"
-            if last_act != act:
-                self.main_editor.main_window.push_undo_state(act)
-        assignment.dangerous_failure_percentage = val
-        safe_spin.blockSignals(True)
-        safe_spin.setValue(100.0 - val)
-        safe_spin.blockSignals(False)
-        
-        if val == 0.0:
-            assignment.classification = "safe_failure"
-        elif val == 100.0:
-            assignment.classification = "dangerous_failure"
-        else:
-            assignment.classification = "dangerous_failure"
-            
-        class_combo = self.table.cellWidget(row, 15)
-        if class_combo:
-            class_combo.blockSignals(True)
-            if val == 0.0:
-                class_combo.setCurrentText("Safe Failure")
-            elif val == 100.0:
-                class_combo.setCurrentText("Dangerous Failure")
-            else:
-                class_combo.setCurrentText("Dangerous Failure")
-            class_combo.blockSignals(False)
-            
-        self._trigger_recalculation()
-        self._update_row_calculated_cells(row, assignment, component)
-
-    def _on_safe_pct_changed(self, val: float, assignment: FailureModeAssignment, dang_spin: QDoubleSpinBox, component: Component, row: int):
-        if self.main_editor and hasattr(self.main_editor, "main_window"):
-            last_act = self.main_editor.main_window.undo_stack[-1][1] if self.main_editor.main_window.undo_stack else ""
-            act = f"Change Safe % of {component.position}"
-            if last_act != act:
-                self.main_editor.main_window.push_undo_state(act)
-        dang_val = 100.0 - val
-        assignment.dangerous_failure_percentage = dang_val
-        dang_spin.blockSignals(True)
-        dang_spin.setValue(dang_val)
-        dang_spin.blockSignals(False)
-        
-        if dang_val == 0.0:
-            assignment.classification = "safe_failure"
-        elif dang_val == 100.0:
-            assignment.classification = "dangerous_failure"
-        else:
-            assignment.classification = "dangerous_failure"
-            
-        class_combo = self.table.cellWidget(row, 15)
-        if class_combo:
-            class_combo.blockSignals(True)
-            if dang_val == 0.0:
-                class_combo.setCurrentText("Safe Failure")
-            elif dang_val == 100.0:
-                class_combo.setCurrentText("Dangerous Failure")
-            else:
-                class_combo.setCurrentText("Dangerous Failure")
-            class_combo.blockSignals(False)
-            
-        self._trigger_recalculation()
-        self._update_row_calculated_cells(row, assignment, component)
-
-    def _update_row_calculated_cells(self, row: int, assignment: FailureModeAssignment, component: Component):
-        from fmeda_tool.services.calculation_service import CalculationService
-        fm_percentage = component.failure_modes.get(assignment.failure_mode_name, 0.0)
-        local_fit = (component.failure_rate or 0.0) * (fm_percentage / 100.0)
-        dp = assignment.dangerous_failure_percentage if assignment.dangerous_failure_percentage is not None else 100.0
-        det = assignment.detection_percentage if assignment.detection_percentage is not None else 0.0
-        
-        row_metrics = CalculationService.calculate_row_detailed(local_fit, assignment.classification, dp, det)
-        
-        self.table.blockSignals(True)
-        self.table.setItem(row, 28, self._read_only_item(f"{row_metrics['lambda']:.4f}"))
-        self.table.setItem(row, 29, self._read_only_item(f"{row_metrics['lambda_safe']:.4f}"))
-        self.table.setItem(row, 30, self._read_only_item(f"{row_metrics['lambda_dangerous']:.4f}"))
-        self.table.setItem(row, 31, self._read_only_item(f"{row_metrics['lambda_sd']:.4f}"))
-        self.table.setItem(row, 32, self._read_only_item(f"{row_metrics['lambda_su']:.4f}"))
-        self.table.setItem(row, 33, self._read_only_item(f"{row_metrics['lambda_dd']:.4f}"))
-        self.table.setItem(row, 34, self._read_only_item(f"{row_metrics['lambda_du']:.4f}"))
-        self.table.setItem(row, 35, self._read_only_item(f"{row_metrics['lambda_no_part']:.4f}"))
-        self.table.setItem(row, 36, self._read_only_item(f"{row_metrics['lambda_no_effect']:.4f}"))
-        
-        self.table.setItem(row, 37, self._read_only_item(f"{row_metrics['sff']:.1f}%"))
-        self.table.setItem(row, 38, self._read_only_item(f"{row_metrics['dc']:.1f}%"))
-        
-        mtbf_str = f"{row_metrics['mtbf']:.1e}" if row_metrics['mtbf'] > 0 else "N/A"
-        self.table.setItem(row, 39, self._read_only_item(mtbf_str))
-        
-        mttfd_str = f"{row_metrics['mttfd']:.1f}" if row_metrics['mttfd'] > 0 else "N/A"
-        self.table.setItem(row, 40, self._read_only_item(mttfd_str))
-        self.table.blockSignals(False)
-        
-        self._style_row(row, assignment, component)
-
-    def _on_dm_changed(self, dm_id: Optional[str], assignment: FailureModeAssignment, component: Component, row: int, det_spin: QDoubleSpinBox):
-        if self.main_editor and hasattr(self.main_editor, "main_window"):
-            self.main_editor.main_window.push_undo_state(f"Change Diagnostic Measure of {component.position}")
-        assignment.diagnostic_measure_id = dm_id
-        if dm_id:
-            dm = next((m for m in self.project.diagnostic_measures if m.id == dm_id), None)
-            if dm:
-                det_spin.setValue(dm.dc)
-                assignment.detection_percentage = dm.dc
-        self._trigger_recalculation()
-        self._update_row_calculated_cells(row, assignment, component)
-        
-    def _on_det_changed(self, val: float, assignment: FailureModeAssignment, component: Component, row: int):
-        if self.main_editor and hasattr(self.main_editor, "main_window"):
-            last_act = self.main_editor.main_window.undo_stack[-1][1] if self.main_editor.main_window.undo_stack else ""
-            act = f"Change Detection % of {component.position}"
-            if last_act != act:
-                self.main_editor.main_window.push_undo_state(act)
-        assignment.detection_percentage = val
-        self._trigger_recalculation()
-        self._update_row_calculated_cells(row, assignment, component)
-        
-    def _on_mit_changed(self, mit_id: Optional[str], assignment: FailureModeAssignment, component: Component, row: int):
-        if self.main_editor and hasattr(self.main_editor, "main_window"):
-            self.main_editor.main_window.push_undo_state(f"Change Mitigation of {component.position}")
-        assignment.mitigation_id = mit_id
-        self._trigger_recalculation()
-        self._update_row_calculated_cells(row, assignment, component)
-
-    def _style_row(self, row: int, assignment: FailureModeAssignment, component: Component):
-        status, msgs = ValidationService.validate_row(assignment, component)
-        status_item = self.table.item(row, 1)
-        if not status_item:
+    def _trigger_recalculation(self):
+        if getattr(self.main_editor, "is_loading_project", False):
             return
-            
-        if status == "error":
-            status_item.setText("🔴")
-            status_item.setToolTip("\n".join(msgs))
-            bg = QColor("#f8d7da")
-        elif status == "warning":
-            status_item.setText("🟡")
-            status_item.setToolTip("\n".join(msgs))
-            bg = QColor("#fff3cd")
-        else:
-            status_item.setText("🟢")
-            status_item.setToolTip("Clean")
-            bg = QColor("#ffffff")
-            
-        for col in range(13):
-            item = self.table.item(row, col)
-            if item:
-                item.setBackground(bg)
-                
+        from fmeda_tool.services.calculation_service import CalculationService
+        CalculationService.calculate_project(self.project)
+        if self.main_editor and hasattr(self.main_editor, "project_changed"):
+            self.main_editor.project_changed.emit()
+
     def _on_import_bom_csv(self):
         existing_designators = (
             [c.position for c in self.unit.components] +
             [b.designator for b in self.unit.bom_components]
         )
         
-        # 1. User selects a CSV file
         filepath, _ = QFileDialog.getOpenFileName(
             self, "Select BOM CSV File", "", "CSV Files (*.csv);;All Files (*.*)"
         )
         if not filepath:
-            # Safely close, do not modify project
             return
             
         dialog = BOMImportDialog(existing_designators, filepath=filepath, parent=self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             imported = dialog.imported_components
             
-            # Detect accidental duplicate imports
             duplicates = []
             new_imports = []
             for comp in imported:
@@ -1631,11 +1281,7 @@ class FunctionalGroupTab(QWidget):
                 )
                 return
                 
-            # Add imported BOM components to the active functional group
-            # Preserve existing components
             self.unit.bom_components.extend(new_imports)
-            
-            # Mark project as modified
             self.main_editor.project_changed.emit()
             
             QMessageBox.information(
@@ -1649,27 +1295,22 @@ class FunctionalGroupTab(QWidget):
         if not self.unit.bom_components:
             QMessageBox.warning(self, "No BOM Imported", "Please import a BOM first before mapping components.")
             return
-        dialog = ComponentMappingDialog(self.unit, self)
+        prof = getattr(self.project, "selected_profile", "Profile 1") if hasattr(self, "project") and self.project else "Profile 1"
+        dialog = ComponentMappingDialog(self.unit, project_profile=prof, parent=self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self._load_fmeda_table()
             self._trigger_recalculation()
             QMessageBox.information(self, "Mappings Saved", "BOM component mappings have been confirmed and FMEDA rows generated successfully!")
 
     def _on_add_comp_type(self):
-        # Adds component type to canvas
         try:
             viewport = self.canvas.viewport()
-            if viewport:
-                center_pos = self.canvas.mapToScene(viewport.rect().center())
-            else:
-                center_pos = QPointF(0, 0)
+            center_pos = self.canvas.mapToScene(viewport.rect().center()) if viewport else QPointF(0, 0)
         except Exception:
             center_pos = QPointF(0, 0)
-            
         self._on_add_component_at_position(center_pos)
         
     def _on_add_bom_man_clicked(self):
-        # Opens dialog to add BOM Component manually
         from fmeda_tool.models.bom_component import BOMComponent
         
         dialog = QDialog(self)
@@ -1705,33 +1346,35 @@ class FunctionalGroupTab(QWidget):
             if not hasattr(self.unit, "bom_components") or self.unit.bom_components is None:
                 self.unit.bom_components = []
             self.unit.bom_components.append(bom)
-            self.main_editor.project_changed.emit()
+            if self.main_editor and hasattr(self.main_editor, "project_changed"):
+                self.main_editor.project_changed.emit()
             QMessageBox.information(self, "Success", f"BOM Component '{des}' added manually.")
             
     def _on_manage_deviations_clicked(self):
-        dialog = DeviationManagerDialog(self.project, self)
+        unit_name = self.unit.name if hasattr(self, "unit") and self.unit else "Project / Global"
+        dialog = DeviationManagerDialog(self.project, unit_name=unit_name, parent=self)
         dialog.exec()
-        if self.stacked_view.currentIndex() == 0:
-            self._load_fmeda_table()
+        if hasattr(self, "stacked_view") and self.stacked_view.currentIndex() == 0 and self.is_populated:
+            self._load_fmeda_table(reason="deviation_managed")
             
     def _on_manage_mitigations_clicked(self):
-        dialog = MitigationManagerDialog(self.project, self)
+        unit_name = self.unit.name if hasattr(self, "unit") and self.unit else "Global / Project"
+        dialog = MitigationManagerDialog(self.project, unit_name=unit_name, parent=self)
         dialog.exec()
-        if self.stacked_view.currentIndex() == 0:
-            self._load_fmeda_table()
+        if hasattr(self, "stacked_view") and self.stacked_view.currentIndex() == 0 and self.is_populated:
+            self._load_fmeda_table(reason="mitigation_managed")
             
     def _on_manage_dm_clicked(self):
         dialog = DiagnosticMeasureManagerDialog(self.project, self)
         dialog.exec()
-        if self.stacked_view.currentIndex() == 0:
-            self._load_fmeda_table()
+        if hasattr(self, "stacked_view") and self.stacked_view.currentIndex() == 0 and self.is_populated:
+            self._load_fmeda_table(reason="dm_managed")
             
     def _on_validate_clicked(self):
-        if self.stacked_view.currentIndex() == 0:
-            self._load_fmeda_table()
+        if hasattr(self, "stacked_view") and self.stacked_view.currentIndex() == 0:
+            self.ensure_populated(reason="manual_validate")
             QMessageBox.information(self, "Validation", "FMEDA spreadsheet validation complete. Check status indicator icons.")
         else:
-            # Check overview metrics
             errors_cnt = 0
             warnings_cnt = 0
             for comp in self.unit.components:
@@ -1747,24 +1390,48 @@ class FunctionalGroupTab(QWidget):
             )
             
     def _on_calculate_clicked(self):
-        # calculations will be fully implemented in Increment 6
-        if self.stacked_view.currentIndex() == 0:
+        self._trigger_recalculation()
+        if hasattr(self, "stacked_view") and self.stacked_view.currentIndex() == 0 and self.is_populated:
             self._load_fmeda_table()
         QMessageBox.information(self, "Calculate", "Calculations refreshed.")
         
     def _load_components_from_db(self):
+        templates = []
         try:
-            db_path = Path("data/components_db.json")
-            if db_path.exists():
-                with open(db_path, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                return [ComponentDB(**comp) for comp in data]
+            prof = getattr(self.project, "selected_profile", "Profile 1") if hasattr(self, "project") and self.project else "Profile 1"
+            exida_comps = ComponentLibraryService.search_exida_components(profile=prof)
+            for c in exida_comps:
+                snap = ComponentLibraryService.get_exida_component_snapshot(c["id"], prof)
+                if snap:
+                    templates.append(ComponentDB(
+                        id=snap["library_component_id"],
+                        display_name=snap["displayed_label"],
+                        shortcut=snap.get("failure_rate_id"),
+                        material=snap.get("component_type"),
+                        fits=snap.get("failure_rate"),
+                        database="exida",
+                        failure_modes=snap.get("failure_modes", {})
+                    ))
+            legacy_comps = ComponentLibraryService.search_legacy_components()
+            for l in legacy_comps:
+                snap = ComponentLibraryService.get_legacy_component_snapshot(l["id"])
+                if snap:
+                    templates.append(ComponentDB(
+                        id=snap["library_component_id"],
+                        display_name=snap["display_name"],
+                        shortcut=snap.get("shortcut"),
+                        material=snap.get("material"),
+                        fits=snap.get("failure_rate"),
+                        database="Legacy",
+                        failure_modes=snap.get("failure_modes", {})
+                    ))
         except Exception as e:
-            print(f"Error loading components database: {e}")
-        return []
+            print(f"Error loading components database from SQLite: {e}")
+        return templates
         
     def _on_add_component_at_position(self, position: QPointF):
-        dialog = ComponentSelectionDialog(self)
+        prof = getattr(self.project, "selected_profile", "Profile 1") if hasattr(self, "project") and self.project else "Profile 1"
+        dialog = ComponentSelectionDialog(project_profile=prof, parent=self)
         dialog.component_selected.connect(
             lambda component: self._add_component_to_canvas(component, position)
         )
@@ -1776,7 +1443,6 @@ class FunctionalGroupTab(QWidget):
         
         self.unit.components.append(component)
         
-        # Build dummy ComponentDB for visual item
         comp_db = ComponentDB(
             id=f"db_{component.id}",
             display_name=component.name,
@@ -1790,7 +1456,6 @@ class FunctionalGroupTab(QWidget):
         visual_item.component_instance = component
         self.canvas.scene.addItem(visual_item)
         
-        # Log change
         from fmeda_tool.services.project_service import ProjectService
         ProjectService.log_change(
             self.project,
@@ -1798,7 +1463,8 @@ class FunctionalGroupTab(QWidget):
             f"Added component '{component.position}' ({component.name}) to functional group '{self.unit.name}'."
         )
         
-        self.main_editor.project_changed.emit()
+        if self.main_editor and hasattr(self.main_editor, "project_changed"):
+            self.main_editor.project_changed.emit()
         self._load_fmeda_table()
         self._trigger_recalculation()
         
@@ -1807,7 +1473,6 @@ class FunctionalGroupTab(QWidget):
             return
         dialog = ComponentInstanceDialog(component_item.component_instance, self.project, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            # Log change
             from fmeda_tool.services.project_service import ProjectService
             ProjectService.log_change(
                 self.project,
@@ -1919,7 +1584,7 @@ class FunctionalGroupDialog(QDialog):
 
 
 class UnitEditorView(QWidget):
-    """Page 2: Main FMEDA tabbed workspace supporting Project Overview and Functional Group Tabs"""
+    """Main FMEDA tabbed workspace supporting Project Overview and lazy-loaded Functional Group Tabs"""
     
     save_requested = pyqtSignal()
     back_requested = pyqtSignal()
@@ -1931,17 +1596,19 @@ class UnitEditorView(QWidget):
         self.project: Optional[Project] = None
         self.current_unit: Optional[Unit] = None
         self.current_unit_index: int = 0
+        self.is_loading_project: bool = False
+        self._current_active_tab_widget = None
         self._setup_ui()
         self.project_changed.connect(self._on_project_changed)
         
     @property
     def add_comp_btn(self):
         tab = self.unit_tabs.currentWidget()
-        if isinstance(tab, FunctionalGroupTab):
+        if isinstance(tab, FunctionalGroupTab) and hasattr(tab, "add_comp_type_btn"):
             return tab.add_comp_type_btn
         for idx in range(self.unit_tabs.count()):
             widget = self.unit_tabs.widget(idx)
-            if isinstance(widget, FunctionalGroupTab):
+            if isinstance(widget, FunctionalGroupTab) and hasattr(widget, "add_comp_type_btn"):
                 return widget.add_comp_type_btn
         if not hasattr(self, "_dummy_add_btn"):
             self._dummy_add_btn = QPushButton()
@@ -1951,11 +1618,11 @@ class UnitEditorView(QWidget):
     @property
     def config_comp_btn(self):
         tab = self.unit_tabs.currentWidget()
-        if isinstance(tab, FunctionalGroupTab):
+        if isinstance(tab, FunctionalGroupTab) and hasattr(tab, "add_bom_man_btn"):
             return tab.add_bom_man_btn
         for idx in range(self.unit_tabs.count()):
             widget = self.unit_tabs.widget(idx)
-            if isinstance(widget, FunctionalGroupTab):
+            if isinstance(widget, FunctionalGroupTab) and hasattr(widget, "add_bom_man_btn"):
                 return widget.add_bom_man_btn
         if not hasattr(self, "_dummy_config_btn"):
             self._dummy_config_btn = QPushButton()
@@ -2047,7 +1714,7 @@ class UnitEditorView(QWidget):
         self.add_fg_btn.setEnabled(False)
         layout.addWidget(self.add_fg_btn)
         
-        self.edit_fg_btn = QPushButton("✏️ Edit Group")
+        self.edit_fg_btn = QPushButton("✏️ Edit Group Details")
         self.edit_fg_btn.setStyleSheet("background-color: #ffc107; color: black; padding: 6px 12px; border-radius: 4px; font-weight: bold;")
         self.edit_fg_btn.clicked.connect(self._on_edit_fg)
         self.edit_fg_btn.setEnabled(False)
@@ -2102,9 +1769,9 @@ class UnitEditorView(QWidget):
             self.unit_tabs.setCurrentIndex(unit_idx + 1)
             tab_widget = self.unit_tabs.widget(unit_idx + 1)
             if isinstance(tab_widget, FunctionalGroupTab):
+                tab_widget.ensure_populated(reason="focus_row")
                 tab_widget.stacked_view.setCurrentIndex(0)
                 
-                # Map row_index (flat index of failure mode) to the actual table row containing that item
                 target_comp = None
                 target_fm = None
                 curr = 0
@@ -2119,70 +1786,142 @@ class UnitEditorView(QWidget):
                         break
                 
                 actual_table_row = -1
-                if target_comp and target_fm:
-                    for r in range(tab_widget.table.rowCount()):
-                        item0 = tab_widget.table.item(r, 0)
-                        item7 = tab_widget.table.item(r, 7)
-                        comp_in_row = item0.data(Qt.ItemDataRole.UserRole) if item0 else None
-                        if comp_in_row == target_comp and item7 and item7.text() == target_fm:
+                if target_comp and target_fm and tab_widget.model:
+                    for r, entry in enumerate(tab_widget.model.rows):
+                        if not entry.is_separator and entry.component == target_comp and entry.fm_name == target_fm:
                             actual_table_row = r
                             break
                             
-                if actual_table_row >= 0:
-                    tab_widget.table.setCurrentCell(actual_table_row, 0)
-                    tab_widget.table.scrollToItem(tab_widget.table.item(actual_table_row, 0))
+                if actual_table_row >= 0 and tab_widget.model:
+                    idx = tab_widget.model.index(actual_table_row, 0)
+                    tab_widget.table.setCurrentIndex(idx)
+                    tab_widget.table.scrollTo(idx)
 
-    def load_project(self, project: Project):
-        self.project = project
-        self.project_name_label.setText(project.name)
-        status_str = project.status.value.replace("_", " ").title() if project.status else "Draft"
-        self.project_status_label.setText(f"Status: {status_str}")
-        
-        self.add_fg_btn.setEnabled(True)
-        self.edit_fg_btn.setEnabled(True)
-        self.remove_fg_btn.setEnabled(True)
-        
-        while self.unit_tabs.count() > 1:
-            self.unit_tabs.removeTab(1)
+    def load_project(self, project: Project, timer: Optional[PerformanceTimer] = None):
+        """
+        Loads a project into the workspace using true lazy-loading:
+        - Inactive tabs create lightweight headers only.
+        - If Overview is active, zero functional group tables are populated.
+        - If a group tab is active, only that single active group is populated.
+        """
+        if timer:
+            timer.counters.load_project_count += 1
             
-        self.overview_tab.refresh(project)
+        self.is_loading_project = True
+        self.setUpdatesEnabled(False)
+        self.blockSignals(True)
+        self.unit_tabs.blockSignals(True)
         
-        if project.units:
-            for unit in project.units:
-                fg_tab = FunctionalGroupTab(unit, project, self)
-                self.unit_tabs.addTab(fg_tab, unit.name)
+        try:
+            self.project = project
+            self.project_name_label.setText(project.name)
+            status_str = project.status.value.replace("_", " ").title() if project.status else "Draft"
+            self.project_status_label.setText(f"Status: {status_str}")
+            
+            self.add_fg_btn.setEnabled(True)
+            self.edit_fg_btn.setEnabled(True)
+            self.remove_fg_btn.setEnabled(True)
+            
+            # Clear old functional group tabs
+            while self.unit_tabs.count() > 1:
+                self.unit_tabs.removeTab(1)
                 
-            # Restore active tab
-            if project.last_active_tab_id == "overview" or not project.last_active_tab_id:
-                self.unit_tabs.setCurrentIndex(0)
-            else:
-                restored = False
+            # Populate overview dashboard
+            if timer:
+                timer.start_phase("overview_widget_refresh")
+            self.overview_tab.refresh(project)
+            if timer:
+                timer.end_phase("overview_widget_refresh")
+                
+            # Create lightweight functional group tab placeholders
+            if timer:
+                timer.start_phase("functional_group_tab_headers_creation")
+            if project.units:
+                for unit in project.units:
+                    fg_tab = FunctionalGroupTab(unit, project, self)
+                    self.unit_tabs.addTab(fg_tab, unit.name)
+                    if timer:
+                        timer.counters.functional_group_editor_creation_count += 1
+                        timer.log_lazy_event(unit.id, unit.name, "tab_header_created")
+            if timer:
+                timer.end_phase("functional_group_tab_headers_creation")
+                
+            # Determine target active tab index
+            target_idx = 0
+            if project.last_active_tab_id and project.last_active_tab_id != "overview" and project.units:
                 for idx, u in enumerate(project.units):
                     if u.id == project.last_active_tab_id:
-                        self.unit_tabs.setCurrentIndex(idx + 1)
-                        restored = True
+                        target_idx = idx + 1
                         break
-                if not restored:
-                    self.unit_tabs.setCurrentIndex(0)
-        else:
-            self.unit_tabs.setCurrentIndex(0)
+                        
+            self.unit_tabs.setCurrentIndex(target_idx)
+            self._current_active_tab_widget = self.unit_tabs.widget(target_idx)
+            
+            # Only populate the active tab if it is a FunctionalGroupTab
+            if target_idx > 0:
+                active_tab = self.unit_tabs.widget(target_idx)
+                if isinstance(active_tab, FunctionalGroupTab):
+                    if timer:
+                        timer.start_phase("active_functional_group_population")
+                    active_tab.ensure_populated(timer=timer, reason="initial")
+                    if timer:
+                        timer.end_phase("active_functional_group_population")
+                        
+        finally:
+            self.unit_tabs.blockSignals(False)
+            self.blockSignals(False)
+            self.setUpdatesEnabled(True)
+            self.is_loading_project = False
             
     def _on_undo_clicked(self):
         if hasattr(self, "main_window"):
             self.main_window._on_undo()
             
     def _on_tab_changed(self, idx: int):
+        # Handle unconfirmed edits on previously active tab
+        prev_widget = getattr(self, "_current_active_tab_widget", None)
+        if isinstance(prev_widget, FunctionalGroupTab) and prev_widget.is_in_edit_mode and not self.is_loading_project:
+            msg = QMessageBox(self)
+            msg.setIcon(QMessageBox.Icon.Question)
+            msg.setWindowTitle("Unconfirmed Edits")
+            msg.setText(f"Functional group '{prev_widget.unit.name}' has unconfirmed changes.")
+            msg.setInformativeText("What would you like to do before switching tabs?")
+            btn_confirm = msg.addButton("Confirm and Switch", QMessageBox.ButtonRole.AcceptRole)
+            btn_discard = msg.addButton("Discard and Switch", QMessageBox.ButtonRole.DestructiveRole)
+            btn_cancel = msg.addButton("Cancel", QMessageBox.ButtonRole.RejectRole)
+            msg.setDefaultButton(btn_confirm)
+            msg.exec()
+            
+            clicked = msg.clickedButton()
+            if clicked == btn_confirm:
+                prev_widget.confirm_changes()
+            elif clicked == btn_discard:
+                prev_widget.cancel_changes()
+            else:
+                prev_idx = self.unit_tabs.indexOf(prev_widget)
+                self.unit_tabs.blockSignals(True)
+                self.unit_tabs.setCurrentIndex(prev_idx)
+                self.unit_tabs.blockSignals(False)
+                return
+
+        new_widget = self.unit_tabs.widget(idx)
+        self._current_active_tab_widget = new_widget
+        
         if idx == 0:
             self.current_unit = None
             self.current_unit_index = 0
-            if self.project:
+            if self.project and not self.is_loading_project:
                 self.overview_tab.refresh(self.project)
         else:
             if self.project and idx - 1 < len(self.project.units):
                 self.current_unit_index = idx - 1
                 self.current_unit = self.project.units[self.current_unit_index]
+                if isinstance(new_widget, FunctionalGroupTab):
+                    new_widget.ensure_populated(reason="selected")
                 
     def _on_project_changed(self):
+        if self.is_loading_project:
+            return
         if self.project:
             self.overview_tab.refresh(self.project)
             
@@ -2195,6 +1934,7 @@ class UnitEditorView(QWidget):
             fg_tab = FunctionalGroupTab(dialog.fg, self.project, self)
             self.unit_tabs.addTab(fg_tab, dialog.fg.name)
             self.unit_tabs.setCurrentWidget(fg_tab)
+            fg_tab.ensure_populated(reason="add_fg")
             self.project_changed.emit()
             
     def _on_edit_fg(self):
@@ -2208,9 +1948,11 @@ class UnitEditorView(QWidget):
             self.unit_tabs.setTabText(self.current_unit_index + 1, dialog.fg.name)
             
             tab_widget = self.unit_tabs.widget(self.current_unit_index + 1)
-            if isinstance(tab_widget, FunctionalGroupTab):
+            if isinstance(tab_widget, FunctionalGroupTab) and tab_widget.ui_initialized:
                 tab_widget.unit = dialog.fg
-                tab_widget._load_fmeda_table()
+                if tab_widget.model:
+                    tab_widget.model.unit = dialog.fg
+                    tab_widget.model.reload_data()
                 
             self.project_changed.emit()
             

@@ -298,6 +298,10 @@ class CreateProjectView(QWidget):
         self.sensor_included.addItems(["No", "Yes"])
         opt_form.addRow("External Sensor Included:", self.sensor_included)
         
+        self.profile_combo = QComboBox()
+        self.profile_combo.addItems(["Profile 1", "Profile 2", "Profile 3", "Profile 4", "Profile 5"])
+        opt_form.addRow("Exida Reliability Profile*:", self.profile_combo)
+        
         self.rel_db_source = QLineEdit()
         self.rel_db_source.setPlaceholderText("e.g. SN 29500, IEC 62380...")
         opt_form.addRow("Reliability DB Source:", self.rel_db_source)
@@ -518,6 +522,7 @@ class CreateProjectView(QWidget):
             safety_context=sc,
             source_documents_list=self.source_docs.copy(),
             reliability_database_source=self.rel_db_source.text().strip() or None,
+            selected_profile=self.profile_combo.currentText(),
             environmental_profile=self.env_profile.text().strip() or None,
             units=p_units,
             deviations=p_deviations,
@@ -562,6 +567,7 @@ class CreateProjectView(QWidget):
         self.operating_mode_combo.setCurrentIndex(0)
         self.boundary_input.clear()
         self.sensor_included.setCurrentIndex(0)
+        self.profile_combo.setCurrentText("Profile 1")
         self.rel_db_source.clear()
         self.env_profile.clear()
         self.source_docs = []
@@ -643,5 +649,6 @@ class CreateProjectView(QWidget):
         # Load Page 3 sources
         self.source_docs = self.project.source_documents_list.copy()
         self._refresh_sources_table()
+        self.profile_combo.setCurrentText(getattr(self.project, "selected_profile", "Profile 1") or "Profile 1")
         self.rel_db_source.setText(self.project.reliability_database_source or "")
         self.env_profile.setText(self.project.environmental_profile or "")
