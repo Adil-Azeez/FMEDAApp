@@ -871,7 +871,7 @@ class FunctionalGroupTab(QWidget):
         table_layout.addLayout(group_layout)
         
         self.table = QTableWidget()
-        self.table.setColumnCount(39)
+        self.table.setColumnCount(41)
         self.table.setHorizontalHeaderLabels([
             # Component/BOM Columns
             "Component ID / Designator", "Status", "Function", "Value / Description",
@@ -881,6 +881,7 @@ class FunctionalGroupTab(QWidget):
             "Reliability Source", "Source Reference", "Environmental Profile",
             # Manual Engineering Columns
             "Failure Effect / Deviation", "Diagnostic Function", "Failure Classification",
+            "Dangerous %", "Safe %",
             "Diagnostic Measure ID", "Detection % (DC)", "DC Test Ref", "Mitigation",
             "Comments / Justification", "Review Status",
             # Proof-Test Columns
@@ -892,7 +893,7 @@ class FunctionalGroupTab(QWidget):
         ])
 
         # Keep the column internally, but hide it from the interface.
-        self.table.setColumnHidden(18, True)
+        self.table.setColumnHidden(20, True)
         self.table.horizontalHeader().setSectionResizeMode(
             QHeaderView.ResizeMode.Interactive
         )
@@ -971,25 +972,25 @@ class FunctionalGroupTab(QWidget):
         for c in range(7, 13):
             self.table.setColumnHidden(c, not show_fail)
 
-        # Manual Engineering: columns 13-21
+        # Manual Engineering: columns 13-23
         show_eng = self.cb_eng.isChecked()
 
-        for c in range(13, 22):
+        for c in range(13, 24):
             self.table.setColumnHidden(c, not show_eng)
 
-        # Always keep DC Test Ref, column 18, hidden.
-        self.table.setColumnHidden(18, True)
+        # Always keep DC Test Ref, column 20, hidden.
+        self.table.setColumnHidden(20, True)
 
-        # Proof-Test: columns 22-25
+        # Proof-Test: columns 24-27
         show_proof = self.cb_proof.isChecked()
 
-        for c in range(22, 26):
+        for c in range(24, 28):
             self.table.setColumnHidden(c, not show_proof)
 
-        # Calculated Results: columns 26-38
+        # Calculated Results: columns 28-40
         show_calc = self.cb_calc.isChecked()
 
-        for c in range(26, 39):
+        for c in range(28, 41):
             self.table.setColumnHidden(c, not show_calc)
 
 
@@ -1000,20 +1001,11 @@ class FunctionalGroupTab(QWidget):
             
         row = selected_rows[0].row()
         # Find which component/assignment is at this row
-        current_idx = 0
-        target_comp = None
-        target_assignment = None
+        item0 = self.table.item(row, 0)
+        item7 = self.table.item(row, 7)
+        target_comp = item0.data(Qt.ItemDataRole.UserRole) if item0 else None
+        target_assignment = item7.data(Qt.ItemDataRole.UserRole) if item7 else None
         
-        for comp in self.unit.components:
-            for fm_name, fm_percentage in comp.failure_modes.items():
-                if current_idx == row:
-                    target_comp = comp
-                    target_assignment = next((a for a in comp.failure_mode_assignments if a.failure_mode_name == fm_name), None)
-                    break
-                current_idx += 1
-            if target_comp:
-                break
-                
         if not target_comp or not target_assignment:
             return
             
@@ -1053,7 +1045,27 @@ class FunctionalGroupTab(QWidget):
         
         from fmeda_tool.services.calculation_service import CalculationService
         
+        class_map_rev = {
+            "not_evaluated": "Not Evaluated",
+            "safe_failure": "Safe Failure",
+            "dangerous_failure": "Dangerous Failure"
+        }
+        
+        is_first_comp = True
         for comp in self.unit.components:
+            if not is_first_comp:
+                # Insert exactly one blank visual separator row between different components
+                sep_row = self.table.rowCount()
+                self.table.insertRow(sep_row)
+                for c in range(self.table.columnCount()):
+                    sep_item = QTableWidgetItem("")
+                    sep_item.setFlags(Qt.ItemFlag.NoItemFlags)
+                    sep_item.setBackground(QColor("#f8f9fa"))  # Neutral light gray background
+                    self.table.setItem(sep_row, c, sep_item)
+                self.table.setRowHeight(sep_row, 10)  # Small height
+                
+            is_first_comp = False
+            
             for fm_name, fm_percentage in comp.failure_modes.items():
                 row = self.table.rowCount()
                 self.table.insertRow(row)
@@ -1076,11 +1088,21 @@ class FunctionalGroupTab(QWidget):
                 dp = assignment.dangerous_failure_percentage if assignment.dangerous_failure_percentage is not None else 100.0
                 det = assignment.detection_percentage if assignment.detection_percentage is not None else 0.0
                 
+                # Backwards compatible mapping if it is no_part_failure/no_effect_failure/diagnostic_function_failure
+                if classif in ["no_part_failure", "no_effect_failure", "diagnostic_function_failure"]:
+                    assignment.dont_care = True
+                    assignment.dangerous_failure_percentage = 0.0
+                    assignment.classification = "safe_failure"
+                    classif = "safe_failure"
+                    dp = 0.0
+                
                 row_metrics = CalculationService.calculate_row_detailed(local_fit, classif, dp, det)
                 
                 # ----------------- Component/BOM Columns (0-6) -----------------
                 # Column 0: Designator (ReadOnly)
-                self.table.setItem(row, 0, self._read_only_item(comp.position))
+                des_item = self._read_only_item(comp.position)
+                des_item.setData(Qt.ItemDataRole.UserRole, comp)
+                self.table.setItem(row, 0, des_item)
                 
                 # Column 1: Status Code (Will be styled in _style_row)
                 status_item = QTableWidgetItem("🟢")
@@ -1089,17 +1111,17 @@ class FunctionalGroupTab(QWidget):
                 
                 # Column 2: Function (Component Level edit)
                 fn_edit = QLineEdit(comp.function or "")
-                fn_edit.textChanged.connect(lambda txt, c=comp: setattr(c, "function", txt))
+                fn_edit.textChanged.connect(lambda txt, c=comp: self._on_comp_text_changed(txt, "function", c))
                 self.table.setCellWidget(row, 2, fn_edit)
                 
                 # Column 3: Value / Description (Component Level edit)
                 val_edit = QLineEdit(comp.value or "")
-                val_edit.textChanged.connect(lambda txt, c=comp: setattr(c, "value", txt))
+                val_edit.textChanged.connect(lambda txt, c=comp: self._on_comp_text_changed(txt, "value", c))
                 self.table.setCellWidget(row, 3, val_edit)
                 
                 # Column 4: Internal Part Number (Component Level edit)
                 pn_edit = QLineEdit(comp.internal_pn or "")
-                pn_edit.textChanged.connect(lambda txt, c=comp: setattr(c, "internal_pn", txt))
+                pn_edit.textChanged.connect(lambda txt, c=comp: self._on_comp_text_changed(txt, "internal_pn", c))
                 self.table.setCellWidget(row, 4, pn_edit)
                 
                 # Column 5: Fitted Status (Component Level edit)
@@ -1114,7 +1136,9 @@ class FunctionalGroupTab(QWidget):
                 
                 # ----------------- Failure Model Columns (7-12) -----------------
                 # Column 7: Failure Mode (ReadOnly)
-                self.table.setItem(row, 7, self._read_only_item(fm_name))
+                fm_item = self._read_only_item(fm_name)
+                fm_item.setData(Qt.ItemDataRole.UserRole, assignment)
+                self.table.setItem(row, 7, fm_item)
                 
                 # Column 8: Distribution % (ReadOnly)
                 self.table.setItem(row, 8, self._read_only_item(f"{fm_percentage:.1f}%"))
@@ -1133,7 +1157,7 @@ class FunctionalGroupTab(QWidget):
                 env_prof = self.project.environmental_profile or "Ground Benign (GB)"
                 self.table.setItem(row, 12, self._read_only_item(env_prof))
                 
-                # ----------------- Manual Engineering Columns (13-21) -----------------
+                # ----------------- Manual Engineering Columns (13-23) -----------------
                 # Column 13: Deviation / Failure Effect
                 dev_combo = QComboBox()
                 dev_combo.addItem("-- None --", None)
@@ -1151,31 +1175,43 @@ class FunctionalGroupTab(QWidget):
                 # Column 14: Diagnostic Function
                 diag_fn_edit = QLineEdit(assignment.diagnostic_function or "")
                 diag_fn_edit.textChanged.connect(
-                    lambda txt, a=assignment: setattr(a, "diagnostic_function", txt)
+                    lambda txt, a=assignment: self._on_assignment_text_changed(txt, "diagnostic_function", a)
                 )
                 self.table.setCellWidget(row, 14, diag_fn_edit)
                 
                 # Column 15: Failure Classification
                 class_combo = QComboBox()
                 class_combo.addItems([
-                    "Not Evaluated", "Safe Failure", "Dangerous Failure",
-                    "No Effect Failure", "No Part Failure", "Diagnostic Function Failure"
+                    "Not Evaluated", "Safe Failure", "Dangerous Failure"
                 ])
-                class_map_rev = {
-                    "not_evaluated": "Not Evaluated",
-                    "safe_failure": "Safe Failure",
-                    "dangerous_failure": "Dangerous Failure",
-                    "no_effect_failure": "No Effect Failure",
-                    "no_part_failure": "No Part Failure",
-                    "diagnostic_function_failure": "Diagnostic Function Failure"
-                }
                 class_combo.setCurrentText(class_map_rev.get(classif, "Not Evaluated"))
                 class_combo.currentTextChanged.connect(
                     lambda txt, a=assignment, c=comp, r=row: self._on_classif_changed(txt, a, c, r)
                 )
                 self.table.setCellWidget(row, 15, class_combo)
                 
-                # Column 16: Diagnostic Measure ID
+                # Column 16: Dangerous %
+                dang_spin = QDoubleSpinBox()
+                dang_spin.setRange(0.0, 100.0)
+                dang_spin.setValue(dp)
+                dang_spin.setSuffix("%")
+                
+                # Column 17: Safe %
+                safe_spin = QDoubleSpinBox()
+                safe_spin.setRange(0.0, 100.0)
+                safe_spin.setValue(100.0 - dp)
+                safe_spin.setSuffix("%")
+                
+                dang_spin.valueChanged.connect(
+                    lambda val, a=assignment, s_spin=safe_spin, c=comp, r=row: self._on_dang_pct_changed(val, a, s_spin, c, r)
+                )
+                safe_spin.valueChanged.connect(
+                    lambda val, a=assignment, d_spin=dang_spin, c=comp, r=row: self._on_safe_pct_changed(val, a, d_spin, c, r)
+                )
+                self.table.setCellWidget(row, 16, dang_spin)
+                self.table.setCellWidget(row, 17, safe_spin)
+                
+                # Column 18: Diagnostic Measure ID
                 dm_combo = QComboBox()
                 dm_combo.addItem("-- None --", None)
                 for dm in self.project.diagnostic_measures:
@@ -1184,30 +1220,22 @@ class FunctionalGroupTab(QWidget):
                     dm_idx = dm_combo.findData(assignment.diagnostic_measure_id)
                     if dm_idx >= 0:
                         dm_combo.setCurrentIndex(dm_idx)
-                self.table.setCellWidget(row, 16, dm_combo)
+                self.table.setCellWidget(row, 18, dm_combo)
                 
-                # Column 17: Detection % (DC)
+                # Column 19: Detection % (DC)
                 det_spin = QDoubleSpinBox()
                 det_spin.setRange(0.0, 100.0)
                 det_spin.setValue(det)
                 det_spin.valueChanged.connect(
                     lambda val, a=assignment, c=comp, r=row: self._on_det_changed(val, a, c, r)
                 )
-                self.table.setCellWidget(row, 17, det_spin)
+                self.table.setCellWidget(row, 19, det_spin)
                 
-                # Connect dm combo to update spinbox DC automatically
                 dm_combo.currentIndexChanged.connect(
                     lambda idx, a=assignment, c=comp, r=row, combo=dm_combo, d_spin=det_spin: self._on_dm_changed(combo.currentData(), a, c, r, d_spin)
                 )
                 
-                # # Column 18: DC Test Ref
-                # dc_ref_edit = QLineEdit(assignment.dc_test_ref or "")
-                # dc_ref_edit.textChanged.connect(
-                #     lambda txt, a=assignment: setattr(a, "dc_test_ref", txt)
-                # )
-                # self.table.setCellWidget(row, 18, dc_ref_edit)
-                
-                # Column 19: Mitigation
+                # Column 21: Mitigation
                 mit_combo = QComboBox()
                 mit_combo.addItem("-- None --", None)
                 for mit in self.project.mitigations:
@@ -1219,85 +1247,84 @@ class FunctionalGroupTab(QWidget):
                 mit_combo.currentIndexChanged.connect(
                     lambda idx, a=assignment, c=comp, r=row, combo=mit_combo: self._on_mit_changed(combo.currentData(), a, c, r)
                 )
-                self.table.setCellWidget(row, 19, mit_combo)
+                self.table.setCellWidget(row, 21, mit_combo)
                 
-                # Column 20: Comments / Justification
+                # Column 22: Comments / Justification
                 comm_edit = QLineEdit(assignment.notes or "")
                 comm_edit.textChanged.connect(
-                    lambda txt, a=assignment: setattr(a, "notes", txt)
+                    lambda txt, a=assignment: self._on_assignment_text_changed(txt, "notes", a)
                 )
-                self.table.setCellWidget(row, 20, comm_edit)
+                self.table.setCellWidget(row, 22, comm_edit)
                 
-                # Column 21: Review Status
+                # Column 23: Review Status
                 rev_combo = QComboBox()
                 rev_combo.addItems(["Draft", "Under Review", "Approved"])
                 rev_combo.setCurrentText((assignment.review_status or "Draft").title())
                 rev_combo.currentTextChanged.connect(
-                    lambda txt, a=assignment: setattr(a, "review_status", txt.lower())
+                    lambda txt, a=assignment: self._on_assignment_text_changed(txt.lower(), "review_status", a)
                 )
-                self.table.setCellWidget(row, 21, rev_combo)
+                self.table.setCellWidget(row, 23, rev_combo)
                 
-                # ----------------- Proof-Test Columns (22-25) -----------------
-                # Column 22: Proof Test A
+                # ----------------- Proof-Test Columns (24-27) -----------------
+                # Column 24: Proof Test A
                 pt_a_spin = QDoubleSpinBox()
                 pt_a_spin.setRange(0.0, 100.0)
                 pt_a_spin.setValue(getattr(assignment, "proof_test_a", 0.0) or 0.0)
                 pt_a_spin.valueChanged.connect(
                     lambda val, a=assignment: self._on_pt_changed(val, "proof_test_a", a)
                 )
-                self.table.setCellWidget(row, 22, pt_a_spin)
+                self.table.setCellWidget(row, 24, pt_a_spin)
                 
-                # Column 23: Proof Test B
+                # Column 25: Proof Test B
                 pt_b_spin = QDoubleSpinBox()
                 pt_b_spin.setRange(0.0, 100.0)
                 pt_b_spin.setValue(getattr(assignment, "proof_test_b", 0.0) or 0.0)
                 pt_b_spin.valueChanged.connect(
                     lambda val, a=assignment: self._on_pt_changed(val, "proof_test_b", a)
                 )
-                self.table.setCellWidget(row, 23, pt_b_spin)
+                self.table.setCellWidget(row, 25, pt_b_spin)
                 
-                # Column 24: Proof Test C
+                # Column 26: Proof Test C
                 pt_c_spin = QDoubleSpinBox()
                 pt_c_spin.setRange(0.0, 100.0)
                 pt_c_spin.setValue(getattr(assignment, "proof_test_c", 0.0) or 0.0)
                 pt_c_spin.valueChanged.connect(
                     lambda val, a=assignment: self._on_pt_changed(val, "proof_test_c", a)
                 )
-                self.table.setCellWidget(row, 24, pt_c_spin)
+                self.table.setCellWidget(row, 26, pt_c_spin)
                 
-                # Column 25: No Part / No Effect Checkbox
+                # Column 27: No Part / No Effect Checkbox
                 dc_check = QCheckBox()
                 dc_check.setChecked(getattr(assignment, "dont_care", False) or False)
                 dc_check.stateChanged.connect(
                     lambda state, a=assignment, c=comp, r=row: self._on_dont_care_changed(state, a, c, r)
                 )
-                # Align checkbox center
                 ch_widget = QWidget()
                 ch_lay = QHBoxLayout(ch_widget)
                 ch_lay.addWidget(dc_check)
                 ch_lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 ch_lay.setContentsMargins(0,0,0,0)
-                self.table.setCellWidget(row, 25, ch_widget)
+                self.table.setCellWidget(row, 27, ch_widget)
                 
-                # ----------------- Calculated Result Columns (26-38) -----------------
-                self.table.setItem(row, 26, self._read_only_item(f"{row_metrics['lambda']:.4f}"))
-                self.table.setItem(row, 27, self._read_only_item(f"{row_metrics['lambda_safe']:.4f}"))
-                self.table.setItem(row, 28, self._read_only_item(f"{row_metrics['lambda_dangerous']:.4f}"))
-                self.table.setItem(row, 29, self._read_only_item(f"{row_metrics['lambda_sd']:.4f}"))
-                self.table.setItem(row, 30, self._read_only_item(f"{row_metrics['lambda_su']:.4f}"))
-                self.table.setItem(row, 31, self._read_only_item(f"{row_metrics['lambda_dd']:.4f}"))
-                self.table.setItem(row, 32, self._read_only_item(f"{row_metrics['lambda_du']:.4f}"))
-                self.table.setItem(row, 33, self._read_only_item(f"{row_metrics['lambda_no_part']:.4f}"))
-                self.table.setItem(row, 34, self._read_only_item(f"{row_metrics['lambda_no_effect']:.4f}"))
+                # ----------------- Calculated Result Columns (28-40) -----------------
+                self.table.setItem(row, 28, self._read_only_item(f"{row_metrics['lambda']:.4f}"))
+                self.table.setItem(row, 29, self._read_only_item(f"{row_metrics['lambda_safe']:.4f}"))
+                self.table.setItem(row, 30, self._read_only_item(f"{row_metrics['lambda_dangerous']:.4f}"))
+                self.table.setItem(row, 31, self._read_only_item(f"{row_metrics['lambda_sd']:.4f}"))
+                self.table.setItem(row, 32, self._read_only_item(f"{row_metrics['lambda_su']:.4f}"))
+                self.table.setItem(row, 33, self._read_only_item(f"{row_metrics['lambda_dd']:.4f}"))
+                self.table.setItem(row, 34, self._read_only_item(f"{row_metrics['lambda_du']:.4f}"))
+                self.table.setItem(row, 35, self._read_only_item(f"{row_metrics['lambda_no_part']:.4f}"))
+                self.table.setItem(row, 36, self._read_only_item(f"{row_metrics['lambda_no_effect']:.4f}"))
                 
-                self.table.setItem(row, 35, self._read_only_item(f"{row_metrics['sff']:.1f}%"))
-                self.table.setItem(row, 36, self._read_only_item(f"{row_metrics['dc']:.1f}%"))
+                self.table.setItem(row, 37, self._read_only_item(f"{row_metrics['sff']:.1f}%"))
+                self.table.setItem(row, 38, self._read_only_item(f"{row_metrics['dc']:.1f}%"))
                 
                 mtbf_str = f"{row_metrics['mtbf']:.1e}" if row_metrics['mtbf'] > 0 else "N/A"
-                self.table.setItem(row, 37, self._read_only_item(mtbf_str))
+                self.table.setItem(row, 39, self._read_only_item(mtbf_str))
                 
                 mttfd_str = f"{row_metrics['mttfd']:.1f}" if row_metrics['mttfd'] > 0 else "N/A"
-                self.table.setItem(row, 38, self._read_only_item(mttfd_str))
+                self.table.setItem(row, 40, self._read_only_item(mttfd_str))
                 
                 self._style_row(row, assignment, comp)
                 
@@ -1314,73 +1341,205 @@ class FunctionalGroupTab(QWidget):
         CalculationService.calculate_project(self.project)
         self.main_editor.project_changed.emit()
 
+    def _on_comp_text_changed(self, text: str, field: str, comp: Component):
+        if self.main_editor and hasattr(self.main_editor, "main_window"):
+            last_act = self.main_editor.main_window.undo_stack[-1][1] if self.main_editor.main_window.undo_stack else ""
+            act = f"Edit {field.title().replace('_', ' ')} of {comp.position}"
+            if last_act != act:
+                self.main_editor.main_window.push_undo_state(act)
+        setattr(comp, field, text)
+        self.main_editor.project_changed.emit()
+        
+        # Update other repeated rows for the same component in real-time
+        col_map = {
+            "function": 2,
+            "value": 3,
+            "internal_pn": 4
+        }
+        col = col_map.get(field)
+        if col is not None:
+            active_sender = self.sender()
+            for r in range(self.table.rowCount()):
+                item = self.table.item(r, 0)
+                if item and item.text() == comp.position:
+                    widget = self.table.cellWidget(r, col)
+                    if isinstance(widget, QLineEdit) and widget != active_sender:
+                        widget.blockSignals(True)
+                        widget.setText(text)
+                        widget.blockSignals(False)
+
+    def _on_assignment_text_changed(self, text: str, field: str, assignment: FailureModeAssignment):
+        if self.main_editor and hasattr(self.main_editor, "main_window"):
+            last_act = self.main_editor.main_window.undo_stack[-1][1] if self.main_editor.main_window.undo_stack else ""
+            act = f"Edit {field.title().replace('_', ' ')} of {assignment.failure_mode_name}"
+            if last_act != act:
+                self.main_editor.main_window.push_undo_state(act)
+        setattr(assignment, field, text)
+        self.main_editor.project_changed.emit()
+
     def _on_fitted_changed(self, text: str, comp: Component):
+        if self.main_editor and hasattr(self.main_editor, "main_window"):
+            self.main_editor.main_window.push_undo_state(f"Change Fitted Status of {comp.position}")
         comp.fitted_status = text
         self._trigger_recalculation()
-        self._load_fmeda_table()
+        
+        # Update other repeated rows' combo boxes and recalculate calculated columns
+        active_sender = self.sender()
+        for r in range(self.table.rowCount()):
+            item = self.table.item(r, 0)
+            if item and item.text() == comp.position:
+                widget = self.table.cellWidget(r, 5)
+                if isinstance(widget, QComboBox) and widget != active_sender:
+                    widget.blockSignals(True)
+                    widget.setCurrentText(text)
+                    widget.blockSignals(False)
+                
+                # Retrieve assignment for this row and update its calculated cells
+                item7 = self.table.item(r, 7)
+                assignment = item7.data(Qt.ItemDataRole.UserRole) if item7 else None
+                if assignment:
+                    self._update_row_calculated_cells(r, assignment, comp)
 
     def _on_pt_changed(self, val: float, field: str, assignment: FailureModeAssignment):
+        if self.main_editor and hasattr(self.main_editor, "main_window"):
+            last_act = self.main_editor.main_window.undo_stack[-1][1] if self.main_editor.main_window.undo_stack else ""
+            act = f"Change Proof Test of {assignment.failure_mode_name}"
+            if last_act != act:
+                self.main_editor.main_window.push_undo_state(act)
         setattr(assignment, field, val)
         self._trigger_recalculation()
 
     def _on_dont_care_changed(self, state: int, assignment: FailureModeAssignment, comp: Component, row: int):
+        if self.main_editor and hasattr(self.main_editor, "main_window"):
+            self.main_editor.main_window.push_undo_state(f"Change No Part of {comp.position}")
         assignment.dont_care = (state == 2 or state == Qt.CheckState.Checked.value or state == True)
-        if assignment.dont_care:
-            assignment.classification = "no_part_failure"
-        else:
-            assignment.classification = "not_evaluated"
         self._trigger_recalculation()
         self._load_fmeda_table()
 
     def _on_dev_changed(self, dev_id: Optional[str], assignment: FailureModeAssignment, component: Component, row: int):
+        if self.main_editor and hasattr(self.main_editor, "main_window"):
+            self.main_editor.main_window.push_undo_state(f"Change Deviation of {component.position}")
         assignment.deviation_id = dev_id
         self._style_row(row, assignment, component)
         self._trigger_recalculation()
         
-    # def _on_classif_changed(self, text: str, assignment: FailureModeAssignment, component: Component, row: int):
-    #     class_map = {
-    #         "Not Evaluated": "not_evaluated",
-    #         "Safe Failure": "safe_failure",
-    #         "Dangerous Failure": "dangerous_failure",
-    #         "No Effect Failure": "no_effect_failure",
-    #         "No Part Failure": "no_part_failure",
-    #         "Diagnostic Function Failure": "diagnostic_function_failure"
-    #     }
-
-        
-    #     assignment.classification = class_map.get(text, "not_evaluated")
-    #     self._trigger_recalculation()
-    #     self._load_fmeda_table()
-
-    def _on_classif_changed(
-        self,
-        text: str,
-        assignment: FailureModeAssignment,
-        component: Component,
-        row: int
-    ):
+    def _on_classif_changed(self, text: str, assignment: FailureModeAssignment, component: Component, row: int):
+        if self.main_editor and hasattr(self.main_editor, "main_window"):
+            self.main_editor.main_window.push_undo_state(f"Change Classification of {component.position}")
         class_map = {
             "Not Evaluated": "not_evaluated",
             "Safe Failure": "safe_failure",
-            "Dangerous Failure": "dangerous_failure",
-            "No Effect Failure": "no_effect_failure",
-            "No Part Failure": "no_part_failure",
-            "Diagnostic Function Failure": "diagnostic_function_failure"
+            "Dangerous Failure": "dangerous_failure"
         }
-
-        assignment.classification = class_map.get(
-            text,
-            "not_evaluated"
-        )
-
-        # Dangerous Failure defaults to 100% dangerous.
-        if assignment.classification == "dangerous_failure":
+        assignment.classification = class_map.get(text, "not_evaluated")
+        if assignment.classification == "safe_failure":
+            assignment.dangerous_failure_percentage = 0.0
+        elif assignment.classification == "dangerous_failure":
             assignment.dangerous_failure_percentage = 100.0
-
+            
         self._trigger_recalculation()
         self._load_fmeda_table()
+
+    def _on_dang_pct_changed(self, val: float, assignment: FailureModeAssignment, safe_spin: QDoubleSpinBox, component: Component, row: int):
+        if self.main_editor and hasattr(self.main_editor, "main_window"):
+            last_act = self.main_editor.main_window.undo_stack[-1][1] if self.main_editor.main_window.undo_stack else ""
+            act = f"Change Dangerous % of {component.position}"
+            if last_act != act:
+                self.main_editor.main_window.push_undo_state(act)
+        assignment.dangerous_failure_percentage = val
+        safe_spin.blockSignals(True)
+        safe_spin.setValue(100.0 - val)
+        safe_spin.blockSignals(False)
         
+        if val == 0.0:
+            assignment.classification = "safe_failure"
+        elif val == 100.0:
+            assignment.classification = "dangerous_failure"
+        else:
+            assignment.classification = "dangerous_failure"
+            
+        class_combo = self.table.cellWidget(row, 15)
+        if class_combo:
+            class_combo.blockSignals(True)
+            if val == 0.0:
+                class_combo.setCurrentText("Safe Failure")
+            elif val == 100.0:
+                class_combo.setCurrentText("Dangerous Failure")
+            else:
+                class_combo.setCurrentText("Dangerous Failure")
+            class_combo.blockSignals(False)
+            
+        self._trigger_recalculation()
+        self._update_row_calculated_cells(row, assignment, component)
+
+    def _on_safe_pct_changed(self, val: float, assignment: FailureModeAssignment, dang_spin: QDoubleSpinBox, component: Component, row: int):
+        if self.main_editor and hasattr(self.main_editor, "main_window"):
+            last_act = self.main_editor.main_window.undo_stack[-1][1] if self.main_editor.main_window.undo_stack else ""
+            act = f"Change Safe % of {component.position}"
+            if last_act != act:
+                self.main_editor.main_window.push_undo_state(act)
+        dang_val = 100.0 - val
+        assignment.dangerous_failure_percentage = dang_val
+        dang_spin.blockSignals(True)
+        dang_spin.setValue(dang_val)
+        dang_spin.blockSignals(False)
+        
+        if dang_val == 0.0:
+            assignment.classification = "safe_failure"
+        elif dang_val == 100.0:
+            assignment.classification = "dangerous_failure"
+        else:
+            assignment.classification = "dangerous_failure"
+            
+        class_combo = self.table.cellWidget(row, 15)
+        if class_combo:
+            class_combo.blockSignals(True)
+            if dang_val == 0.0:
+                class_combo.setCurrentText("Safe Failure")
+            elif dang_val == 100.0:
+                class_combo.setCurrentText("Dangerous Failure")
+            else:
+                class_combo.setCurrentText("Dangerous Failure")
+            class_combo.blockSignals(False)
+            
+        self._trigger_recalculation()
+        self._update_row_calculated_cells(row, assignment, component)
+
+    def _update_row_calculated_cells(self, row: int, assignment: FailureModeAssignment, component: Component):
+        from fmeda_tool.services.calculation_service import CalculationService
+        fm_percentage = component.failure_modes.get(assignment.failure_mode_name, 0.0)
+        local_fit = (component.failure_rate or 0.0) * (fm_percentage / 100.0)
+        dp = assignment.dangerous_failure_percentage if assignment.dangerous_failure_percentage is not None else 100.0
+        det = assignment.detection_percentage if assignment.detection_percentage is not None else 0.0
+        
+        row_metrics = CalculationService.calculate_row_detailed(local_fit, assignment.classification, dp, det)
+        
+        self.table.blockSignals(True)
+        self.table.setItem(row, 28, self._read_only_item(f"{row_metrics['lambda']:.4f}"))
+        self.table.setItem(row, 29, self._read_only_item(f"{row_metrics['lambda_safe']:.4f}"))
+        self.table.setItem(row, 30, self._read_only_item(f"{row_metrics['lambda_dangerous']:.4f}"))
+        self.table.setItem(row, 31, self._read_only_item(f"{row_metrics['lambda_sd']:.4f}"))
+        self.table.setItem(row, 32, self._read_only_item(f"{row_metrics['lambda_su']:.4f}"))
+        self.table.setItem(row, 33, self._read_only_item(f"{row_metrics['lambda_dd']:.4f}"))
+        self.table.setItem(row, 34, self._read_only_item(f"{row_metrics['lambda_du']:.4f}"))
+        self.table.setItem(row, 35, self._read_only_item(f"{row_metrics['lambda_no_part']:.4f}"))
+        self.table.setItem(row, 36, self._read_only_item(f"{row_metrics['lambda_no_effect']:.4f}"))
+        
+        self.table.setItem(row, 37, self._read_only_item(f"{row_metrics['sff']:.1f}%"))
+        self.table.setItem(row, 38, self._read_only_item(f"{row_metrics['dc']:.1f}%"))
+        
+        mtbf_str = f"{row_metrics['mtbf']:.1e}" if row_metrics['mtbf'] > 0 else "N/A"
+        self.table.setItem(row, 39, self._read_only_item(mtbf_str))
+        
+        mttfd_str = f"{row_metrics['mttfd']:.1f}" if row_metrics['mttfd'] > 0 else "N/A"
+        self.table.setItem(row, 40, self._read_only_item(mttfd_str))
+        self.table.blockSignals(False)
+        
+        self._style_row(row, assignment, component)
+
     def _on_dm_changed(self, dm_id: Optional[str], assignment: FailureModeAssignment, component: Component, row: int, det_spin: QDoubleSpinBox):
+        if self.main_editor and hasattr(self.main_editor, "main_window"):
+            self.main_editor.main_window.push_undo_state(f"Change Diagnostic Measure of {component.position}")
         assignment.diagnostic_measure_id = dm_id
         if dm_id:
             dm = next((m for m in self.project.diagnostic_measures if m.id == dm_id), None)
@@ -1388,16 +1547,25 @@ class FunctionalGroupTab(QWidget):
                 det_spin.setValue(dm.dc)
                 assignment.detection_percentage = dm.dc
         self._trigger_recalculation()
-        self._load_fmeda_table()
+        self._update_row_calculated_cells(row, assignment, component)
         
     def _on_det_changed(self, val: float, assignment: FailureModeAssignment, component: Component, row: int):
+        if self.main_editor and hasattr(self.main_editor, "main_window"):
+            last_act = self.main_editor.main_window.undo_stack[-1][1] if self.main_editor.main_window.undo_stack else ""
+            act = f"Change Detection % of {component.position}"
+            if last_act != act:
+                self.main_editor.main_window.push_undo_state(act)
         assignment.detection_percentage = val
         self._trigger_recalculation()
+        self._update_row_calculated_cells(row, assignment, component)
         
     def _on_mit_changed(self, mit_id: Optional[str], assignment: FailureModeAssignment, component: Component, row: int):
+        if self.main_editor and hasattr(self.main_editor, "main_window"):
+            self.main_editor.main_window.push_undo_state(f"Change Mitigation of {component.position}")
         assignment.mitigation_id = mit_id
         self._trigger_recalculation()
-        
+        self._update_row_calculated_cells(row, assignment, component)
+
     def _style_row(self, row: int, assignment: FailureModeAssignment, component: Component):
         status, msgs = ValidationService.validate_row(assignment, component)
         status_item = self.table.item(row, 1)
@@ -1856,6 +2024,23 @@ class UnitEditorView(QWidget):
         
         layout.addStretch()
         
+        self.undo_btn = QPushButton("← Undo")
+        self.undo_btn.setEnabled(False)
+        self.undo_btn.setToolTip("Nothing to undo")
+        self.undo_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #17a2b8;
+                color: white;
+                font-weight: bold;
+                padding: 6px 12px;
+                border-radius: 4px;
+            }
+            QPushButton:hover { background-color: #138496; }
+            QPushButton:disabled { background-color: #6c757d; }
+        """)
+        self.undo_btn.clicked.connect(self._on_undo_clicked)
+        layout.addWidget(self.undo_btn)
+        
         self.add_fg_btn = QPushButton("➕ Add Functional Group")
         self.add_fg_btn.setStyleSheet("background-color: #0d6efd; color: white; padding: 6px 12px; border-radius: 4px; font-weight: bold;")
         self.add_fg_btn.clicked.connect(self._on_add_fg)
@@ -1918,8 +2103,34 @@ class UnitEditorView(QWidget):
             tab_widget = self.unit_tabs.widget(unit_idx + 1)
             if isinstance(tab_widget, FunctionalGroupTab):
                 tab_widget.stacked_view.setCurrentIndex(0)
-                tab_widget.table.setCurrentCell(row_index, 0)
-                tab_widget.table.scrollToItem(tab_widget.table.item(row_index, 0))
+                
+                # Map row_index (flat index of failure mode) to the actual table row containing that item
+                target_comp = None
+                target_fm = None
+                curr = 0
+                for comp in tab_widget.unit.components:
+                    for fm_name in comp.failure_modes.keys():
+                        if curr == row_index:
+                            target_comp = comp
+                            target_fm = fm_name
+                            break
+                        curr += 1
+                    if target_comp:
+                        break
+                
+                actual_table_row = -1
+                if target_comp and target_fm:
+                    for r in range(tab_widget.table.rowCount()):
+                        item0 = tab_widget.table.item(r, 0)
+                        item7 = tab_widget.table.item(r, 7)
+                        comp_in_row = item0.data(Qt.ItemDataRole.UserRole) if item0 else None
+                        if comp_in_row == target_comp and item7 and item7.text() == target_fm:
+                            actual_table_row = r
+                            break
+                            
+                if actual_table_row >= 0:
+                    tab_widget.table.setCurrentCell(actual_table_row, 0)
+                    tab_widget.table.scrollToItem(tab_widget.table.item(actual_table_row, 0))
 
     def load_project(self, project: Project):
         self.project = project
@@ -1955,6 +2166,10 @@ class UnitEditorView(QWidget):
                     self.unit_tabs.setCurrentIndex(0)
         else:
             self.unit_tabs.setCurrentIndex(0)
+            
+    def _on_undo_clicked(self):
+        if hasattr(self, "main_window"):
+            self.main_window._on_undo()
             
     def _on_tab_changed(self, idx: int):
         if idx == 0:

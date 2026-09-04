@@ -57,47 +57,94 @@ class ExportService:
             ws_overview.title = "Overview"
             ws_overview.views.sheetView[0].showGridLines = True
             
+            # Ensure latest project calculations are run
+            CalculationService.calculate_project(project)
+            
             # Title
             ws_overview["A1"] = "FMEDA Project Report"
             ws_overview["A1"].font = title_font
             
-            # Metadata block
-            ws_overview["A3"] = "Project Name:"
-            ws_overview["B3"] = project.name
-            ws_overview["A4"] = "Project Number:"
-            ws_overview["B4"] = project.project_number or "N/A"
-            ws_overview["A5"] = "Version:"
-            ws_overview["B5"] = project.version
-            ws_overview["A6"] = "Status:"
-            ws_overview["B6"] = project.status.value.replace("_", " ").title() if project.status else "Draft"
+            # Section headers
+            ws_overview["A3"] = "Project Information"
+            ws_overview["A3"].font = section_font
+            ws_overview["D3"] = "Safety Context & Requirements"
+            ws_overview["D3"].font = section_font
             
-            ws_overview["D3"] = "Safety Standard:"
-            ws_overview["E3"] = project.safety_standard.value if project.safety_standard else "N/A"
-            ws_overview["D4"] = "Target SIL:"
-            ws_overview["E4"] = project.target_sil or "N/A"
-            ws_overview["D5"] = "Reviewer:"
-            ws_overview["E5"] = project.reviewer or "N/A"
+            # Helper function to format values safely
+            def fmt(val, fmt_type):
+                if val is None:
+                    return "N/A"
+                if fmt_type == "fit":
+                    return f"{val:.4f}"
+                if fmt_type == "pct":
+                    return f"{val:.2f}%"
+                if fmt_type == "years":
+                    return f"{val:.1f}"
+                if fmt_type == "pfd":
+                    return f"{val:.6e}"
+                return str(val)
             
-            ws_overview["A7"] = "No Part Failure Def:"
-            ws_overview["B7"] = (project.safety_context.no_part_failure_definition if project.safety_context else None) or "Not defined"
-            ws_overview["B7"].alignment = Alignment(wrap_text=True)
+            # Populate Project Information (A4:B20)
+            proj_info = [
+                ("Project Name:", project.name),
+                ("Project Number:", project.project_number or "N/A"),
+                ("Version:", project.version),
+                ("Status:", project.status.value.replace("_", " ").title() if project.status else "Draft"),
+                ("Created By:", project.created_by or "N/A"),
+                ("Organization:", project.organization or "N/A"),
+                ("Reviewer:", project.reviewer or "N/A"),
+                ("Product Name:", project.product_name or "N/A"),
+                ("Product Group:", project.product_group or "N/A"),
+                ("Product Version:", project.product_version or "N/A"),
+                ("Hardware Version:", project.hardware_version or "N/A"),
+                ("Software Version:", project.software_version or "N/A"),
+                ("Reliability Database:", project.reliability_database_source or "N/A"),
+                ("Environmental Profile:", project.environmental_profile or "N/A"),
+                ("Diag. Test Interval:", fmt(project.diagnostic_test_interval, "hours")),
+                ("Mission Time:", fmt(project.mission_time, "hours")),
+                ("Proof Test Interval:", fmt(project.test_interval, "hours")),
+            ]
             
-            ws_overview["D7"] = "No Effect Failure Def:"
-            ws_overview["E7"] = (project.safety_context.no_effect_failure_definition if project.safety_context else None) or "Not defined"
-            ws_overview["E7"].alignment = Alignment(wrap_text=True)
-            
-            for r in range(3, 8):
-                ws_overview[f"A{r}"].font = label_font
-                ws_overview[f"B{r}"].font = value_font
-                ws_overview[f"D{r}"].font = label_font
-                ws_overview[f"E{r}"].font = value_font
+            for idx, (lbl, val) in enumerate(proj_info):
+                r = 4 + idx
+                cell_l = ws_overview.cell(row=r, column=1, value=lbl)
+                cell_l.font = label_font
+                cell_l.alignment = Alignment(vertical="top")
+                cell_v = ws_overview.cell(row=r, column=2, value=val)
+                cell_v.font = value_font
+                cell_v.alignment = Alignment(vertical="top", wrap_text=True)
                 
-            current_row = 9
+            # Populate Safety Context (D4:E14)
+            sc = project.safety_context
+            sc_info = [
+                ("Safety Function Name:", sc.safety_function_name if sc else "N/A"),
+                ("Safety Function Desc:", sc.safety_function_description if sc else "N/A"),
+                ("Defined Safe State:", sc.safe_state if sc else "N/A"),
+                ("Defined Dangerous State:", sc.dangerous_state if sc else "N/A"),
+                ("Safety Architecture:", sc.safety_architecture if sc else "1oo1"),
+                ("Operating Mode:", sc.operating_mode if sc else "Low demand mode"),
+                ("Safety Boundary:", sc.safety_boundary if sc else "N/A"),
+                ("External Sensor Included:", "Yes" if sc and sc.external_sensor_included else "No"),
+                ("No Part Failure Def:", sc.no_part_failure_definition if sc else "Not defined"),
+                ("No Effect Failure Def:", sc.no_effect_failure_definition if sc else "Not defined"),
+                ("Safety Context Notes:", sc.notes if sc else "N/A"),
+            ]
+            
+            for idx, (lbl, val) in enumerate(sc_info):
+                r = 4 + idx
+                cell_l = ws_overview.cell(row=r, column=4, value=lbl)
+                cell_l.font = label_font
+                cell_l.alignment = Alignment(vertical="top")
+                cell_v = ws_overview.cell(row=r, column=5, value=val)
+                cell_v.font = value_font
+                cell_v.alignment = Alignment(vertical="top", wrap_text=True)
+                
+            current_row = 23
             
             # Custom fields
             if include_custom and getattr(project, "custom_fields", None):
                 ws_overview.cell(row=current_row, column=1, value="Custom Project Fields").font = section_font
-                current_row += 2
+                current_row += 1
                 for k, v in project.custom_fields.items():
                     cell_k = ws_overview.cell(row=current_row, column=1, value=f"{k}:")
                     cell_k.font = label_font
@@ -106,50 +153,106 @@ class ExportService:
                     current_row += 1
                 current_row += 1
                 
-            # Summary metrics table
+            # Calculated Safety Metrics Table Comparison
             ws_overview.cell(row=current_row, column=1, value="Calculated Safety Metrics Summary").font = section_font
             current_row += 2
             
-            headers = ["Safety Parameter", "Value"]
-            for c_idx, h in enumerate(headers, 1):
+            metrics_headers = ["Parameter / Metric", "Gesamtgerät (Overall Device)", "Sicherheitskanal (Safety Channel)"]
+            for c_idx, h in enumerate(metrics_headers, 1):
                 cell = ws_overview.cell(row=current_row, column=c_idx, value=h)
                 cell.font = header_font
                 cell.fill = header_fill
                 cell.alignment = Alignment(horizontal="center")
+                
+            # We calculate overall DC for Gesamtgerät too:
+            gg_tot_dang = (project.lambda_dd_gesamtgerat or 0.0) + (project.lambda_du_gesamtgerat or 0.0)
+            gg_dc = (project.lambda_dd_gesamtgerat / gg_tot_dang * 100.0) if gg_tot_dang > 0.0 else 0.0
             
-            # Re-calculate to ensure latest values
-            CalculationService.calculate_project(project)
-            
-            tot_dangerous = (project.dangerous_detected_rate or 0.0) + (project.dangerous_undetected_rate or 0.0)
-            dc = (project.dangerous_detected_rate / tot_dangerous * 100.0) if tot_dangerous > 0.0 else 0.0
-            
-            metrics = [
-                ("Total Failure Rate (FIT)", f"{project.total_failure_rate or 0.0:.4f}"),
-                ("Safe Failure Fraction (SFF)", f"{project.sff or 0.0:.2f}%"),
-                ("Dangerous Detected FIT", f"{project.dangerous_detected_rate or 0.0:.4f}"),
-                ("Dangerous Undetected FIT", f"{project.dangerous_undetected_rate or 0.0:.4f}"),
-                ("Safe Failure Rate FIT", f"{project.safe_failure_rate or 0.0:.4f}"),
-                ("Average PFD (PFDavg)", f"{project.pfd_avg or 0.0:.6e}"),
-                ("Diagnostic Coverage (DC)", f"{dc:.2f}%"),
-                ("Achieved Safety Integrity Level", project.achieved_sil or "SIL 0")
+            metrics_rows = [
+                ("Total Failure Rate (FIT)", fmt(project.lambda_total_gesamtgerat, "fit"), fmt(project.lambda_total_sicherheitskanal, "fit")),
+                ("Safe Failure Rate (FIT)", fmt(project.lambda_safe_gesamtgerat, "fit"), fmt(project.lambda_safe_sicherheitskanal, "fit")),
+                ("Dangerous Failure Rate (FIT)", fmt(project.lambda_dangerous_gesamtgerat, "fit"), fmt(project.lambda_dangerous_sicherheitskanal, "fit")),
+                ("Safe Detected λsd (FIT)", fmt(project.lambda_sd_gesamtgerat, "fit"), fmt(project.lambda_sd_sicherheitskanal, "fit")),
+                ("Safe Undetected λsu (FIT)", fmt(project.lambda_su_gesamtgerat, "fit"), fmt(project.lambda_su_sicherheitskanal, "fit")),
+                ("Dangerous Detected λdd (FIT)", fmt(project.lambda_dd_gesamtgerat, "fit"), fmt(project.lambda_dd_sicherheitskanal, "fit")),
+                ("Dangerous Undetected λdu (FIT)", fmt(project.lambda_du_gesamtgerat, "fit"), fmt(project.lambda_du_sicherheitskanal, "fit")),
+                ("Diagnostic Coverage (DC %)", fmt(gg_dc, "pct"), fmt(project.dc_sicherheitskanal, "pct")),
+                ("Safe Failure Fraction (SFF %)", fmt(project.sff_gesamtgerat, "pct"), fmt(project.sff_sicherheitskanal, "pct")),
+                ("MTTFd (years)", "N/A", fmt(project.mttfd_sicherheitskanal, "years")),
+                ("Average PFD (PFDavg)", "N/A", fmt(project.pfd_avg, "pfd")),
+                ("Maximum PFD (PFH)", "N/A", fmt(project.pfd_max, "pfd")),
+                ("Achieved Safety Integrity Level", "N/A", project.achieved_sil or "SIL 0"),
             ]
             
             current_row += 1
-            for param, val in metrics:
+            for param, val_gg, val_sk in metrics_rows:
                 cell_p = ws_overview.cell(row=current_row, column=1, value=param)
-                cell_v = ws_overview.cell(row=current_row, column=2, value=val)
+                cell_gg = ws_overview.cell(row=current_row, column=2, value=val_gg)
+                cell_sk = ws_overview.cell(row=current_row, column=3, value=val_sk)
+                
                 cell_p.font = value_font
-                cell_v.font = label_font
+                cell_gg.font = label_font
+                cell_sk.font = label_font
+                
                 cell_p.border = thin_border
-                cell_v.border = thin_border
-                cell_v.alignment = Alignment(horizontal="right" if "FIT" in param or "PFD" in param or "%" in param else "center")
+                cell_gg.border = thin_border
+                cell_sk.border = thin_border
+                
+                cell_gg.alignment = Alignment(horizontal="right" if val_gg != "N/A" else "center")
+                cell_sk.alignment = Alignment(horizontal="right" if val_sk != "N/A" else "center")
+                current_row += 1
+                
+            current_row += 2
+            
+            # Functional Group Summaries Table
+            ws_overview.cell(row=current_row, column=1, value="Functional Group Summaries").font = section_font
+            current_row += 2
+            
+            fg_headers = ["Functional Group", "Safety Function", "Total FIT", "SFF Gesamtgerät", "SFF Sicherheitskanal", "DC Sicherheitskanal"]
+            for c_idx, h in enumerate(fg_headers, 1):
+                cell = ws_overview.cell(row=current_row, column=c_idx, value=h)
+                cell.font = header_font
+                cell.fill = header_fill
+                cell.alignment = Alignment(horizontal="center")
+                
+            current_row += 1
+            for unit in project.units:
+                unit_metrics = CalculationService.calculate_unit(unit)
+                
+                cell_name = ws_overview.cell(row=current_row, column=1, value=unit.name)
+                cell_name.font = value_font
+                
+                cell_sf = ws_overview.cell(row=current_row, column=2, value="Yes" if unit.included_in_safety_function else "No")
+                cell_sf.font = value_font
+                cell_sf.alignment = Alignment(horizontal="center")
+                
+                cell_tot = ws_overview.cell(row=current_row, column=3, value=f"{unit_metrics['gesamtgerat']['lambda']:.4f}")
+                cell_tot.font = value_font
+                cell_tot.alignment = Alignment(horizontal="right")
+                
+                cell_sff_gg = ws_overview.cell(row=current_row, column=4, value=f"{unit_metrics['gesamtgerat']['sff']:.2f}%")
+                cell_sff_gg.font = value_font
+                cell_sff_gg.alignment = Alignment(horizontal="right")
+                
+                cell_sff_sk = ws_overview.cell(row=current_row, column=5, value=f"{unit_metrics['sicherheitskanal']['sff']:.2f}%")
+                cell_sff_sk.font = value_font
+                cell_sff_sk.alignment = Alignment(horizontal="right")
+                
+                cell_dc_sk = ws_overview.cell(row=current_row, column=6, value=f"{unit_metrics['sicherheitskanal']['dc']:.2f}%")
+                cell_dc_sk.font = value_font
+                cell_dc_sk.alignment = Alignment(horizontal="right")
+                
+                for col_idx in range(1, 7):
+                    ws_overview.cell(row=current_row, column=col_idx).border = thin_border
+                    
                 current_row += 1
                 
             # Auto-adjust overview column widths
             for col in ws_overview.columns:
                 max_len = 0
                 for cell in col:
-                    if cell.coordinate in ["B7", "E7"]:
+                    # Skip extremely long definitions to prevent column blow-up
+                    if cell.row in range(4, 20) and cell.column in [2, 5]:
                         continue
                     val_str = str(cell.value or '')
                     if '\n' in val_str:

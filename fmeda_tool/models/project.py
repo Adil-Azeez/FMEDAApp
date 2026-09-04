@@ -83,6 +83,28 @@ class Project(BaseModel):
     pfd_max: Optional[float] = Field(default=None, description="Maximum PFD")
     achieved_sil: Optional[str] = Field(default=None, description="Achieved SIL level")
     
+    # Gesamtgeraet metrics
+    lambda_total_gesamtgerat: Optional[float] = Field(default=None, description="Total Gesamtgeraet failure rate (FIT)")
+    lambda_safe_gesamtgerat: Optional[float] = Field(default=None, description="Safe Gesamtgeraet failure rate (FIT)")
+    lambda_dangerous_gesamtgerat: Optional[float] = Field(default=None, description="Dangerous Gesamtgeraet failure rate (FIT)")
+    lambda_sd_gesamtgerat: Optional[float] = Field(default=None, description="Safe detected Gesamtgeraet failure rate (FIT)")
+    lambda_su_gesamtgerat: Optional[float] = Field(default=None, description="Safe undetected Gesamtgeraet failure rate (FIT)")
+    lambda_dd_gesamtgerat: Optional[float] = Field(default=None, description="Dangerous detected Gesamtgeraet failure rate (FIT)")
+    lambda_du_gesamtgerat: Optional[float] = Field(default=None, description="Dangerous undetected Gesamtgeraet failure rate (FIT)")
+    sff_gesamtgerat: Optional[float] = Field(default=None, description="Safe Failure Fraction for Gesamtgeraet")
+    
+    # Sicherheitskanal metrics
+    lambda_total_sicherheitskanal: Optional[float] = Field(default=None, description="Total Sicherheitskanal failure rate (FIT)")
+    lambda_safe_sicherheitskanal: Optional[float] = Field(default=None, description="Safe Sicherheitskanal failure rate (FIT)")
+    lambda_dangerous_sicherheitskanal: Optional[float] = Field(default=None, description="Dangerous Sicherheitskanal failure rate (FIT)")
+    lambda_sd_sicherheitskanal: Optional[float] = Field(default=None, description="Safe detected Sicherheitskanal failure rate (FIT)")
+    lambda_su_sicherheitskanal: Optional[float] = Field(default=None, description="Safe undetected Sicherheitskanal failure rate (FIT)")
+    lambda_dd_sicherheitskanal: Optional[float] = Field(default=None, description="Dangerous detected Sicherheitskanal failure rate (FIT)")
+    lambda_du_sicherheitskanal: Optional[float] = Field(default=None, description="Dangerous undetected Sicherheitskanal failure rate (FIT)")
+    sff_sicherheitskanal: Optional[float] = Field(default=None, description="Safe Failure Fraction for Sicherheitskanal")
+    dc_sicherheitskanal: Optional[float] = Field(default=None, description="Diagnostic Coverage for Sicherheitskanal")
+    mttfd_sicherheitskanal: Optional[float] = Field(default=None, description="MTTFd for Sicherheitskanal in years")
+    
     # File paths and references
     source_documents: List[str] = Field(default_factory=list, description="Source document paths")
     export_path: Optional[str] = Field(default=None, description="Last export path")

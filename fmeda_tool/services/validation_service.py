@@ -82,7 +82,7 @@ class ValidationService:
         if component.failure_modes:
             total_fm_pct = sum(component.failure_modes.values())
             if abs(total_fm_pct - 100.0) > 0.01:
-                warnings.append(f"Sum of failure mode distributions ({total_fm_pct:.2f}%) does not equal 100%.")
+                warnings.append(f"Sum of failure mode distributions ({total_fm_pct:.2f}%) does not equal 100%.") 
                 
         for assignment in component.failure_mode_assignments:
             row_status, row_msgs = ValidationService.validate_row(assignment, component)
