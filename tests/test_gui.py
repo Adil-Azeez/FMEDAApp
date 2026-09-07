@@ -150,9 +150,9 @@ class TestGUIComponents(unittest.TestCase):
         fg_widget = editor_view.unit_tabs.widget(1)
         self.assertIsInstance(fg_widget, FunctionalGroupTab)
         
-        # Verify functional group tab has the save button (toggle view is hidden)
-        # self.assertIsNotNone(fg_widget.toggle_view_btn)
-        self.assertIsNotNone(fg_widget.save_btn)
+        # Verify functional group tab has the toggle edit button
+        self.assertIsNotNone(fg_widget.toggle_edit_btn)
+        self.assertIsNotNone(fg_widget.calculate_btn)
 
     def test_validation_service_rules(self):
         from fmeda_tool.services.validation_service import ValidationService
