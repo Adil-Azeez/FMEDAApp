@@ -253,10 +253,13 @@ class CalculationService:
         }
 
     @staticmethod
-    def calculate_project(project: Project):
+    def calculate_scope(units: List[Unit], project: Optional[Project] = None) -> Dict[str, Any]:
         """
-        Calculates global project totals and safety parameters for both
-        Gesamtgeraet and Sicherheitskanal scopes.
+        Calculates combined safety parameters and failure rates for a supplied list of units
+        without modifying the underlying project.
+        
+        Failure rates are summed first across the selected scope before deriving SFF, DC,
+        MTTFd, PFDavg, PFHd, and Achieved SIL (no percentage averaging).
         """
         gg_fit = 0.0
         gg_safe = 0.0
@@ -274,19 +277,29 @@ class CalculationService:
         sk_dd = 0.0
         sk_du = 0.0
         
-        for unit in project.units:
+        gg_comp_count = 0
+        gg_row_count = 0
+        sk_comp_count = 0
+        sk_row_count = 0
+        
+        for unit in units:
             unit_metrics = CalculationService.calculate_unit(unit)
-            if unit.included_in_safety_function:
-                # Gesamtgeraet
-                gg_fit += unit_metrics["gesamtgerat"]["lambda"]
-                gg_safe += unit_metrics["gesamtgerat"]["lambda_safe"]
-                gg_dangerous += unit_metrics["gesamtgerat"]["lambda_dangerous"]
-                gg_sd += unit_metrics["gesamtgerat"]["lambda_sd"]
-                gg_su += unit_metrics["gesamtgerat"]["lambda_su"]
-                gg_dd += unit_metrics["gesamtgerat"]["lambda_dd"]
-                gg_du += unit_metrics["gesamtgerat"]["lambda_du"]
+            
+            # Gesamtgerät includes all components in selected units
+            gg_fit += unit_metrics["gesamtgerat"]["lambda"]
+            gg_safe += unit_metrics["gesamtgerat"]["lambda_safe"]
+            gg_dangerous += unit_metrics["gesamtgerat"]["lambda_dangerous"]
+            gg_sd += unit_metrics["gesamtgerat"]["lambda_sd"]
+            gg_su += unit_metrics["gesamtgerat"]["lambda_su"]
+            gg_dd += unit_metrics["gesamtgerat"]["lambda_dd"]
+            gg_du += unit_metrics["gesamtgerat"]["lambda_du"]
+            
+            gg_comp_count += len(unit.components)
+            for c in unit.components:
+                gg_row_count += len(c.failure_modes)
                 
-                # Sicherheitskanal
+            # Sicherheitskanal includes unit if included_in_safety_function
+            if unit.included_in_safety_function:
                 sk_fit += unit_metrics["sicherheitskanal"]["lambda"]
                 sk_safe += unit_metrics["sicherheitskanal"]["lambda_safe"]
                 sk_dangerous += unit_metrics["sicherheitskanal"]["lambda_dangerous"]
@@ -295,62 +308,42 @@ class CalculationService:
                 sk_dd += unit_metrics["sicherheitskanal"]["lambda_dd"]
                 sk_du += unit_metrics["sicherheitskanal"]["lambda_du"]
                 
-        # SFF Gesamtgeraet
-        gg_sff = ((gg_safe + gg_dd) / gg_fit * 100.0) if gg_fit > 0.0 else 0.0
-        gg_dc = (gg_dd / gg_dangerous * 100.0) if gg_dangerous > 0.0 else 0.0
+                for c in unit.components:
+                    has_sk_row = False
+                    for a in c.failure_mode_assignments:
+                        if not getattr(a, "dont_care", False):
+                            sk_row_count += 1
+                            has_sk_row = True
+                    if has_sk_row:
+                        sk_comp_count += 1
+                        
+        # SFF & DC Gesamtgerät
+        gg_sff = ((gg_safe + gg_dd) / gg_fit * 100.0) if gg_fit > 0.0 else None
+        gg_dc = (gg_dd / gg_dangerous * 100.0) if gg_dangerous > 0.0 else None
         
         # SFF & DC Sicherheitskanal
         sk_sff_denom = sk_sd + sk_su + sk_dd + sk_du
-        sk_sff = ((sk_sd + sk_su + sk_dd) / sk_sff_denom * 100.0) if sk_sff_denom > 0.0 else 0.0
+        sk_sff = ((sk_sd + sk_su + sk_dd) / sk_sff_denom * 100.0) if sk_sff_denom > 0.0 else None
         sk_dc_denom = sk_dd + sk_du
-        sk_dc = (sk_dd / sk_dc_denom * 100.0) if sk_dc_denom > 0.0 else 0.0
+        sk_dc = (sk_dd / sk_dc_denom * 100.0) if sk_dc_denom > 0.0 else None
         
-        # MTTFd Sicherheitskanal (in years)
+        # MTTFd Sicherheitskanal (years)
         sk_dangerous_sum = sk_dd + sk_du
-        sk_mttfd = 10**9 / (sk_dangerous_sum * 8760.0) if sk_dangerous_sum > 0.0 else 0.0
-        
-        # Store metrics on project model
-        project.lambda_total_gesamtgerat = gg_fit
-        project.lambda_safe_gesamtgerat = gg_safe
-        project.lambda_dangerous_gesamtgerat = gg_dangerous
-        project.lambda_sd_gesamtgerat = gg_sd
-        project.lambda_su_gesamtgerat = gg_su
-        project.lambda_dd_gesamtgerat = gg_dd
-        project.lambda_du_gesamtgerat = gg_du
-        project.sff_gesamtgerat = gg_sff
-        
-        project.lambda_total_sicherheitskanal = sk_fit
-        project.lambda_safe_sicherheitskanal = sk_safe
-        project.lambda_dangerous_sicherheitskanal = sk_dangerous
-        project.lambda_sd_sicherheitskanal = sk_sd
-        project.lambda_su_sicherheitskanal = sk_su
-        project.lambda_dd_sicherheitskanal = sk_dd
-        project.lambda_du_sicherheitskanal = sk_du
-        project.sff_sicherheitskanal = sk_sff
-        project.dc_sicherheitskanal = sk_dc
-        project.mttfd_sicherheitskanal = sk_mttfd
-        
-        # Legacy properties (Sicherheitskanal is chosen as explicit SFF scope for Achieved SIL)
-        project.total_failure_rate = sk_fit
-        project.safe_failure_rate = sk_safe
-        project.dangerous_detected_rate = sk_dd
-        project.dangerous_undetected_rate = sk_du
-        project.sff = sk_sff
+        sk_mttfd = (10**9 / (sk_dangerous_sum * 8760.0)) if sk_dangerous_sum > 0.0 else None
         
         # PFDavg / PFHd
-        t_proof = project.test_interval or 8760.0
-        t_diag = project.diagnostic_test_interval or 8.0
+        t_proof = (project.test_interval if project and project.test_interval is not None else 8760.0)
+        t_diag = (project.diagnostic_test_interval if project and project.diagnostic_test_interval is not None else 8.0)
         
         lambda_du_hour = sk_du * 10**-9
         lambda_dd_hour = sk_dd * 10**-9
         
         arch = "1oo1"
-        if project.safety_context:
+        if project and project.safety_context and project.safety_context.safety_architecture:
             arch = project.safety_context.safety_architecture
             
         pfhd = 0.0
         pfdavg = 0.0
-        
         if arch == "1oo2":
             pfhd = lambda_du_hour
             pfdavg = (lambda_du_hour**2 * t_proof**2) / 3.0
@@ -361,16 +354,94 @@ class CalculationService:
             pfhd = lambda_du_hour
             pfdavg = (lambda_du_hour * t_proof / 2.0) + (lambda_dd_hour * t_diag)
             
-        achieved_sil = "SIL 0"
-        if sk_sff < 60.0:
+        achieved_sil = "N/A"
+        if sk_sff is not None:
+            if sk_sff < 60.0:
+                achieved_sil = "SIL 0"
+            elif 60.0 <= sk_sff < 90.0:
+                achieved_sil = "SIL 1"
+            elif 90.0 <= sk_sff < 99.0:
+                achieved_sil = "SIL 2"
+            elif sk_sff >= 99.0:
+                achieved_sil = "SIL 3"
+        elif units and sk_fit == 0.0:
             achieved_sil = "SIL 0"
-        elif 60.0 <= sk_sff < 90.0:
-            achieved_sil = "SIL 1"
-        elif 90.0 <= sk_sff < 99.0:
-            achieved_sil = "SIL 2"
-        elif sk_sff >= 99.0:
-            achieved_sil = "SIL 3"
             
-        project.pfd_avg = pfdavg
-        project.pfd_max = pfhd
-        project.achieved_sil = achieved_sil
+        return {
+            "gesamtgerat": {
+                "lambda": gg_fit,
+                "lambda_safe": gg_safe,
+                "lambda_dangerous": gg_dangerous,
+                "lambda_sd": gg_sd,
+                "lambda_su": gg_su,
+                "lambda_dd": gg_dd,
+                "lambda_du": gg_du,
+                "sff": gg_sff,
+                "dc": gg_dc,
+                "comp_count": gg_comp_count,
+                "row_count": gg_row_count,
+            },
+            "sicherheitskanal": {
+                "lambda": sk_fit,
+                "lambda_safe": sk_safe,
+                "lambda_dangerous": sk_dangerous,
+                "lambda_sd": sk_sd,
+                "lambda_su": sk_su,
+                "lambda_dd": sk_dd,
+                "lambda_du": sk_du,
+                "sff": sk_sff,
+                "dc": sk_dc,
+                "mttfd": sk_mttfd,
+                "pfd_avg": pfdavg,
+                "pfd_max": pfhd,
+                "comp_count": sk_comp_count,
+                "row_count": sk_row_count,
+            },
+            "achieved_sil": achieved_sil,
+            "target_sil": (project.target_sil or "N/A") if project else "N/A",
+            "test_interval": t_proof,
+            "diagnostic_test_interval": t_diag,
+            "selected_unit_ids": [u.id for u in units],
+            "selected_unit_names": [u.name for u in units]
+        }
+
+    @staticmethod
+    def calculate_project(project: Project):
+        """
+        Calculates global project totals and safety parameters for both
+        Gesamtgeraet and Sicherheitskanal scopes.
+        """
+        scope_res = CalculationService.calculate_scope(project.units, project)
+        gg = scope_res["gesamtgerat"]
+        sk = scope_res["sicherheitskanal"]
+        
+        project.lambda_total_gesamtgerat = gg["lambda"]
+        project.lambda_safe_gesamtgerat = gg["lambda_safe"]
+        project.lambda_dangerous_gesamtgerat = gg["lambda_dangerous"]
+        project.lambda_sd_gesamtgerat = gg["lambda_sd"]
+        project.lambda_su_gesamtgerat = gg["lambda_su"]
+        project.lambda_dd_gesamtgerat = gg["lambda_dd"]
+        project.lambda_du_gesamtgerat = gg["lambda_du"]
+        project.sff_gesamtgerat = gg["sff"] if gg["sff"] is not None else 0.0
+        
+        project.lambda_total_sicherheitskanal = sk["lambda"]
+        project.lambda_safe_sicherheitskanal = sk["lambda_safe"]
+        project.lambda_dangerous_sicherheitskanal = sk["lambda_dangerous"]
+        project.lambda_sd_sicherheitskanal = sk["lambda_sd"]
+        project.lambda_su_sicherheitskanal = sk["lambda_su"]
+        project.lambda_dd_sicherheitskanal = sk["lambda_dd"]
+        project.lambda_du_sicherheitskanal = sk["lambda_du"]
+        project.sff_sicherheitskanal = sk["sff"] if sk["sff"] is not None else 0.0
+        project.dc_sicherheitskanal = sk["dc"] if sk["dc"] is not None else 0.0
+        project.mttfd_sicherheitskanal = sk["mttfd"] if sk["mttfd"] is not None else 0.0
+        
+        # Legacy properties (Sicherheitskanal is chosen as explicit SFF scope for Achieved SIL)
+        project.total_failure_rate = sk["lambda"]
+        project.safe_failure_rate = sk["lambda_safe"]
+        project.dangerous_detected_rate = sk["lambda_dd"]
+        project.dangerous_undetected_rate = sk["lambda_du"]
+        project.sff = sk["sff"] if sk["sff"] is not None else 0.0
+        
+        project.pfd_avg = sk["pfd_avg"]
+        project.pfd_max = sk["pfd_max"]
+        project.achieved_sil = scope_res["achieved_sil"]

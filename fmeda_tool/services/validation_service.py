@@ -118,15 +118,15 @@ class ValidationService:
         
         # 1. Global metadata checks
         if not project.name:
-            alerts.append({"severity": "Error", "scope": "Global", "item": "Project Name", "message": "Project Name is missing.", "unit_id": None, "row_index": None})
+            alerts.append({"severity": "Error", "scope": "Global", "item": "Project Name", "message": "Project Name is missing.", "unit_id": None, "row_index": None, "location": None})
         if not project.project_number:
-            alerts.append({"severity": "Error", "scope": "Global", "item": "Project Number", "message": "Project Number is missing.", "unit_id": None, "row_index": None})
+            alerts.append({"severity": "Error", "scope": "Global", "item": "Project Number", "message": "Project Number is missing.", "unit_id": None, "row_index": None, "location": None})
         if not project.description:
-            alerts.append({"severity": "Warning", "scope": "Global", "item": "Description", "message": "Project description is empty.", "unit_id": None, "row_index": None})
+            alerts.append({"severity": "Warning", "scope": "Global", "item": "Description", "message": "Project description is empty.", "unit_id": None, "row_index": None, "location": None})
         if not project.reviewer:
-            alerts.append({"severity": "Warning", "scope": "Global", "item": "Reviewer", "message": "No reviewer assigned.", "unit_id": None, "row_index": None})
+            alerts.append({"severity": "Warning", "scope": "Global", "item": "Reviewer", "message": "No reviewer assigned.", "unit_id": None, "row_index": None, "location": None})
         if not project.units:
-            alerts.append({"severity": "Error", "scope": "Global", "item": "Functional Groups", "message": "No functional groups exist.", "unit_id": None, "row_index": None})
+            alerts.append({"severity": "Error", "scope": "Global", "item": "Functional Groups", "message": "No functional groups exist.", "unit_id": None, "row_index": None, "location": None})
             
         # 2. SIL Target Mismatch
         sil_levels = {"SIL 0": 0, "SIL 1": 1, "SIL 2": 2, "SIL 3": 3, "SIL 4": 4}
@@ -139,7 +139,8 @@ class ValidationService:
                 "item": "Target SIL Mismatch",
                 "message": f"Target SIL is {project.target_sil} but Achieved SIL is {project.achieved_sil}.",
                 "unit_id": None,
-                "row_index": None
+                "row_index": None,
+                "location": None
             })
             
         # 3. Unit, component, and row checks
@@ -151,7 +152,8 @@ class ValidationService:
                     "item": unit.name,
                     "message": "No component instances added or BOM imported in this group.",
                     "unit_id": unit.id,
-                    "row_index": None
+                    "row_index": None,
+                    "location": f"{unit.name} (Group Level)"
                 })
                 
             # Unmapped BOM components check
@@ -165,7 +167,8 @@ class ValidationService:
                         "item": bom.designator,
                         "message": f"BOM Component '{bom.designator}' has not been mapped to any database template.",
                         "unit_id": unit.id,
-                        "row_index": None
+                        "row_index": None,
+                        "location": f"{unit.name} (Group Level)"
                     })
                     
             # Check components and rows
@@ -180,7 +183,8 @@ class ValidationService:
                         "item": comp.position,
                         "message": f"Failure mode distribution for component {comp.position} is {tot_dist:.1f}% (must be 100%).",
                         "unit_id": unit.id,
-                        "row_index": row_index
+                        "row_index": row_index,
+                        "location": f"{unit.name} (Row {row_index + 1})"
                     })
                     
                 for fm_name, fm_perc in comp.failure_modes.items():
@@ -195,7 +199,8 @@ class ValidationService:
                                     "item": f"{comp.position} ({fm_name})",
                                     "message": msg,
                                     "unit_id": unit.id,
-                                    "row_index": row_index
+                                    "row_index": row_index,
+                                    "location": f"{unit.name} (Row {row_index + 1})"
                                 })
                         elif status == "warning":
                             for msg in msgs:
@@ -205,7 +210,8 @@ class ValidationService:
                                     "item": f"{comp.position} ({fm_name})",
                                     "message": msg,
                                     "unit_id": unit.id,
-                                    "row_index": row_index
+                                    "row_index": row_index,
+                                    "location": f"{unit.name} (Row {row_index + 1})"
                                 })
                     row_index += 1
                     

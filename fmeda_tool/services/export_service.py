@@ -98,8 +98,7 @@ class ExportService:
                 ("Product Version:", project.product_version or "N/A"),
                 ("Hardware Version:", project.hardware_version or "N/A"),
                 ("Software Version:", project.software_version or "N/A"),
-                ("Reliability Database:", project.reliability_database_source or "N/A"),
-                ("Environmental Profile:", project.environmental_profile or "N/A"),
+                ("Selected Profile:", getattr(project, "selected_profile", None) or "Profile 1"),
                 ("Diag. Test Interval:", fmt(project.diagnostic_test_interval, "hours")),
                 ("Mission Time:", fmt(project.mission_time, "hours")),
                 ("Proof Test Interval:", fmt(project.test_interval, "hours")),
@@ -139,7 +138,40 @@ class ExportService:
                 cell_v.font = value_font
                 cell_v.alignment = Alignment(vertical="top", wrap_text=True)
                 
-            current_row = 23
+            current_row = 22
+
+            # Section: Reliability Data Context & Traceability
+            ws_overview.cell(row=current_row, column=1, value="Reliability Data Context & Traceability").font = section_font
+            current_row += 1
+
+            all_comps = [c for u in project.units for c in u.components]
+            exida_count = sum(1 for c in all_comps if getattr(c, "database", "").lower() == "exida" or "exida" in getattr(c, "id", "").lower())
+            legacy_count = sum(1 for c in all_comps if getattr(c, "database", "").lower() == "legacy")
+            custom_count = len(all_comps) - exida_count - legacy_count
+            missing_source_count = sum(1 for c in all_comps if not getattr(c, "source_reference", None) and not getattr(c, "failure_rate_id", None))
+
+            rel_info = [
+                ("Selected Environmental Profile:", getattr(project, "selected_profile", None) or "Profile 1"),
+                ("Reliability Library:", "Exida & Legacy Component Library"),
+                ("Handbook / Source Name:", project.reliability_database_source or "Exida Database / SN 29500 / MIL-HDBK-217F"),
+                ("Library Database ID:", "data/fmeda.sqlite"),
+                ("SQLite Schema / Version:", "Version 2.0 (Clean Schema)"),
+                ("Component Source Policy:", "Library First with Traceable Fallback"),
+                ("Exida Components Used:", str(exida_count)),
+                ("Legacy Components Used:", str(legacy_count)),
+                ("Custom / Manual Components:", str(custom_count)),
+                ("Unresolved Source Meta:", str(missing_source_count))
+            ]
+
+            for idx, (lbl, val) in enumerate(rel_info):
+                r = current_row + (idx // 2)
+                col_offset = 1 if (idx % 2 == 0) else 4
+                cell_l = ws_overview.cell(row=r, column=col_offset, value=lbl)
+                cell_l.font = label_font
+                cell_v = ws_overview.cell(row=r, column=col_offset + 1, value=val)
+                cell_v.font = value_font
+
+            current_row += ((len(rel_info) + 1) // 2) + 2
             
             # Custom fields
             if include_custom and getattr(project, "custom_fields", None):
@@ -218,33 +250,28 @@ class ExportService:
             current_row += 1
             for unit in project.units:
                 unit_metrics = CalculationService.calculate_unit(unit)
+                u_tot_fit = unit_metrics.get("total_failure_rate", 0.0)
+                u_sff_gg = unit_metrics.get("sff_gesamtgerat", 0.0)
+                u_sff_sk = unit_metrics.get("sff_sicherheitskanal", 0.0)
+                u_dc_sk = unit_metrics.get("dc_sicherheitskanal", 0.0)
                 
-                cell_name = ws_overview.cell(row=current_row, column=1, value=unit.name)
-                cell_name.font = value_font
+                u_vals = [
+                    unit.name,
+                    "Yes" if unit.included_in_safety_function else "No",
+                    fmt(u_tot_fit, "fit"),
+                    fmt(u_sff_gg, "pct"),
+                    fmt(u_sff_sk, "pct"),
+                    fmt(u_dc_sk, "pct")
+                ]
                 
-                cell_sf = ws_overview.cell(row=current_row, column=2, value="Yes" if unit.included_in_safety_function else "No")
-                cell_sf.font = value_font
-                cell_sf.alignment = Alignment(horizontal="center")
-                
-                cell_tot = ws_overview.cell(row=current_row, column=3, value=f"{unit_metrics['gesamtgerat']['lambda']:.4f}")
-                cell_tot.font = value_font
-                cell_tot.alignment = Alignment(horizontal="right")
-                
-                cell_sff_gg = ws_overview.cell(row=current_row, column=4, value=f"{unit_metrics['gesamtgerat']['sff']:.2f}%")
-                cell_sff_gg.font = value_font
-                cell_sff_gg.alignment = Alignment(horizontal="right")
-                
-                cell_sff_sk = ws_overview.cell(row=current_row, column=5, value=f"{unit_metrics['sicherheitskanal']['sff']:.2f}%")
-                cell_sff_sk.font = value_font
-                cell_sff_sk.alignment = Alignment(horizontal="right")
-                
-                cell_dc_sk = ws_overview.cell(row=current_row, column=6, value=f"{unit_metrics['sicherheitskanal']['dc']:.2f}%")
-                cell_dc_sk.font = value_font
-                cell_dc_sk.alignment = Alignment(horizontal="right")
-                
-                for col_idx in range(1, 7):
-                    ws_overview.cell(row=current_row, column=col_idx).border = thin_border
-                    
+                for c_idx, val in enumerate(u_vals, 1):
+                    cell = ws_overview.cell(row=current_row, column=c_idx, value=val)
+                    cell.font = value_font
+                    cell.border = thin_border
+                    if c_idx > 2:
+                        cell.alignment = Alignment(horizontal="right")
+                    elif c_idx == 2:
+                        cell.alignment = Alignment(horizontal="center")
                 current_row += 1
                 
             # Auto-adjust overview column widths
@@ -263,13 +290,13 @@ class ExportService:
                 col_letter = get_column_letter(col[0].column)
                 ws_overview.column_dimensions[col_letter].width = min(max(max_len + 3, 15), 45)
                 
-        # Sheets for Functional Group / FMEDA tables
+        # Sheets for Functional Group / FMEDA tables (37 Columns)
         fmeda_headers = [
             "Component ID / Designator", "Status", "Function", "Value / Description",
-            "Internal Part Number", "Fitted Status", "Component Type",
+            "Internal Part Number", "Component Type",
             "Failure Mode", "Failure-Mode %", "Base Failure Rate (FIT)",
-            "Reliability Source", "Source Reference", "Environmental Profile",
             "Failure Effect / Deviation", "Diagnostic Function", "Failure Classification",
+            "Dangerous %", "Safe %",
             "Diagnostic Measure ID", "Detection % (DC)", "DC Test Ref", "Mitigation",
             "Comments / Justification", "Review Status",
             "Proof Test A", "Proof Test B", "Proof Test C", "No Part / No Effect",
@@ -356,25 +383,26 @@ class ExportService:
                         "diagnostic_function_failure": "Diagnostic Function Failure"
                     }
                     classif_val = class_map_rev.get(classif, "Not Evaluated")
+
+                    dp_val = assignment.dangerous_failure_percentage if assignment.dangerous_failure_percentage is not None else 100.0
+                    safe_pct_val = 100.0 - dp_val
                     
-                    # Compile row values
+                    # Compile 37 row values
                     row_values = [
                         comp.position,
                         status_str,
                         comp.function or "",
                         comp.value or "",
                         comp.internal_pn or "",
-                        comp.fitted_status or "Fitted",
                         comp.type or "",
                         fm_name,
                         fm_percentage / 100.0,
                         comp.failure_rate or 0.0,
-                        project.reliability_database_source or "MIL-HDBK-217F",
-                        "Section 5",
-                        project.environmental_profile or "Ground Benign (GB)",
                         dev_val,
                         assignment.diagnostic_function or "",
                         classif_val,
+                        dp_val / 100.0,
+                        safe_pct_val / 100.0,
                         dm_val,
                         det / 100.0,
                         assignment.dc_test_ref or "",
@@ -430,7 +458,7 @@ class ExportService:
                                 cell.number_format = "0.0"
                                 
                         # Alignment
-                        if h_name in ["Status", "Component ID / Designator", "Fitted Status", "Review Status", "No Part / No Effect", "Functional Group"]:
+                        if h_name in ["Status", "Component ID / Designator", "Review Status", "No Part / No Effect", "Functional Group"]:
                             cell.alignment = Alignment(horizontal="center")
                         elif isinstance(val, (int, float)):
                             cell.alignment = Alignment(horizontal="right")

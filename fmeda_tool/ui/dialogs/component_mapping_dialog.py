@@ -1,32 +1,25 @@
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
-    QTableWidget, QTableWidgetItem, QHeaderView, QComboBox,
-    QCheckBox, QMessageBox, QFrame, QWidget
+    QDialog, QVBoxLayout, QHBoxLayout, QTableWidget,
+    QTableWidgetItem, QPushButton, QLabel, QComboBox,
+    QCheckBox, QHeaderView, QMessageBox, QWidget, QFrame
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont, QColor
-from typing import List, Dict, Optional
-import json
-from pathlib import Path
+from typing import List, Dict, Tuple, Optional
+import uuid
 
-# from fmeda_tool.models import BOMComponent, ComponentDB, ComponentMapping, Unit
-from fmeda_tool.models import (
-    BOMComponent,
-    ComponentDB,
-    ComponentMapping,
-    Unit,
-    Component,
-    FailureModeAssignment
-)
-from fmeda_tool.services import MappingService
+from fmeda_tool.models import Unit, BOMComponent, ComponentDB, ComponentMapping, Component, FailureModeAssignment
+from fmeda_tool.services.mapping_service import MappingService
+from fmeda_tool.services.component_library_service import ComponentLibraryService
 
 
 class ComponentMappingDialog(QDialog):
     """Dialog to match and confirm mappings between BOM components and database templates"""
     
-    def __init__(self, unit: Unit, parent=None):
+    def __init__(self, unit: Unit, project_profile: str = "Profile 1", parent=None):
         super().__init__(parent)
-        self.setWindowTitle(f"Map BOM Components - {unit.name}")
+        self.project_profile = project_profile or "Profile 1"
+        self.setWindowTitle(f"Map BOM Components - {unit.name} ({self.project_profile})")
         self.setMinimumSize(950, 600)
         self.resize(1050, 650)
         
@@ -54,18 +47,28 @@ class ComponentMappingDialog(QDialog):
         
         header_layout.addStretch()
         
+        prof_lbl = QLabel(f"Profile: <b>{self.project_profile}</b>")
+        prof_lbl.setStyleSheet("background-color: #f1f3f5; border: 1px solid #ced4da; padding: 4px 8px; border-radius: 4px;")
+        header_layout.addWidget(prof_lbl)
+        
         auto_btn = QPushButton("🤖 Auto-Match All")
         auto_btn.setStyleSheet("background-color: #0dcaf0; font-weight: bold; padding: 6px 12px;")
         auto_btn.clicked.connect(self._auto_match_all)
         header_layout.addWidget(auto_btn)
         
-        confirm_all_btn = QPushButton("✓ Confirm All Suggested")
-        confirm_all_btn.clicked.connect(self._confirm_all_suggested)
+        confirm_all_btn = QPushButton("✓ Confirm All High Conf.")
+        confirm_all_btn.setStyleSheet("background-color: #ffc107; font-weight: bold; padding: 6px 12px;")
+        confirm_all_btn.clicked.connect(self._confirm_high_confidence)
         header_layout.addWidget(confirm_all_btn)
         
         layout.addLayout(header_layout)
         
-        # Mappings Table
+        # Summary Status Banner
+        self.summary_label = QLabel("Loading mapping status...")
+        self.summary_label.setStyleSheet("background-color: #f8f9fa; border: 1px solid #dee2e6; padding: 8px; border-radius: 4px;")
+        layout.addWidget(self.summary_label)
+        
+        # Table of BOM Items
         self.table = QTableWidget()
         self.table.setColumnCount(8)
         self.table.setHorizontalHeaderLabels([
@@ -73,20 +76,12 @@ class ComponentMappingDialog(QDialog):
             "Matched DB Template", "Confidence", "Confirmed", "Status"
         ])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
-        self.table.horizontalHeader().setStretchLastSection(True)
-        self.table.setColumnWidth(4, 250)
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
+        self.table.verticalHeader().setVisible(False)
         layout.addWidget(self.table)
         
-        # Info Panel
-        info_frame = QFrame()
-        info_frame.setFrameShape(QFrame.Shape.StyledPanel)
-        info_frame.setStyleSheet("background-color: #f8f9fa; border-radius: 4px;")
-        info_layout = QHBoxLayout(info_frame)
-        self.stats_label = QLabel("Unconfirmed components require mapping to generate FMEDA rows.")
-        info_layout.addWidget(self.stats_label)
-        layout.addWidget(info_frame)
-        
-        # Button box
+        # Buttons
         btns_layout = QHBoxLayout()
         btns_layout.addStretch()
         
@@ -102,15 +97,37 @@ class ComponentMappingDialog(QDialog):
         layout.addLayout(btns_layout)
         
     def _load_database_templates(self) -> List[ComponentDB]:
+        templates = []
         try:
-            db_path = Path("data/components_db.json")
-            if db_path.exists():
-                with open(db_path, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                return [ComponentDB(**item) for item in data]
+            exida_comps = ComponentLibraryService.search_exida_components(profile=self.project_profile)
+            for c in exida_comps:
+                snap = ComponentLibraryService.get_exida_component_snapshot(c["id"], self.project_profile)
+                if snap:
+                    templates.append(ComponentDB(
+                        id=snap["library_component_id"],
+                        display_name=snap["displayed_label"],
+                        shortcut=snap.get("failure_rate_id"),
+                        material=snap.get("component_type"),
+                        fits=snap.get("failure_rate"),
+                        database="exida",
+                        failure_modes=snap.get("failure_modes", {})
+                    ))
+            legacy_comps = ComponentLibraryService.search_legacy_components()
+            for l in legacy_comps:
+                snap = ComponentLibraryService.get_legacy_component_snapshot(l["id"])
+                if snap:
+                    templates.append(ComponentDB(
+                        id=snap["library_component_id"],
+                        display_name=snap["display_name"],
+                        shortcut=snap.get("shortcut"),
+                        material=snap.get("material"),
+                        fits=snap.get("failure_rate"),
+                        database="Legacy",
+                        failure_modes=snap.get("failure_modes", {})
+                    ))
         except Exception as e:
             QMessageBox.warning(self, "Load Error", f"Failed to load Component Database:\n{str(e)}")
-        return []
+        return templates
         
     def _populate_table(self):
         self.table.setRowCount(0)
@@ -177,7 +194,6 @@ class ComponentMappingDialog(QDialog):
             # Pre-select mapped templates
             mapped = mapping_by_bom.get(bom.id)
             if mapped:
-                # Find database template index in combobox
                 for idx in range(1, combo.count()):
                     db_id, score = combo.itemData(idx)
                     if db_id == mapped.component_db_id:
@@ -202,68 +218,76 @@ class ComponentMappingDialog(QDialog):
         cb = self.confirm_checkboxes[bom_id]
         
         data = combo.currentData()
-        conf_item = self.table.item(row_idx, 5)
-        status_item = self.table.item(row_idx, 7)
-        
         if data is None:
             # Unmapped
-            conf_item.setText("0%")
-            status_item.setText("Unmapped")
-            status_item.setForeground(QColor("#dc3545"))
-            cb.setChecked(False)
-            cb.setEnabled(False)
+            conf_val = 0.0
+            status_text = "Unmapped"
+            status_color = QColor("#dc3545")  # Red
         else:
-            db_id, score = data
-            conf_item.setText(f"{score*100:.0f}%")
-            cb.setEnabled(True)
-            
+            db_id, conf_val = data
             if cb.isChecked():
-                status_item.setText("Confirmed")
-                status_item.setForeground(QColor("#28a745"))
+                status_text = "Confirmed"
+                status_color = QColor("#198754")  # Green
+            elif conf_val >= 0.85:
+                status_text = "High Conf."
+                status_color = QColor("#0d6efd")  # Blue
+            elif conf_val >= 0.50:
+                status_text = "Medium Conf."
+                status_color = QColor("#ffc107")  # Orange/Yellow
             else:
-                status_item.setText("Suggested")
-                status_item.setForeground(QColor("#ffc107"))
+                status_text = "Low Conf."
+                status_color = QColor("#6c757d")  # Gray
                 
+        self.table.item(row_idx, 5).setText(f"{conf_val*100:.0f}%")
+        self.table.item(row_idx, 7).setText(status_text)
+        self.table.item(row_idx, 7).setForeground(status_color)
+        
     def _update_stats(self):
         total = len(self.unit.bom_components)
+        if total == 0:
+            self.summary_label.setText("No BOM components available to map.")
+            return
+            
+        mapped = 0
         confirmed = 0
-        suggested = 0
-        unmapped = 0
-        
-        for bid, combo in self.comboboxes.items():
-            cb = self.confirm_checkboxes[bid]
-            if combo.currentData() is None:
-                unmapped += 1
-            elif cb.isChecked():
-                confirmed += 1
-            else:
-                suggested += 1
-                
-        self.stats_label.setText(
-            f"Summary: {total} total components. Confirmed: {confirmed}. Suggested: {suggested}. Unmapped: {unmapped}."
+        for bom in self.unit.bom_components:
+            combo = self.comboboxes[bom.id]
+            cb = self.confirm_checkboxes[bom.id]
+            if combo.currentData() is not None:
+                mapped += 1
+                if cb.isChecked():
+                    confirmed += 1
+                    
+        self.summary_label.setText(
+            f"<b>Total:</b> {total} &nbsp;|&nbsp; "
+            f"<b>Mapped:</b> {mapped}/{total} ({(mapped/total)*100:.0f}%) &nbsp;|&nbsp; "
+            f"<b>Confirmed:</b> {confirmed}/{total} ({(confirmed/total)*100:.0f}%)"
         )
         
     def _auto_match_all(self):
-        for bid, combo in self.comboboxes.items():
+        for bom in self.unit.bom_components:
+            combo = self.comboboxes[bom.id]
+            cb = self.confirm_checkboxes[bom.id]
+            
+            # Select top suggestion if available
             if combo.count() > 1:
-                # Select the index 1 (highest scored suggestion)
                 combo.setCurrentIndex(1)
-                db_id, score = combo.currentData()
-                cb = self.confirm_checkboxes[bid]
-                # Auto-confirm matches >= 90%
-                cb.setChecked(score >= 0.90)
-                
-        QMessageBox.information(self, "Auto-Match", "Auto-match completed! Review suggestions in yellow and save when ready.")
-        
-    def _confirm_all_suggested(self):
-        confirmed_count = 0
-        for bid, combo in self.comboboxes.items():
-            if combo.currentData() is not None:
-                cb = self.confirm_checkboxes[bid]
-                if not cb.isChecked():
+                db_id, score = combo.itemData(1)
+                if score >= 0.85:
                     cb.setChecked(True)
-                    confirmed_count += 1
-        QMessageBox.information(self, "Confirmed", f"Confirmed {confirmed_count} suggested matches.")
+        self._update_stats()
+        
+    def _confirm_high_confidence(self):
+        for bom in self.unit.bom_components:
+            combo = self.comboboxes[bom.id]
+            cb = self.confirm_checkboxes[bom.id]
+            
+            data = combo.currentData()
+            if data is not None:
+                db_id, score = data
+                if score >= 0.85:
+                    cb.setChecked(True)
+        self._update_stats()
         
     def _on_save(self):
         self.mappings.clear()
@@ -292,14 +316,12 @@ class ComponentMappingDialog(QDialog):
         
     def _generate_fmeda_rows(self):
         """
-        Task 12 Extension: Generates FMEDA component mappings and populates project units.
+        Generates FMEDA component mappings and populates project units.
         For confirmed mappings, we generate actual component failure records.
         """
-        # Build mapping dictionary
         mapping_dict = {m.bom_component_id: m for m in self.mappings if m.is_confirmed}
         db_map = {t.id: t for t in self.db_templates}
         
-        # Check conflicts
         conflicts = []
         for bom in self.unit.bom_components:
             mapping = mapping_dict.get(bom.id)
@@ -321,7 +343,7 @@ class ComponentMappingDialog(QDialog):
             )
             
             merge_btn = msg.addButton("Merge All", QMessageBox.ButtonRole.YesRole)
-            merge_btn.setToolTip("Update failure rates and failure modes from database template, but preserve all manual safety engineering assignments (deviations, mitigations, diagnostics).")
+            merge_btn.setToolTip("Update failure rates and failure modes from database template, but preserve all manual safety engineering assignments.")
             
             overwrite_btn = msg.addButton("Overwrite All", QMessageBox.ButtonRole.NoRole)
             overwrite_btn.setToolTip("Completely replace existing components and discard all their manual safety engineering assignments.")
@@ -331,7 +353,6 @@ class ComponentMappingDialog(QDialog):
             msg.exec()
             clicked = msg.clickedButton()
             if clicked == cancel_btn:
-                # User cancelled saving mappings
                 return
             is_merge = (clicked == merge_btn)
             
@@ -354,10 +375,12 @@ class ComponentMappingDialog(QDialog):
                     if existing_comp and is_merge:
                         # MERGE: Keep existing assignments, update fits/modes
                         existing_comp.name = template.display_name
-                        existing_comp.type = template.material or "Unknown"
+                        existing_comp.type = template.display_name
                         existing_comp.failure_rate = template.fits
                         existing_comp.failure_modes = template.failure_modes.copy()
                         existing_comp.part_number = bom.part_number
+                        existing_comp.library_component_id = template.id
+                        existing_comp.selected_profile = self.project_profile
                         
                         # Sync failure mode assignments
                         updated_assignments = []
@@ -378,7 +401,6 @@ class ComponentMappingDialog(QDialog):
                         new_components_list.append(existing_comp)
                     else:
                         # OVERWRITE or NEW: Completely replace
-                        import uuid
                         comp_id = f"comp_{uuid.uuid4().hex[:8]}"
                         
                         idx = len(new_components_list)
@@ -400,7 +422,7 @@ class ComponentMappingDialog(QDialog):
                             id=comp_id,
                             position=bom.designator,
                             name=template.display_name,
-                            type=template.material or "Unknown",
+                            type=template.display_name,
                             failure_rate=template.fits,
                             x_position=x_pos,
                             y_position=y_pos,
@@ -409,14 +431,16 @@ class ComponentMappingDialog(QDialog):
                             part_number=bom.part_number,
                             fitted_status="Fitted" if bom.is_fitted else "Not Fitted",
                             value=bom.value or None,
-                            internal_pn=bom.part_number or None
+                            internal_pn=bom.part_number or None,
+                            library_component_id=template.id,
+                            selected_profile=self.project_profile,
+                            source_type="exida" if template.database == "exida" else "legacy"
                         )
                         new_components_list.append(new_comp)
             else:
-                # If unconfirmed, keep existing component if present
+                # Retain existing unmapped component if present
                 existing_comp = next((c for c in self.unit.components if c.position.upper() == bom.designator.upper()), None)
                 if existing_comp:
                     new_components_list.append(existing_comp)
                     
         self.unit.components = new_components_list
-        print(f"Generated/Updated {len(self.unit.components)} components from confirmed mappings.")
