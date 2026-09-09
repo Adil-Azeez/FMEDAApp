@@ -1,264 +1,289 @@
 import json
+import re
 from typing import List, Dict, Tuple, Any, Optional
 import uuid
 from fmeda_tool.models.bom_component import BOMComponent
 
 
+def format_value_description(wert: Optional[str], beschreibung: Optional[str]) -> str:
+    """
+    Combines Wert and Beschreibung for FMEDA Value / Description field according to rules:
+    - Both present: Wert / Beschreibung
+    - Only Wert present: Wert
+    - Only Beschreibung present: Beschreibung
+    - Both absent: Empty string
+    - Trims whitespace, avoids duplicate leading Wert in Beschreibung, removes 'None'/'null' text.
+    """
+    w = (wert or "").strip()
+    b = (beschreibung or "").strip()
+    
+    # Filter out literal string 'None' or 'null'
+    if w.lower() in ("none", "null"):
+        w = ""
+    if b.lower() in ("none", "null"):
+        b = ""
+        
+    if w and b:
+        # Check if description already starts with exact value to avoid duplication
+        if b.startswith(w) and (len(b) == len(w) or b[len(w)] in (" ", "/", "-", ",", ";")):
+            return b
+        return f"{w} / {b}"
+    elif w:
+        return w
+    elif b:
+        return b
+    return ""
+
+
 class ImportService:
-    """Service to handle parsing, schema validation, and duplicate checking for CSV BOM files"""
+    """Service to handle parsing, schema validation, and duplicate checking for fixed-width BOM TXT files"""
     
     @staticmethod
-    def parse_bom_csv(
-        csv_content: str, 
+    def format_value_description(wert: Optional[str], beschreibung: Optional[str]) -> str:
+        """Expose format_value_description as static method on ImportService."""
+        return format_value_description(wert, beschreibung)
+    
+    @staticmethod
+    def parse_bom_txt(
+        txt_content: str, 
         existing_designators: Optional[List[str]] = None, 
         filepath: Optional[str] = None
     ) -> Tuple[List[BOMComponent], List[str], List[str]]:
         """
-        Parses BOM CSV content and performs validation.
+        Parses fixed-width BOM text content and performs validation.
         
         Args:
-            csv_content: The raw CSV string containing BOM components.
+            txt_content: The raw text string containing fixed-width BOM table data.
             existing_designators: Optional list of designators already in the project/unit.
-            filepath: Optional source CSV file path.
+            filepath: Optional source TXT file path.
             
         Returns:
             A tuple of (parsed_components, errors, warnings)
         """
-        import csv
-        import io
-        import uuid
-        
         parsed_components: List[BOMComponent] = []
         errors: List[str] = []
         warnings: List[str] = []
         
-        if csv_content.startswith('\ufeff'):
-            csv_content = csv_content[1:]
-        
-        # Helper to parse fitted values
-        def parse_fitted_value(val: str) -> Tuple[bool, Optional[str]]:
-            val_norm = val.strip().lower()
-            if not val_norm:
-                return True, None
-            true_options = ["true", "yes", "1", "fitted", "bestückt", "bestueckt"]
-            false_options = ["false", "no", "0", "not fitted", "not_fitted", "nicht bestückt", "nicht bestueckt", "dnp", "do not populate"]
-            if val_norm in true_options:
-                return True, None
-            elif val_norm in false_options:
-                return False, None
-            else:
-                return True, f"Unrecognized fitted value '{val}'. Assuming Fitted."
-        
-        # 1. Delimiter detection
-        lines = [line for line in csv_content.splitlines() if line.strip()]
-        if not lines:
-            errors.append("Empty CSV.")
+        if txt_content.startswith('\ufeff'):
+            txt_content = txt_content[1:]
+            
+        lines = txt_content.splitlines()
+        if not lines or all(not line.strip() for line in lines):
+            errors.append("Empty BOM text file.")
             return [], errors, warnings
             
-        first_line = lines[0]
-        comma_count = first_line.count(',')
-        semicolon_count = first_line.count(';')
-        
-        if comma_count == 0 and semicolon_count == 0:
-            # Check the whole content
-            all_commas = csv_content.count(',')
-            all_semis = csv_content.count(';')
-            if all_commas > 0 and all_semis == 0:
-                delim = ','
-            elif all_semis > 0 and all_commas == 0:
-                delim = ';'
-            else:
-                delim = ','  # Default fallback
-        elif comma_count > 0 and semicolon_count == 0:
-            delim = ','
-        elif semicolon_count > 0 and comma_count == 0:
-            delim = ';'
-        else:
-            # Both present in header. Parse and compare column count.
-            def match_score(d):
-                try:
-                    cols = next(csv.reader([first_line], delimiter=d))
-                    return sum(1 for c in cols if c.strip())
-                except Exception:
-                    return 0
-            score_comma = match_score(',')
-            score_semi = match_score(';')
-            delim = ',' if score_comma >= score_semi else ';'
-            
-        # 2. Parse CSV rows
-        try:
-            f = io.StringIO(csv_content)
-            reader = csv.reader(f, delimiter=delim)
-            rows = list(reader)
-        except Exception as e:
-            errors.append(f"Invalid CSV structure: {str(e)}")
-            return [], errors, warnings
-            
-        if not rows:
-            errors.append("Empty CSV.")
-            return [], errors, warnings
-            
-        headers = [h.strip() for h in rows[0]]
-        if not headers or all(not h for h in headers):
-            errors.append("Missing header row.")
-            return [], errors, warnings
-            
-        # Aliases mapping
-        ALIASES = {
-            "designator": ["designator", "component", "component_id", "position", "pos", "bauteil", "reference", "refdes"],
-            "function": ["function", "funktion"],
-            "value": ["value", "wert"],
-            "description": ["description", "beschreibung", "value_description", "value / description", "wert / beschreibung"],
-            "internal_part_number": ["internal_part_number", "part_number", "internal_pn", "material_number", "teilenummer", "tn"],
-            "manufacturer": ["manufacturer", "hersteller"],
-            "manufacturer_part_number": ["manufacturer_part_number", "manufacturer_pn", "herstellerteilenummer"],
-            "layer": ["layer", "lage"],
-            "location": ["location", "ort"],
-            "fitted": ["fitted", "fitted_status", "status", "bestückt", "bestueckt"],
-            "notes": ["notes", "note", "comments", "bemerkung", "bemerkungen"]
+        # Aliases mapping for fixed-width headers
+        HEADER_ALIASES = {
+            "vs": ["vs", "v", "version", "rev", "status"],
+            "pos": ["pos", "pos.", "position", "designator", "bauteil", "ref", "refdes", "kks"],
+            "mn": ["mn", "mat.-nr.", "mat-nr", "matnr", "materialnummer", "material-nr", "material_number", "part_number", "part number", "teilenummer", "tn", "art.-nr.", "artikelnummer", "sachnummer"],
+            "benennung": ["benennung", "bezeichnung", "art", "component_type", "type", "typ", "kategorie", "category"],
+            "wert": ["wert", "value", "val"],
+            "beschreibung": ["beschreibung", "description", "desc", "bezeichnung2"],
+            "bemerkung": ["bemerkung", "bemerkungen", "note", "notes", "kommentar", "hinweis", "hinweise"],
+            "lage": ["lage", "layer", "seite", "bestückungsseite", "bestueckungsseite", "ebene"]
         }
         
-        col_mapping = {}
-        for idx, h in enumerate(headers):
-            norm_h = h.strip().lower()
-            for key, aliases in ALIASES.items():
-                if norm_h in [a.lower() for a in aliases]:
-                    if key not in col_mapping:
-                        col_mapping[key] = idx
-                    break
+        # 1. Detect header row
+        header_row_idx = -1
+        col_slices: Dict[str, Tuple[int, Optional[int]]] = {}
+        
+        for idx, line in enumerate(lines):
+            line_str = line.strip()
+            if not line_str:
+                continue
+                
+            # Ignore lines that are obvious comments or separators
+            if re.match(r"^[-=\s_#*]+$", line_str) or line_str.startswith(("//", "/*", "--", "#")):
+                continue
+                
+            # Scan tokens and find positions
+            # We search for matches of any alias in the line
+            found_headers: List[Tuple[str, int, int]] = []  # (canonical_name, start, end)
+            
+            # Use regex to find word tokens or symbols
+            token_matches = list(re.finditer(r"[^\s]+", line))
+            # Also support 2-word tokens like "Part Number", "Mat.-Nr."
+            i = 0
+            while i < len(token_matches):
+                t_match = token_matches[i]
+                token_text = t_match.group(0).lower()
+                
+                # Check 2-word combination first
+                matched_2word = False
+                if i + 1 < len(token_matches):
+                    two_words = f"{token_text} {token_matches[i+1].group(0).lower()}"
+                    for key, aliases in HEADER_ALIASES.items():
+                        if two_words in [a.lower() for a in aliases]:
+                            start_pos = t_match.start()
+                            end_pos = token_matches[i+1].end()
+                            found_headers.append((key, start_pos, end_pos))
+                            matched_2word = True
+                            i += 2
+                            break
+                if matched_2word:
+                    continue
                     
-        # Check required designator column
-        if "designator" not in col_mapping:
-            errors.append("Missing designator column.")
+                # Check single token
+                clean_token = token_text.rstrip(":")
+                for key, aliases in HEADER_ALIASES.items():
+                    if clean_token in [a.lower() for a in aliases]:
+                        found_headers.append((key, t_match.start(), t_match.end()))
+                        break
+                i += 1
+                
+            # A valid header row MUST contain "pos" and at least one other known BOM column
+            header_keys = {h[0] for h in found_headers}
+            if "pos" in header_keys and len(header_keys) >= 2:
+                header_row_idx = idx
+                # Sort by start index
+                found_headers.sort(key=lambda x: x[1])
+                
+                # Build column slices
+                for h_idx, (col_name, start, end) in enumerate(found_headers):
+                    next_start = found_headers[h_idx + 1][1] if h_idx + 1 < len(found_headers) else None
+                    col_slices[col_name] = (start, next_start)
+                break
+                
+        if header_row_idx == -1 or "pos" not in col_slices:
+            errors.append("Missing fixed-width header row with 'Pos' column.")
             return [], errors, warnings
             
-        # Warn for missing optional columns
-        missing_optionals = []
-        optional_keys = [
-            "function", "value", "description", "internal_part_number", 
-            "manufacturer", "manufacturer_part_number", "layer", "location", 
-            "fitted", "notes"
-        ]
-        for key in optional_keys:
-            if key not in col_mapping:
-                display_name = key.replace("_", " ").title()
-                missing_optionals.append(display_name)
-        if missing_optionals:
-            warnings.append(f"Missing optional columns: {', '.join(missing_optionals)}")
-            
-        # Warn for unsupported extra columns
-        unsupported_cols = []
-        for h in headers:
-            if not h.strip():
-                continue
-            norm_h = h.strip().lower()
-            matched = False
-            for key, aliases in ALIASES.items():
-                if norm_h in [a.lower() for a in aliases]:
-                    matched = True
-                    break
-            if not matched:
-                unsupported_cols.append(h)
-        if unsupported_cols:
-            warnings.append(f"Unsupported extra columns ignored: {', '.join(unsupported_cols)}")
-            
-        # Duplicate sets
+        # 2. Parse data rows
         if existing_designators is None:
             existing_designators = []
         existing_set = {d.strip().upper() for d in existing_designators}
-        seen_in_file = set()
+        seen_in_file: Dict[str, Tuple[int, str, str, str, str, str]] = {}
         
-        for row_idx, row in enumerate(rows[1:], start=2):
-            if not row or all(not cell.strip() for cell in row):
-                continue
-                
-            if len(row) != len(headers):
-                errors.append(f"Row {row_idx}: Invalid CSV structure (column count mismatch: expected {len(headers)}, got {len(row)}).")
-                continue
-                
-            des_idx = col_mapping["designator"]
-            if des_idx >= len(row):
-                errors.append(f"Row {row_idx}: Missing designator cell.")
-                continue
-                
-            designator_str = row[des_idx].strip()
-            if not designator_str:
-                errors.append(f"Row {row_idx}: Empty designator in a data row.")
-                continue
-                
-            designator_upper = designator_str.upper()
-            
-            # Duplicate designator in the CSV
-            if designator_upper in seen_in_file:
-                errors.append(f"Row {row_idx}: Duplicate designator '{designator_str}' found inside the CSV.")
-            else:
-                seen_in_file.add(designator_upper)
-                
-            # Duplicate designator against existing functional-group data
-            if designator_upper in existing_set:
-                warnings.append(f"Row {row_idx}: Duplicate designator '{designator_str}' against existing functional-group data.")
-                
-            # Helper to retrieve cell values safely
-            def get_cell(k):
-                if k in col_mapping:
-                    c_idx = col_mapping[k]
-                    if c_idx < len(row):
-                        return row[c_idx].strip()
+        def extract_field(line_text: str, col_key: str) -> str:
+            if col_key not in col_slices:
+                return ""
+            start, end = col_slices[col_key]
+            if start >= len(line_text):
                 return ""
                 
-            func = get_cell("function")
-            val = get_cell("value")
-            desc = get_cell("description")
-            internal_pn = get_cell("internal_part_number")
-            mfr = get_cell("manufacturer")
-            mfr_pn = get_cell("manufacturer_part_number")
-            layer = get_cell("layer") or "TOP"
-            loc = get_cell("location")
-            fitted_val = get_cell("fitted")
-            notes = get_cell("notes")
-            
-            # Check empty optional fields
-            empty_opts = []
-            for k in optional_keys:
-                if k in col_mapping:
-                    if not get_cell(k):
-                        empty_opts.append(k.replace("_", " ").title())
-            if empty_opts:
-                warnings.append(f"Row {row_idx}: Empty optional fields: {', '.join(empty_opts)}")
+            # Dynamic word-boundary refinement for slight column misalignments
+            eff_start = start
+            if start > 0 and start < len(line_text):
+                if line_text[start] != ' ' and line_text[start - 1] != ' ':
+                    ws = start
+                    while ws > 0 and line_text[ws - 1] != ' ':
+                        ws -= 1
+                    if ws > 0 and line_text[ws - 1] == ' ':
+                        eff_start = ws
+                        
+            eff_end = end
+            if end is not None and end < len(line_text):
+                if line_text[end] != ' ' and line_text[end - 1] != ' ':
+                    ws = end
+                    while ws > eff_start and line_text[ws - 1] != ' ':
+                        ws -= 1
+                    if ws > eff_start and line_text[ws - 1] == ' ':
+                        eff_end = ws
+                        
+            if eff_end is not None:
+                return line_text[eff_start:eff_end].strip()
+            else:
+                return line_text[eff_start:].strip()
                 
-            # Fitted value normalization
-            is_fitted, fit_warn = parse_fitted_value(fitted_val)
-            if fit_warn:
-                warnings.append(f"Row {row_idx}: {fit_warn}")
+        for line_idx, line in enumerate(lines[header_row_idx + 1:], start=header_row_idx + 2):
+            raw_line = line
+            stripped = line.strip()
+            if not stripped:
+                continue
+                
+            # Check for LIST END or end of table marker
+            if re.search(r"\bLIST\s+END\b|\bEND\s+OF\s+LIST\b|\*\*\*\s*END\s*\*\*\*", stripped, re.IGNORECASE):
+                break
+                
+            # Skip separator lines
+            if re.match(r"^[-=\s_#*]+$", stripped) or stripped.startswith(("//", "/*", "--", "#")):
+                continue
+                
+            # Skip page headers/footers
+            if re.match(r"^(Seite|Page)\s+\d+(\s+(von|of)\s+\d+)?", stripped, re.IGNORECASE):
+                continue
+                
+            # Skip document metadata lines if repeated
+            if any(stripped.startswith(prefix) for prefix in ["Projekt:", "Project:", "Datum:", "Date:", "Author:", "Revision:"]):
+                continue
+                
+            pos = extract_field(raw_line, "pos")
+            mn = extract_field(raw_line, "mn")
+            benennung = extract_field(raw_line, "benennung")
+            wert = extract_field(raw_line, "wert")
+            beschreibung = extract_field(raw_line, "beschreibung")
+            bemerkung = extract_field(raw_line, "bemerkung")
+            lage = extract_field(raw_line, "lage")
+            vs = extract_field(raw_line, "vs")
+            
+            # If all extracted fields are empty, line has no component data
+            if not pos and not mn and not benennung and not wert and not beschreibung and not bemerkung and not lage:
+                continue
+                
+            # Required Pos validation
+            if not pos:
+                errors.append(f"Line {line_idx}: Missing required Pos value. Original line: '{raw_line}'")
+                continue
+                
+            pos_upper = pos.upper()
+            
+            # Duplicate Pos inside the file validation
+            if pos_upper in seen_in_file:
+                prev_line, prev_mn, prev_w, prev_b, prev_l, prev_raw = seen_in_file[pos_upper]
+                errors.append(
+                    f"Line {line_idx}: Duplicate Pos '{pos}' found. "
+                    f"Previous instance at Line {prev_line} (MN: '{prev_mn}', Wert: '{prev_w}', Beschreibung: '{prev_b}', Lage: '{prev_l}'). "
+                    f"Current line: '{raw_line}'"
+                )
+                continue
+            else:
+                seen_in_file[pos_upper] = (line_idx, mn, wert, beschreibung, lage, raw_line)
+                
+            # Duplicate Pos against existing functional group data
+            if pos_upper in existing_set:
+                warnings.append(f"Line {line_idx}: Duplicate Pos '{pos}' against existing functional-group data.")
+                
+            # Fitted status checking (e.g. 'nicht bestueckt', 'nicht bestückt')
+            is_fitted = True
+            bemerkung_norm = bemerkung.lower()
+            not_fitted_keywords = ["nicht bestueckt", "nicht bestückt", "not fitted", "not_fitted", "dnp", "do not populate"]
+            if any(kw in bemerkung_norm for kw in not_fitted_keywords):
+                is_fitted = False
+                warnings.append(f"Line {line_idx} ({pos}): Component is marked as Not Fitted ('{bemerkung}').")
                 
             comp_id = f"bom_{uuid.uuid4().hex[:8]}"
-            part_number = internal_pn or mfr_pn or ""
+            layer = lage or "TOP"
             
             try:
                 comp = BOMComponent(
                     id=comp_id,
-                    designator=designator_str,
-                    part_number=part_number,
-                    description=desc or None,
-                    value=val or None,
-                    package=None,
+                    designator=pos,
+                    part_number=mn,
+                    description=beschreibung or None,
+                    value=wert or None,
+                    benennung=benennung or None,
                     layer=layer,
+                    notes=bemerkung or None,
+                    vs=vs or None,
+                    package=None,
                     quantity=1,
                     is_fitted=is_fitted,
-                    notes=notes or None,
-                    function=func or None,
-                    internal_part_number=internal_pn or None,
-                    manufacturer=mfr or None,
-                    manufacturer_part_number=mfr_pn or None,
-                    location=loc or None,
+                    function=benennung or None,
+                    internal_part_number=mn or None,
+                    manufacturer=None,
+                    manufacturer_part_number=None,
+                    location=None,
                     source_file=filepath or None,
-                    row_number=row_idx
+                    row_number=line_idx,
+                    original_line=raw_line
                 )
                 parsed_components.append(comp)
             except Exception as e:
-                errors.append(f"Row {row_idx} ({designator_str}): Validation error: {str(e)}")
+                errors.append(f"Line {line_idx} ({pos}): Validation error: {str(e)}")
                 
         if not parsed_components and not errors:
-            errors.append("No valid component rows.")
+            errors.append("No valid component records found in BOM text file.")
             
         return parsed_components, errors, warnings
+

@@ -13,13 +13,13 @@ from fmeda_tool.services import ImportService
 
 
 class BOMImportDialog(QDialog):
-    """Dialog to import and preview BOM components from a CSV file"""
+    """Dialog to import and preview BOM components from a fixed-width TXT file"""
     
     def __init__(self, existing_designators: Optional[List[str]] = None, filepath: Optional[str] = None, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Import BOM CSV")
-        self.setMinimumSize(950, 600)
-        self.resize(1000, 650)
+        self.setWindowTitle("Import BOM TXT")
+        self.setMinimumSize(1050, 620)
+        self.resize(1100, 680)
         
         self.existing_designators = existing_designators or []
         self.imported_components: List[BOMComponent] = []
@@ -39,7 +39,7 @@ class BOMImportDialog(QDialog):
         
         # File selector row
         file_layout = QHBoxLayout()
-        file_layout.addWidget(QLabel("BOM CSV File:"))
+        file_layout.addWidget(QLabel("BOM TXT File:"))
         self.file_path_input = QLineEdit()
         self.file_path_input.setReadOnly(True)
         file_layout.addWidget(self.file_path_input)
@@ -66,15 +66,18 @@ class BOMImportDialog(QDialog):
         actions_layout.addStretch()
         layout.addLayout(actions_layout)
         
-        # Preview Table
+        # Preview Table (10 columns: Select, Pos, MN, Benennung, Wert, Beschreibung, Bemerkung, Lage, Fitted Status, Mapping Status)
         self.table = QTableWidget()
-        self.table.setColumnCount(9)
+        self.table.setColumnCount(10)
         self.table.setHorizontalHeaderLabels([
-            "Import", "Designator", "Part Number", "Description",
-            "Value", "Package", "Layer", "Fitted", "Status"
+            "Select", "Pos", "MN", "Benennung",
+            "Wert", "Beschreibung", "Bemerkung", "Lage",
+            "Fitted Status", "Mapping Status"
         ])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
-        self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeMode.Stretch)
+        self.table.horizontalHeader().setStretchLastSection(False)
         layout.addWidget(self.table)
         
         # Connect itemChanged to handle inline editing/correction of fitted status
@@ -86,7 +89,7 @@ class BOMImportDialog(QDialog):
         self.indicator_frame.setStyleSheet("background-color: #f8f9fa; border-radius: 4px; border: 1px solid #dee2e6;")
         
         indicator_layout = QHBoxLayout(self.indicator_frame)
-        self.status_indicator = QLabel("No file loaded. Please browse and select a BOM CSV file.")
+        self.status_indicator = QLabel("No file loaded. Please browse and select a BOM TXT file.")
         self.status_indicator.setFont(QFont("Arial", 10, QFont.Weight.Bold))
         indicator_layout.addWidget(self.status_indicator)
         layout.addWidget(self.indicator_frame)
@@ -109,7 +112,7 @@ class BOMImportDialog(QDialog):
         
     def _on_browse(self):
         filepath, _ = QFileDialog.getOpenFileName(
-            self, "Open BOM CSV File", "", "CSV Files (*.csv);;All Files (*.*)"
+            self, "Open BOM TXT File", "", "BOM Text Files (*.txt)"
         )
         if not filepath:
             return
@@ -119,19 +122,25 @@ class BOMImportDialog(QDialog):
         
     def _load_file(self, filepath: str):
         try:
-            try:
-                # Open with utf-8-sig to automatically handle standard UTF-8 and UTF-8 with BOM
-                with open(filepath, 'r', encoding='utf-8-sig') as f:
-                    content = f.read()
-            except UnicodeDecodeError as ude:
+            content = None
+            encodings_to_try = ['utf-8-sig', 'utf-8', 'cp1252', 'latin-1']
+            for enc in encodings_to_try:
+                try:
+                    with open(filepath, 'r', encoding=enc) as f:
+                        content = f.read()
+                    break
+                except UnicodeDecodeError:
+                    continue
+                    
+            if content is None:
                 QMessageBox.critical(
                     self, "Load Error", 
-                    f"Unreadable encoding: The file is not a valid UTF-8 text file.\n{str(ude)}"
+                    "Unreadable encoding: The file could not be decoded with UTF-8, Latin-1, or Windows-1252."
                 )
                 self._update_indicator(0, 1, 0, failed=True)
                 return
                 
-            parsed, errors, warnings = ImportService.parse_bom_csv(content, self.existing_designators, filepath)
+            parsed, errors, warnings = ImportService.parse_bom_txt(content, self.existing_designators, filepath)
             
             if errors:
                 QMessageBox.critical(self, "Import Errors", "\n".join(errors))
@@ -146,15 +155,11 @@ class BOMImportDialog(QDialog):
             self.table.blockSignals(True)
             self.table.setRowCount(0)
             
-            # Detect delimiter name
-            first_line = content.splitlines()[0] if content.splitlines() else ""
-            delim_name = "semicolon (;)" if ";" in first_line and "," not in first_line else "comma (,)"
-            
             # Map of uppercase designator to warnings list
             warning_map = {}
             for w in warnings:
                 for comp in parsed:
-                    if f"'{comp.designator.upper()}'" in w.upper() or f" '{comp.designator.upper()}'" in w.upper() or f"Row {comp.row_number}:" in w:
+                    if f"'{comp.designator.upper()}'" in w.upper() or f"({comp.designator})" in w or f"Line {comp.row_number}" in w:
                         if comp.designator.upper() not in warning_map:
                             warning_map[comp.designator.upper()] = []
                         warning_map[comp.designator.upper()].append(w)
@@ -177,60 +182,70 @@ class BOMImportDialog(QDialog):
                 
                 # Fields
                 self.table.setItem(row, 1, QTableWidgetItem(comp.designator))
-                self.table.setItem(row, 2, QTableWidgetItem(comp.part_number))
-                self.table.setItem(row, 3, QTableWidgetItem(comp.description or ""))
+                self.table.setItem(row, 2, QTableWidgetItem(comp.part_number or comp.internal_part_number or ""))
+                self.table.setItem(row, 3, QTableWidgetItem(comp.benennung or comp.function or ""))
                 self.table.setItem(row, 4, QTableWidgetItem(comp.value or ""))
-                # Package is optional / blank in CSV canonical
-                self.table.setItem(row, 5, QTableWidgetItem(comp.package or ""))
-                self.table.setItem(row, 6, QTableWidgetItem(comp.layer or ""))
+                self.table.setItem(row, 5, QTableWidgetItem(comp.description or ""))
+                self.table.setItem(row, 6, QTableWidgetItem(comp.notes or ""))
+                self.table.setItem(row, 7, QTableWidgetItem(comp.layer or ""))
                 
                 # Fitted flag (editable)
-                fitted_item = QTableWidgetItem("Yes" if comp.is_fitted else "No")
+                fitted_text = "Fitted" if comp.is_fitted else "Not Fitted"
+                fitted_item = QTableWidgetItem(fitted_text)
                 fitted_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                self.table.setItem(row, 7, fitted_item)
+                if not comp.is_fitted:
+                    fitted_item.setForeground(QColor("#d9534f"))
+                self.table.setItem(row, 8, fitted_item)
                 
-                # Status column
-                status_item = QTableWidgetItem("Valid")
-                status_item.setForeground(QColor("#28a745"))
+                # Mapping Status column
+                status_item = QTableWidgetItem("Ready" if comp.is_fitted else "Not Fitted")
+                if comp.is_fitted:
+                    status_item.setForeground(QColor("#28a745"))
+                else:
+                    status_item.setForeground(QColor("#6c757d"))
                 
                 # Apply warnings
                 warn_list = warning_map.get(comp.designator.upper())
                 if warn_list:
-                    status_item.setText("Warning")
+                    status_item.setText("Warning" if comp.is_fitted else "Not Fitted (Warn)")
                     status_item.setForeground(QColor("#fd7e14"))
                     status_item.setToolTip("\n".join(warn_list))
-                    # Color rows with warnings
-                    for col in range(1, 8):
+                    for col in range(1, 9):
                         item = self.table.item(row, col)
                         if item:
                             item.setBackground(QColor("#fff3cd"))
+                elif not comp.is_fitted:
+                    status_item.setToolTip(f"Component remarked as '{comp.notes or 'Not Fitted'}' and will be excluded from active calculations.")
+                    for col in range(1, 9):
+                        item = self.table.item(row, col)
+                        if item:
+                            item.setBackground(QColor("#f8f9fa"))
                             
-                self.table.setItem(row, 8, status_item)
+                self.table.setItem(row, 9, status_item)
                 
             self.table.blockSignals(False)
             
             self.confirm_btn.setEnabled(len(parsed) > 0)
-            self._update_indicator(len(parsed), 0, len(warnings), delim_name=delim_name)
+            self._update_indicator(len(parsed), 0, len(warnings))
             
         except Exception as e:
-            QMessageBox.critical(self, "Load Error", f"Failed to load BOM CSV file:\n{str(e)}")
+            QMessageBox.critical(self, "Load Error", f"Failed to load BOM TXT file:\n{str(e)}")
             self.confirm_btn.setEnabled(False)
             
-    def _update_indicator(self, parsed_count: int, error_count: int, warning_count: int, failed: bool = False, delim_name: str = ""):
+    def _update_indicator(self, parsed_count: int, error_count: int, warning_count: int, failed: bool = False):
         if failed:
             self.indicator_frame.setStyleSheet("background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px;")
-            self.status_indicator.setText("Failed to parse BOM CSV file due to schema errors.")
+            self.status_indicator.setText("Failed to parse BOM TXT file due to structural errors.")
             self.status_indicator.setStyleSheet("color: #721c24;")
             return
             
-        delim_str = f" [Delimiter: {delim_name}]" if delim_name else ""
         if warning_count > 0:
             self.indicator_frame.setStyleSheet("background-color: #fff3cd; border: 1px solid #ffeeba; border-radius: 4px;")
-            self.status_indicator.setText(f"Successfully loaded {parsed_count} components{delim_str}. Warnings identified: {warning_count} (Hover status cell for details).")
+            self.status_indicator.setText(f"Successfully parsed {parsed_count} components. Warnings identified: {warning_count} (Hover status cell for details).")
             self.status_indicator.setStyleSheet("color: #856404;")
         else:
             self.indicator_frame.setStyleSheet("background-color: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px;")
-            self.status_indicator.setText(f"Successfully loaded {parsed_count} components{delim_str}. Schema validation is completely clean!")
+            self.status_indicator.setText(f"Successfully parsed {parsed_count} components. Fixed-width structure is completely clean!")
             self.status_indicator.setStyleSheet("color: #155724;")
             
     def _select_all(self):
@@ -248,7 +263,7 @@ class BOMImportDialog(QDialog):
                     self.row_checkboxes[i].setChecked(False)
                     
     def _on_item_changed(self, item):
-        if item.column() == 7:  # Fitted column
+        if item.column() == 8:  # Fitted status column
             row = item.row()
             if row < len(self.all_parsed_components):
                 comp = self.all_parsed_components[row]
@@ -259,20 +274,26 @@ class BOMImportDialog(QDialog):
                 if text in true_options:
                     comp.is_fitted = True
                     self.table.blockSignals(True)
-                    item.setText("Yes")
+                    item.setText("Fitted")
+                    item.setForeground(QColor("#000000"))
+                    self.table.item(row, 9).setText("Ready")
+                    self.table.item(row, 9).setForeground(QColor("#28a745"))
                     self.table.blockSignals(False)
                 elif text in false_options:
                     comp.is_fitted = False
                     self.table.blockSignals(True)
-                    item.setText("No")
+                    item.setText("Not Fitted")
+                    item.setForeground(QColor("#d9534f"))
+                    self.table.item(row, 9).setText("Not Fitted")
+                    self.table.item(row, 9).setForeground(QColor("#6c757d"))
                     self.table.blockSignals(False)
                 else:
                     QMessageBox.warning(
                         self, "Invalid Fitted Value", 
-                        "Please enter a valid fitted value (e.g. Yes, No, True, False, Fitted, DNP)."
+                        "Please enter a valid fitted status (e.g. Fitted, Not Fitted, Yes, No, DNP)."
                     )
                     self.table.blockSignals(True)
-                    item.setText("Yes" if comp.is_fitted else "No")
+                    item.setText("Fitted" if comp.is_fitted else "Not Fitted")
                     self.table.blockSignals(False)
                     
     def _on_confirm(self):
@@ -286,3 +307,4 @@ class BOMImportDialog(QDialog):
             return
             
         self.accept()
+

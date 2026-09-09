@@ -16,6 +16,7 @@ from pathlib import Path
 from fmeda_tool.models import (
     Project, ProjectStatus, SafetyStandard, SafetyContext, SourceDocument, Unit
 )
+from fmeda_tool.ui.widgets import WorkflowPageHeader
 
 
 class DocumentDialog(QDialog):
@@ -298,6 +299,10 @@ class CreateProjectView(QWidget):
         self.sensor_included.addItems(["No", "Yes"])
         opt_form.addRow("External Sensor Included:", self.sensor_included)
         
+        self.profile_combo = QComboBox()
+        self.profile_combo.addItems(["Profile 1", "Profile 2", "Profile 3", "Profile 4", "Profile 5"])
+        opt_form.addRow("Exida Reliability Profile*:", self.profile_combo)
+        
         self.rel_db_source = QLineEdit()
         self.rel_db_source.setPlaceholderText("e.g. SN 29500, IEC 62380...")
         opt_form.addRow("Reliability DB Source:", self.rel_db_source)
@@ -331,27 +336,13 @@ class CreateProjectView(QWidget):
         self._create_navigation_bar(main_layout)
         
     def _create_header(self):
-        self.header_frame = QFrame()
-        self.header_frame.setStyleSheet("background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;")
-        self.header_frame.setFixedHeight(60)
-        
-        layout = QHBoxLayout(self.header_frame)
-        layout.setContentsMargins(30, 10, 30, 10)
+        self.header_frame = WorkflowPageHeader("Page 1: Project Information")
         
         self.project_name_label = QLabel("Untitled Project")
-        font_name = QFont("Arial", 12, QFont.Weight.Bold)
+        font_name = QFont("Arial", 11, QFont.Weight.Bold)
         self.project_name_label.setFont(font_name)
         self.project_name_label.setStyleSheet("color: #495057;")
-        layout.addWidget(self.project_name_label)
-        
-        layout.addStretch()
-        
-        title_lbl = QLabel("Page 1: Project Information")
-        title_lbl.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-        title_lbl.setStyleSheet("color: #212529;")
-        layout.addWidget(title_lbl)
-        
-        layout.addStretch()
+        self.header_frame.left_layout.addWidget(self.project_name_label)
         
     def _create_navigation_bar(self, parent_layout):
         nav_frame = QFrame()
@@ -518,6 +509,7 @@ class CreateProjectView(QWidget):
             safety_context=sc,
             source_documents_list=self.source_docs.copy(),
             reliability_database_source=self.rel_db_source.text().strip() or None,
+            selected_profile=self.profile_combo.currentText(),
             environmental_profile=self.env_profile.text().strip() or None,
             units=p_units,
             deviations=p_deviations,
@@ -562,6 +554,7 @@ class CreateProjectView(QWidget):
         self.operating_mode_combo.setCurrentIndex(0)
         self.boundary_input.clear()
         self.sensor_included.setCurrentIndex(0)
+        self.profile_combo.setCurrentText("Profile 1")
         self.rel_db_source.clear()
         self.env_profile.clear()
         self.source_docs = []
@@ -643,5 +636,6 @@ class CreateProjectView(QWidget):
         # Load Page 3 sources
         self.source_docs = self.project.source_documents_list.copy()
         self._refresh_sources_table()
+        self.profile_combo.setCurrentText(getattr(self.project, "selected_profile", "Profile 1") or "Profile 1")
         self.rel_db_source.setText(self.project.reliability_database_source or "")
         self.env_profile.setText(self.project.environmental_profile or "")
