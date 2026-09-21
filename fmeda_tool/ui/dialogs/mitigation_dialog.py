@@ -1,37 +1,14 @@
-
-
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
-    QPushButton, QTextEdit, QComboBox, QDoubleSpinBox, QFrame
+    QPushButton, QTextEdit, QComboBox, QDoubleSpinBox, QFrame, QMessageBox
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
-from typing import Optional
+from typing import Optional, Dict, Any
 import uuid
 
 from fmeda_tool.models import Mitigation, MitigationType, MitigationStatus
 
-
-# class MitigationDialog(QDialog):
-#     """Dialog for creating/editing a mitigation measure"""
-    
-#     mitigation_saved = pyqtSignal(Mitigation)
-    
-#     def __init__(self, deviation_name: str, unit_name: str, mitigation: Optional[Mitigation] = None, parent=None):
-#         super().__init__(parent)
-#         self.deviation_name = deviation_name
-#         self.unit_name = unit_name
-#         self.mitigation = mitigation
-#         self.is_editing = mitigation is not None
-        
-#         title_text = f"{mitigation.name if mitigation else 'New Mitigation'} ({deviation_name} ({unit_name}))"
-#         self.setWindowTitle(title_text)
-#         self.setMinimumWidth(600)
-#         self.setMinimumHeight(400)
-        
-#         self._setup_ui()
-#         if self.mitigation:
-#             self._load_data()
 
 class MitigationDialog(QDialog):
     """Dialog for creating/editing a mitigation measure."""
@@ -47,14 +24,15 @@ class MitigationDialog(QDialog):
     ):
         super().__init__(parent)
 
-        self.deviation_name = deviation_name
-        self.unit_name = unit_name
+        self.deviation_name = deviation_name or "Unassigned Deviation"
+        self.unit_name = unit_name or "Global / Project"
         self.mitigation = mitigation
+        self.saved_mitigation: Optional[Mitigation] = None
         self.is_editing = mitigation is not None
 
         title_text = (
             f"{mitigation.name if mitigation else 'New Mitigation'} "
-            f"({deviation_name} — {unit_name})"
+            f"({self.deviation_name} — {self.unit_name})"
         )
 
         self.setWindowTitle(title_text)
@@ -181,16 +159,18 @@ class MitigationDialog(QDialog):
         """Handle save button click"""
         name = self.name_input.text().strip()
         if not name:
+            QMessageBox.warning(self, "Validation Error", "Please enter a mitigation name.")
             return
         
         description = self.description_input.toPlainText().strip()
         if not description:
+            QMessageBox.warning(self, "Validation Error", "Please enter a description.")
             return
         
         effectiveness = self.effectiveness_input.value()
         mitigation_type = MitigationType(self.type_combo.currentData())
         
-        if self.is_editing:
+        if self.is_editing and self.mitigation:
             # Update existing mitigation
             self.mitigation.name = name
             self.mitigation.description = description
@@ -205,8 +185,28 @@ class MitigationDialog(QDialog):
                 name=name,
                 description=description,
                 effectiveness=effectiveness,
-                mitigation_type=mitigation_type
+                mitigation_type=mitigation_type,
+                status=MitigationStatus.PROPOSED
             )
         
+        self.saved_mitigation = mitigation_to_save
+        self.mitigation = mitigation_to_save
         self.mitigation_saved.emit(mitigation_to_save)
         self.accept()
+
+    def get_mitigation(self) -> Optional[Mitigation]:
+        """Returns the saved or edited Mitigation model instance, if accepted."""
+        return getattr(self, "saved_mitigation", self.mitigation)
+
+    def get_mitigation_data(self) -> Optional[Dict[str, Any]]:
+        """Returns a dictionary representation of the mitigation data."""
+        mit = self.get_mitigation()
+        if not mit:
+            return None
+        return {
+            "name": mit.name,
+            "description": mit.description,
+            "effectiveness": mit.effectiveness,
+            "mitigation_type": mit.mitigation_type,
+            "status": mit.status.value if hasattr(mit.status, "value") else str(mit.status)
+        }

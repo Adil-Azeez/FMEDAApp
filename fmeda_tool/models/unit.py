@@ -5,6 +5,7 @@ from datetime import datetime
 from .component import Component
 from .bom_component import BOMComponent
 from .component_mapping import ComponentMapping
+from .component_db import ComponentDB
 
 
 class Unit(BaseModel):
@@ -23,9 +24,10 @@ class Unit(BaseModel):
     parent_unit_id: Optional[str] = Field(default=None, description="Parent unit ID if this is a sub-unit")
     sub_unit_ids: List[str] = Field(default_factory=list, description="Child unit IDs")
     
-    # Components
+    # Components & Mapping Templates
     components: List[Component] = Field(default_factory=list, description="Components in this unit")
     bom_components: List[BOMComponent] = Field(default_factory=list, description="BOM Components in this functional group")
+    component_templates: List[ComponentDB] = Field(default_factory=list, description="Available component-type templates for this functional group")
     component_mappings: List[ComponentMapping] = Field(default_factory=list, description="BOM component mappings to DB templates")
     
     # Functional group attributes

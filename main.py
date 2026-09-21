@@ -61,6 +61,11 @@ def main():
     # Enable high DPI scaling
     QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
     
+    # Ensure SQLite component database is initialized
+    from fmeda_tool.db import DatabaseService
+    ready, db_msg = DatabaseService.ensure_database_ready()
+    print(f"Database status: {db_msg}")
+    
     # Create Qt application
     app = QApplication(sys.argv)
     
@@ -84,7 +89,7 @@ def main():
     # Show main window
     main_window.show()
     
-    print("✓ Application launched successfully")
+    print("[OK] Application launched successfully")
     print("\nGUI is now ready. Use the menu bar for navigation.")
     
     # Start event loop

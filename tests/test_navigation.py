@@ -18,10 +18,13 @@ import os
 offscreen = os.environ.get("QT_QPA_PLATFORM") == "offscreen"
 
 
+from unittest.mock import patch
+
 class TestNavigationWorkflow(unittest.TestCase):
     
     @unittest.skipUnless(pyqt_available and not offscreen, "PyQt6 is not available/loadable/offscreen in this environment")
-    def test_navigation_flow_increments(self):
+    @patch("fmeda_tool.ui.verification_view.QMessageBox.warning")
+    def test_navigation_flow_increments(self, mock_warn):
         from fmeda_tool.ui.main_menu import MainMenu
         window = MainWindow()
         main_menu = MainMenu()

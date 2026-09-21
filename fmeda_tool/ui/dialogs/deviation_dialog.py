@@ -1,5 +1,3 @@
-
-
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QPushButton, QTextEdit, QFrame, QTableWidget, QTableWidgetItem,
@@ -7,7 +5,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 import uuid
 
 from fmeda_tool.models import Deviation, Mitigation, DeviationType, DeviationSeverity
@@ -19,11 +17,18 @@ class DeviationDialog(QDialog):
     
     deviation_saved = pyqtSignal(Deviation, list)  # Deviation and list of Mitigation objects
     
-    def __init__(self, unit_name: str, deviation: Optional[Deviation] = None, mitigations: Optional[List[Mitigation]] = None, parent=None):
+    def __init__(
+        self,
+        unit_name: str = "Project / Global",
+        deviation: Optional[Deviation] = None,
+        mitigations: Optional[List[Mitigation]] = None,
+        parent=None
+    ):
         super().__init__(parent)
         self.unit_name = unit_name
         self.deviation = deviation
-        self.mitigations = mitigations or []
+        self.mitigations = list(mitigations) if mitigations else []
+        self.saved_deviation: Optional[Deviation] = None
         self.is_editing = deviation is not None
         
         title_text = f"{deviation.name if deviation else 'New Deviation'} ({unit_name})"
@@ -259,14 +264,14 @@ class DeviationDialog(QDialog):
     def _on_add_mitigation(self):
         """Handle add mitigation button click"""
         deviation_name = self.name_input.text().strip() or "New Deviation"
-        dialog = MitigationDialog(deviation_name, self.unit_name, parent=self)
+        dialog = MitigationDialog(deviation_name=deviation_name, unit_name=self.unit_name, parent=self)
         dialog.mitigation_saved.connect(self._on_mitigation_created)
         dialog.exec()
     
     def _on_edit_mitigation(self, mitigation: Mitigation):
         """Handle edit mitigation button click"""
         deviation_name = self.name_input.text().strip() or "New Deviation"
-        dialog = MitigationDialog(deviation_name, self.unit_name, mitigation, parent=self)
+        dialog = MitigationDialog(deviation_name=deviation_name, unit_name=self.unit_name, mitigation=mitigation, parent=self)
         dialog.mitigation_saved.connect(self._on_mitigation_updated)
         dialog.exec()
     
@@ -277,7 +282,6 @@ class DeviationDialog(QDialog):
     
     def _on_mitigation_updated(self, mitigation: Mitigation):
         """Handle mitigation updated"""
-        # Mitigation is already updated in-place
         self._refresh_mitigations_table()
     
     def _on_delete_mitigation(self, mitigation: Mitigation):
@@ -306,11 +310,12 @@ class DeviationDialog(QDialog):
             QMessageBox.warning(self, "Validation Error", "Please enter a description.")
             return
         
-        if self.is_editing:
+        if self.is_editing and self.deviation:
             # Update existing deviation
             self.deviation.name = name
             self.deviation.effect = impact
             self.deviation.description = description
+            self.deviation.mitigation_ids = [m.id for m in self.mitigations]
             deviation_to_save = self.deviation
         else:
             # Create new deviation
@@ -322,8 +327,33 @@ class DeviationDialog(QDialog):
                 deviation_type=DeviationType.DANGEROUS_DETECTED,  # Default
                 severity=DeviationSeverity.MEDIUM,  # Default
                 failure_mode=name,
-                effect=impact
+                effect=impact,
+                mitigation_ids=[m.id for m in self.mitigations]
             )
         
+        self.saved_deviation = deviation_to_save
+        self.deviation = deviation_to_save
         self.deviation_saved.emit(deviation_to_save, self.mitigations)
         self.accept()
+
+    def get_deviation(self) -> Optional[Deviation]:
+        """Returns the saved or edited Deviation model instance, if accepted."""
+        return getattr(self, "saved_deviation", self.deviation)
+
+    def get_deviation_data(self) -> Optional[Dict[str, Any]]:
+        """Returns a dictionary representation of the deviation data."""
+        dev = self.get_deviation()
+        if not dev:
+            return None
+        return {
+            "name": dev.name,
+            "description": dev.description,
+            "deviation_type": dev.deviation_type,
+            "severity": dev.severity,
+            "failure_mode": dev.failure_mode,
+            "effect": getattr(dev, "effect", None)
+        }
+
+    def get_mitigations(self) -> List[Mitigation]:
+        """Returns the associated list of mitigations."""
+        return getattr(self, "mitigations", [])
