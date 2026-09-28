@@ -1,0 +1,16 @@
+========================================================================================================================
+Projekt:         JUMO dTRANS T06 FMEDA Safety Analysis
+Zeichnungsnr:    70707100T06Z000K000
+Datum:           08.09.2026
+Revision:        Rev 02 (Aenderung: Anpassung Sicherheitskanal)
+========================================================================================================================
+
+Vs  Pos   MN          Benennung              Wert      Beschreibung                     Bemerkung             Lage
+------------------------------------------------------------------------------------------------------------------------
+01  C101  00123456    KERAMIK-KONDENSATOR    1u        CAP-VS 1uF/6.3V 0402             SMD                   TOP
+01  C102  00123457    KERAMIK-KONDENSATOR    100n      CAP-VS 100nF/50V 0603            SMD                   TOP
+01  R101  00234567    WIDERSTAND             10k       RES 10k 1% 0603                  SMD                   TOP
+01  R102  00234568    WIDERSTAND             4,7k      RES 4.7k 0.1% 0805               nicht bestueckt       BOT
+01  D101  00345678    OPV                              Operational Amplifier Low Noise  SOIC-8                TOP
+------------------------------------------------------------------------------------------------------------------------
+LIST END

@@ -79,15 +79,15 @@ class TestExportService(unittest.TestCase):
             self.assertIn("Power Supply", wb.sheetnames)
             self.assertIn("Change History", wb.sheetnames)
             
-            # Verify column count in FMEDA sheet (39 columns)
+            # Verify column count in FMEDA sheet (37 columns)
             ws_fg = wb["Power Supply"]
-            self.assertEqual(ws_fg.max_column, 39)
+            self.assertEqual(ws_fg.max_column, 37)
             self.assertEqual(ws_fg.cell(row=1, column=1).value, "Component ID / Designator")
             
             # Verify values
             self.assertEqual(ws_fg.cell(row=2, column=1).value, "R101")
-            self.assertEqual(ws_fg.cell(row=2, column=8).value, "Short")
-            self.assertEqual(ws_fg.cell(row=3, column=8).value, "Open")
+            self.assertEqual(ws_fg.cell(row=2, column=7).value, "Short")
+            self.assertEqual(ws_fg.cell(row=3, column=7).value, "Open")
             
     def test_export_excel_combined_fmeda(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -111,8 +111,8 @@ class TestExportService(unittest.TestCase):
             self.assertIn("FMEDA Workspace", wb.sheetnames)
             
             ws_fmeda = wb["FMEDA Workspace"]
-            # 1 extra column for "Functional Group" at the beginning -> 40 columns
-            self.assertEqual(ws_fmeda.max_column, 40)
+            # 1 extra column for "Functional Group" at the beginning -> 38 columns
+            self.assertEqual(ws_fmeda.max_column, 38)
             self.assertEqual(ws_fmeda.cell(row=1, column=1).value, "Functional Group")
             self.assertEqual(ws_fmeda.cell(row=2, column=1).value, "Power Supply")
             self.assertEqual(ws_fmeda.cell(row=2, column=2).value, "R101")

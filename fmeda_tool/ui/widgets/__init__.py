@@ -2,4 +2,6 @@
 Custom UI Widgets for FMEDA Tool
 """
 
-__all__ = []
+from fmeda_tool.ui.widgets.workflow_header import WorkflowPageHeader
+
+__all__ = ["WorkflowPageHeader"]

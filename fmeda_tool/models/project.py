@@ -50,6 +50,7 @@ class Project(BaseModel):
     product_name: Optional[str] = Field(default=None, description="Product name")
     product_group: Optional[str] = Field(default=None, description="Product group")
     product_version: Optional[str] = Field(default=None, description="Product version")
+    schematic_version: str = Field(default="", description="Schematic version")
     hardware_version: Optional[str] = Field(default=None, description="Hardware version")
     software_version: Optional[str] = Field(default=None, description="Software version")
     
@@ -59,6 +60,7 @@ class Project(BaseModel):
     # Traceability and DB sources
     source_documents_list: List[SourceDocument] = Field(default_factory=list, description="Structured source documents")
     reliability_database_source: Optional[str] = Field(default=None, description="Reliability database source")
+    selected_profile: str = Field(default="Profile 1", description="Selected Exida reliability profile (Profile 1 to Profile 5)")
     environmental_profile: Optional[str] = Field(default=None, description="Environmental or operating profile")
     diagnostic_test_interval: Optional[float] = Field(default=None, description="Diagnostic test interval in hours")
     

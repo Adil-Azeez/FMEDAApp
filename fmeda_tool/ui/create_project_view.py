@@ -16,6 +16,7 @@ from pathlib import Path
 from fmeda_tool.models import (
     Project, ProjectStatus, SafetyStandard, SafetyContext, SourceDocument, Unit
 )
+from fmeda_tool.ui.widgets import WorkflowPageHeader
 
 
 class DocumentDialog(QDialog):
@@ -192,6 +193,8 @@ class CreateProjectView(QWidget):
         
         self.product_version_input = QLineEdit()
         self.form.addRow("Product Version:", self.product_version_input)
+        self.schematic_version_input = QLineEdit()
+        self.form.addRow("Schematic Version:", self.schematic_version_input)
         
         # Mission / Proof / Diag spinboxes
         mission_layout = QHBoxLayout()
@@ -282,21 +285,20 @@ class CreateProjectView(QWidget):
         self.no_effect_failure_def.setPlaceholderText("Enter the project-specific definition and criteria for a No Effect Failure...")
         opt_form.addRow("No Effect Failure Definition:", self.no_effect_failure_def)
         
-        self.architecture_combo = QComboBox()
-        self.architecture_combo.addItems(["1oo1", "1oo1D", "1oo2", "1oo2D", "2oo2", "2oo3", "Other"])
-        opt_form.addRow("Safety Architecture:", self.architecture_combo)
-        
-        self.operating_mode_combo = QComboBox()
-        self.operating_mode_combo.addItems(["Low demand mode", "High demand mode", "Continuous mode"])
-        opt_form.addRow("Operating Mode:", self.operating_mode_combo)
+        self.architecture_input = QTextEdit()
+        self.architecture_input.setAcceptRichText(False)
+        self.architecture_input.setMaximumHeight(80)
+        self.architecture_input.setPlainText("1oo1")
+        opt_form.addRow("Safety Architecture:", self.architecture_input)
         
         self.boundary_input = QTextEdit()
         self.boundary_input.setMaximumHeight(60)
         opt_form.addRow("Safety Boundary Definition:", self.boundary_input)
         
-        self.sensor_included = QComboBox()
-        self.sensor_included.addItems(["No", "Yes"])
-        opt_form.addRow("External Sensor Included:", self.sensor_included)
+        
+        self.profile_combo = QComboBox()
+        self.profile_combo.addItems(["Profile 1", "Profile 2", "Profile 3", "Profile 4", "Profile 5"])
+        opt_form.addRow("Exida Reliability Profile*:", self.profile_combo)
         
         self.rel_db_source = QLineEdit()
         self.rel_db_source.setPlaceholderText("e.g. SN 29500, IEC 62380...")
@@ -331,27 +333,13 @@ class CreateProjectView(QWidget):
         self._create_navigation_bar(main_layout)
         
     def _create_header(self):
-        self.header_frame = QFrame()
-        self.header_frame.setStyleSheet("background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;")
-        self.header_frame.setFixedHeight(60)
-        
-        layout = QHBoxLayout(self.header_frame)
-        layout.setContentsMargins(30, 10, 30, 10)
+        self.header_frame = WorkflowPageHeader("Page 1: Project Information")
         
         self.project_name_label = QLabel("Untitled Project")
-        font_name = QFont("Arial", 12, QFont.Weight.Bold)
+        font_name = QFont("Arial", 11, QFont.Weight.Bold)
         self.project_name_label.setFont(font_name)
         self.project_name_label.setStyleSheet("color: #495057;")
-        layout.addWidget(self.project_name_label)
-        
-        layout.addStretch()
-        
-        title_lbl = QLabel("Page 1: Project Information")
-        title_lbl.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-        title_lbl.setStyleSheet("color: #212529;")
-        layout.addWidget(title_lbl)
-        
-        layout.addStretch()
+        self.header_frame.left_layout.addWidget(self.project_name_label)
         
     def _create_navigation_bar(self, parent_layout):
         nav_frame = QFrame()
@@ -475,10 +463,10 @@ class CreateProjectView(QWidget):
             dangerous_state=self.dangerous_state.text().strip(),
             no_part_failure_definition=self.no_part_failure_def.toPlainText().strip() or None,
             no_effect_failure_definition=self.no_effect_failure_def.toPlainText().strip() or None,
-            safety_architecture=self.architecture_combo.currentText(),
-            operating_mode=self.operating_mode_combo.currentText(),
+            safety_architecture=self.architecture_input.toPlainText(),
+            operating_mode=self.project.safety_context.operating_mode if self.project and self.project.safety_context else SafetyContext().operating_mode,
             safety_boundary=self.boundary_input.toPlainText().strip(),
-            external_sensor_included=(self.sensor_included.currentText() == "Yes"),
+            external_sensor_included=self.project.safety_context.external_sensor_included if self.project and self.project.safety_context else False,
             notes=self.safety_notes.toPlainText().strip() or None
         )
         
@@ -496,7 +484,8 @@ class CreateProjectView(QWidget):
         p_mitigations = self.project.mitigations if self.project else []
         p_diag = self.project.diagnostic_measures if self.project else []
         
-        self.project = Project(
+        project_data = self.project.model_dump() if self.project else {}
+        project_data.update(dict(
             id=p_id,
             name=self.name_input.text().strip(),
             project_number=self.number_input.text().strip(),
@@ -509,6 +498,7 @@ class CreateProjectView(QWidget):
             product_name=self.product_name_input.text().strip() or None,
             product_group=self.product_group_input.text().strip() or None,
             product_version=self.product_version_input.text().strip() or None,
+            schematic_version=self.schematic_version_input.text(),
             mission_time=self.mission_time_input.value(),
             test_interval=self.test_interval_input.value(),
             diagnostic_test_interval=self.diagnostic_interval_input.value(),
@@ -518,12 +508,14 @@ class CreateProjectView(QWidget):
             safety_context=sc,
             source_documents_list=self.source_docs.copy(),
             reliability_database_source=self.rel_db_source.text().strip() or None,
+            selected_profile=self.profile_combo.currentText(),
             environmental_profile=self.env_profile.text().strip() or None,
             units=p_units,
             deviations=p_deviations,
             mitigations=p_mitigations,
             diagnostic_measures=p_diag
-        )
+        ))
+        self.project = Project(**project_data)
         
         self.project_saved.emit(self.project)
         
@@ -544,6 +536,7 @@ class CreateProjectView(QWidget):
         self.product_name_input.clear()
         self.product_group_input.clear()
         self.product_version_input.clear()
+        self.schematic_version_input.clear()
         self.mission_time_input.setValue(87600)
         self.test_interval_input.setValue(8760)
         self.diagnostic_interval_input.setValue(1.0)
@@ -558,10 +551,9 @@ class CreateProjectView(QWidget):
         self.dangerous_state.clear()
         self.no_part_failure_def.clear()
         self.no_effect_failure_def.clear()
-        self.architecture_combo.setCurrentIndex(0)
-        self.operating_mode_combo.setCurrentIndex(0)
+        self.architecture_input.setPlainText("1oo1")
         self.boundary_input.clear()
-        self.sensor_included.setCurrentIndex(0)
+        self.profile_combo.setCurrentText("Profile 1")
         self.rel_db_source.clear()
         self.env_profile.clear()
         self.source_docs = []
@@ -594,6 +586,7 @@ class CreateProjectView(QWidget):
         self.product_name_input.setText(self.project.product_name or "")
         self.product_group_input.setText(self.project.product_group or "")
         self.product_version_input.setText(self.project.product_version or "")
+        self.schematic_version_input.setText(self.project.schematic_version)
         self.mission_time_input.setValue(self.project.mission_time or 87600)
         self.test_interval_input.setValue(self.project.test_interval or 8760)
         self.diagnostic_interval_input.setValue(self.project.diagnostic_test_interval or 1.0)
@@ -628,20 +621,14 @@ class CreateProjectView(QWidget):
             self.no_part_failure_def.setPlainText(getattr(sc, "no_part_failure_definition", None) or "")
             self.no_effect_failure_def.setPlainText(getattr(sc, "no_effect_failure_definition", None) or "")
             
-            arch_idx = self.architecture_combo.findText(sc.safety_architecture or "1oo1")
-            if arch_idx >= 0:
-                self.architecture_combo.setCurrentIndex(arch_idx)
-                
-            mode_idx = self.operating_mode_combo.findText(sc.operating_mode or "Low demand mode")
-            if mode_idx >= 0:
-                self.operating_mode_combo.setCurrentIndex(mode_idx)
+            self.architecture_input.setPlainText(sc.safety_architecture)
                 
             self.boundary_input.setPlainText(sc.safety_boundary or "")
-            self.sensor_included.setCurrentText("Yes" if getattr(sc, "external_sensor_included", False) else "No")
             self.safety_notes.setPlainText(sc.notes or "")
             
         # Load Page 3 sources
         self.source_docs = self.project.source_documents_list.copy()
         self._refresh_sources_table()
+        self.profile_combo.setCurrentText(getattr(self.project, "selected_profile", "Profile 1") or "Profile 1")
         self.rel_db_source.setText(self.project.reliability_database_source or "")
         self.env_profile.setText(self.project.environmental_profile or "")

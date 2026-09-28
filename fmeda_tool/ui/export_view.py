@@ -8,6 +8,7 @@ from typing import Optional
 from pathlib import Path
 
 from fmeda_tool.models import Project
+from fmeda_tool.ui.widgets import WorkflowPageHeader
 
 
 class ExportView(QWidget):
@@ -36,14 +37,9 @@ class ExportView(QWidget):
         # Main Container
         container = QWidget()
         layout = QVBoxLayout(container)
-        layout.setContentsMargins(40, 40, 40, 40)
-        layout.setSpacing(25)
+        layout.setContentsMargins(40, 30, 40, 30)
+        layout.setSpacing(20)
         main_layout.addWidget(container)
-        
-        # Title
-        title_lbl = QLabel("Page 4: Export Results")
-        title_lbl.setFont(QFont("Arial", 14, QFont.Weight.Bold))
-        layout.addWidget(title_lbl)
         
         # Status Box
         self.status_box = QFrame()
@@ -121,27 +117,13 @@ class ExportView(QWidget):
         self._create_navigation_bar(main_layout)
         
     def _create_header(self):
-        self.header_frame = QFrame()
-        self.header_frame.setStyleSheet("background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;")
-        self.header_frame.setFixedHeight(60)
-        
-        layout = QHBoxLayout(self.header_frame)
-        layout.setContentsMargins(30, 10, 30, 10)
+        self.header_frame = WorkflowPageHeader("Page 4: Export Results")
         
         self.project_name_label = QLabel("Untitled Project")
-        font_name = QFont("Arial", 12, QFont.Weight.Bold)
+        font_name = QFont("Arial", 11, QFont.Weight.Bold)
         self.project_name_label.setFont(font_name)
         self.project_name_label.setStyleSheet("color: #495057;")
-        layout.addWidget(self.project_name_label)
-        
-        layout.addStretch()
-        
-        title_lbl = QLabel("Page 4: Export Results")
-        title_lbl.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-        title_lbl.setStyleSheet("color: #212529;")
-        layout.addWidget(title_lbl)
-        
-        layout.addStretch()
+        self.header_frame.left_layout.addWidget(self.project_name_label)
         
     def _create_navigation_bar(self, parent_layout):
         nav_frame = QFrame()

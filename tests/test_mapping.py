@@ -95,14 +95,14 @@ class TestComponentMapping(unittest.TestCase):
         
     def test_auto_map_confirms_high_confidence(self):
         bom_list = [
-            BOMComponent(id="bom_1", designator="R1", part_number="RES_10K"), # 1.0
-            BOMComponent(id="bom_2", designator="C1", value="1uF", description="capacitor") # 0.9
+            BOMComponent(id="bom_1", designator="R1", part_number="RES_10K"), # 1.0 (exact match -> auto confirmed)
+            BOMComponent(id="bom_2", designator="C1", value="1uF", description="capacitor") # 0.9 (fuzzy match -> requires manual review)
         ]
         
         mappings = MappingService.auto_map_bom(bom_list, self.templates)
         self.assertEqual(len(mappings), 2)
         self.assertTrue(mappings[0].is_confirmed)
-        self.assertTrue(mappings[1].is_confirmed)
+        self.assertFalse(mappings[1].is_confirmed)  # Strict user confirmation required for fuzzy match
 
 
 if __name__ == "__main__":
