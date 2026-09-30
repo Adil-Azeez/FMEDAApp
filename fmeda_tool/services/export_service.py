@@ -96,6 +96,7 @@ class ExportService:
                 ("Product Name:", project.product_name or "N/A"),
                 ("Product Group:", project.product_group or "N/A"),
                 ("Product Version:", project.product_version or "N/A"),
+                ("Schematic Version:", project.schematic_version),
                 ("Hardware Version:", project.hardware_version or "N/A"),
                 ("Software Version:", project.software_version or "N/A"),
                 ("Selected Profile:", getattr(project, "selected_profile", None) or "Profile 1"),
@@ -200,7 +201,9 @@ class ExportService:
             gg_tot_dang = (project.lambda_dd_gesamtgerat or 0.0) + (project.lambda_du_gesamtgerat or 0.0)
             gg_dc = (project.lambda_dd_gesamtgerat / gg_tot_dang * 100.0) if gg_tot_dang > 0.0 else 0.0
             
+            diag = CalculationService.calculate_scope(project.units, project)["lambda_diag_gesamt"]
             metrics_rows = [
+                ("λDiagGesamt (FIT)", fmt(diag, "fit"), "N/A"),
                 ("Total Failure Rate (FIT)", fmt(project.lambda_total_gesamtgerat, "fit"), fmt(project.lambda_total_sicherheitskanal, "fit")),
                 ("Safe Failure Rate (FIT)", fmt(project.lambda_safe_gesamtgerat, "fit"), fmt(project.lambda_safe_sicherheitskanal, "fit")),
                 ("Dangerous Failure Rate (FIT)", fmt(project.lambda_dangerous_gesamtgerat, "fit"), fmt(project.lambda_dangerous_sicherheitskanal, "fit")),
@@ -264,7 +267,8 @@ class ExportService:
                 "MTTFd Sicherheitskanal (years)",
                 "PFDavg",
                 "PFH",
-                "Achieved SIL"
+                "Achieved SIL",
+                "λDiagGesamt (FIT)"
             ]
             
             fg_header_row = current_row
@@ -305,7 +309,8 @@ class ExportService:
                     (u_m["mttfd_sicherheitskanal"], "years"),
                     (u_m["pfd_avg"], "pfd"),
                     (u_m["pfd_max"], "pfd"),
-                    (u_m["achieved_sil"], "center")
+                    (u_m["achieved_sil"], "center"),
+                    (u_m["lambda_diag_gesamt"], "fit")
                 ]
                 
                 for c_idx, (raw_val, style_type) in enumerate(u_cells, 1):
@@ -547,7 +552,7 @@ class ExportService:
             ws_history = wb.create_sheet(title="Change History")
             ws_history.views.sheetView[0].showGridLines = True
             
-            history_headers = ["Timestamp", "User", "Action", "Details"]
+            history_headers = ["Timestamp", "User", "Action", "Details", "Affected Object", "Old Value", "New Value", "Comment / Change Reason", "Individual Changes"]
             for c_idx, h in enumerate(history_headers, 1):
                 cell = ws_history.cell(row=1, column=c_idx, value=h)
                 cell.font = header_font
@@ -561,19 +566,45 @@ class ExportService:
                 ws_history.cell(row=row_idx, column=2, value=entry.get("user", ""))
                 ws_history.cell(row=row_idx, column=3, value=entry.get("action", ""))
                 ws_history.cell(row=row_idx, column=4, value=entry.get("details", ""))
+                ws_history.cell(row=row_idx, column=5, value=entry.get("affected_object", ""))
+                ws_history.cell(row=row_idx, column=6, value=json.dumps(entry.get("old_value"), ensure_ascii=False))
+                ws_history.cell(row=row_idx, column=7, value=json.dumps(entry.get("new_value"), ensure_ascii=False))
+                ws_history.cell(row=row_idx, column=8, value=entry.get("comment", ""))
+                ws_history.cell(row=row_idx, column=9, value="\n".join(c["details"] for c in entry.get("changes", [])))
                 
-                for col_c in range(1, 5):
+                for col_c in range(1, 10):
                     cell_c = ws_history.cell(row=row_idx, column=col_c)
                     cell_c.font = value_font
                     cell_c.border = thin_border
+                    cell_c.alignment = Alignment(vertical="top", wrap_text=True)
                 row_idx += 1
                 
             # Auto-adjust column widths
             for col in ws_history.columns:
                 max_len = max(len(str(cell.value or '')) for cell in col)
                 col_letter = get_column_letter(col[0].column)
-                ws_history.column_dimensions[col_letter].width = max(max_len + 3, 15)
+                ws_history.column_dimensions[col_letter].width = min(max(max_len + 3, 15), 70)
                 
+        if include_history and any(e.get("changes") for e in project.change_history):
+            ws_details = wb.create_sheet(title="Change Details")
+            ws_details.append(["Save ID", "Timestamp", "Action", "Affected Object", "Field", "Old Value", "New Value", "Automatic Details"])
+            for entry in project.change_history:
+                for change in entry.get("changes", []):
+                    ws_details.append([entry.get("id", ""), entry.get("timestamp", ""), change["action"],
+                                       change["affected_object"], change["field"],
+                                       json.dumps(change["old_value"], ensure_ascii=False),
+                                       json.dumps(change["new_value"], ensure_ascii=False), change["details"]])
+            ws_details.freeze_panes = "A2"
+            ws_details.auto_filter.ref = ws_details.dimensions
+            for cell in ws_details[1]:
+                cell.font = header_font
+                cell.fill = header_fill
+            for column in ws_details.columns:
+                letter = get_column_letter(column[0].column)
+                ws_details.column_dimensions[letter].width = min(max(max(len(str(c.value or "")) for c in column) + 3, 15), 70)
+                for cell in column:
+                    cell.alignment = Alignment(vertical="top", wrap_text=True)
+
         # Remove default sheet if we added other sheets
         if len(wb.sheetnames) > 1 and "Sheet" in wb.sheetnames:
             wb.remove(wb["Sheet"])
@@ -615,6 +646,8 @@ class ExportService:
         from PyQt6.QtCore import QMarginsF
         import html
         
+        from fmeda_tool.services.calculation_service import CalculationService
+        diag = CalculationService.calculate_scope(project.units, project)["lambda_diag_gesamt"]
         sc = project.safety_context
         
         def esc(val, default="N/A", is_definition=False):
@@ -677,6 +710,13 @@ class ExportService:
                 </tr>
             </table>
             
+            <table class="meta-table">
+                <tr>
+                    <td class="meta-label">Schematic Version:</td>
+                    <td class="meta-value">{esc(project.schematic_version, default="")}</td>
+                </tr>
+            </table>
+
             <h2>Safety Context & Parameters</h2>
             <table class="meta-table">
                 <tr>
@@ -736,6 +776,10 @@ class ExportService:
                     <th>Headings</th>
                 </tr>
                 <tr>
+                    <td>λDiagGesamt</td>
+                    <td class="summary-value">{diag:.4f} FIT</td>
+                </tr>
+                <tr>
                     <td>Total Failure Rate (FIT)</td>
                     <td class="summary-value">{project.total_failure_rate or 0.0:.4f} FIT</td>
                 </tr>
@@ -772,16 +816,19 @@ class ExportService:
                     <th>Failure Rate (FIT)</th>
                     <th>SFF %</th>
                     <th>DC %</th>
+                    <th>λDiagGesamt (FIT)</th>
                 </tr>
         """
         
         for u in project.units:
+            unit_diag = CalculationService.calculate_unit_metrics(u, project)["lambda_diag_gesamt"]
             html_content += f"""
                 <tr>
                     <td>{u.name}</td>
                     <td>{u.total_failure_rate or 0.0:.4f}</td>
                     <td>{u.safe_failure_fraction or 0.0:.2f}%</td>
                     <td>{u.diagnostic_coverage or 0.0:.2f}%</td>
+                    <td>{unit_diag:.4f} FIT</td>
                 </tr>
             """
             

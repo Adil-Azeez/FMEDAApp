@@ -102,6 +102,7 @@ CREATE TABLE IF NOT EXISTS legacy_failure_modes (
 CREATE TABLE IF NOT EXISTS custom_components (
     id TEXT PRIMARY KEY,
     display_name TEXT,
+    description TEXT NOT NULL DEFAULT '',
     component_type TEXT NOT NULL,
     fits REAL NOT NULL,
     status TEXT DEFAULT 'active' CHECK (status IN ('active', 'retired')),

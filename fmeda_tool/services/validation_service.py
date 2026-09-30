@@ -20,6 +20,9 @@ class ValidationService:
         
         classification = getattr(assignment, "classification", "not_evaluated")
         
+        if assignment.diagnostic_function not in ("Yes", "No"):
+            warnings.append("Diagnostic Function not evaluated")
+
         # 1. Missing deviation assignment for dangerous failures
         if classification == "dangerous_failure" and not assignment.deviation_id:
             errors.append("Dangerous failure mode is missing a deviation (failure effect) assignment.")
@@ -189,8 +192,15 @@ class ValidationService:
                     
                 for fm_name, fm_perc in comp.failure_modes.items():
                     assignment = next((a for a in comp.failure_mode_assignments if a.failure_mode_name == fm_name), None)
+                    if assignment is None or assignment.diagnostic_function not in ("Yes", "No"):
+                        alerts.append({"severity": "Warning", "scope": "Component",
+                                       "item": f"{comp.position} ({fm_name})",
+                                       "message": "Diagnostic Function not evaluated",
+                                       "unit_id": unit.id, "row_index": row_index,
+                                       "location": f"{unit.name} (Row {row_index + 1})"})
                     if assignment:
                         status, msgs = ValidationService.validate_row(assignment, comp)
+                        msgs = [m for m in msgs if m != "Diagnostic Function not evaluated"]
                         if status == "error":
                             for msg in msgs:
                                 alerts.append({

@@ -516,7 +516,7 @@ class ComponentsDBView(QWidget):
         
         filter_layout.addWidget(QLabel("Search:"))
         self.custom_search_input = QLineEdit()
-        self.custom_search_input.setPlaceholderText("Search display name, type...")
+        self.custom_search_input.setPlaceholderText("Search display name, type, description...")
         self.custom_search_input.textChanged.connect(self._load_custom_tab)
         filter_layout.addWidget(self.custom_search_input, stretch=2)
         
@@ -548,9 +548,9 @@ class ComponentsDBView(QWidget):
         
         # Custom Table
         self.custom_table = QTableWidget()
-        self.custom_table.setColumnCount(7)
+        self.custom_table.setColumnCount(8)
         self.custom_table.setHorizontalHeaderLabels([
-            "Display Name", "Display Label (Active)", "Component Type", "Failure Rate (FIT)", "Failure Modes", "Status", "Actions"
+            "Display Name", "Display Label (Active)", "Component Type", "Failure Rate (FIT)", "Failure Modes", "Status", "Actions", "Description"
         ])
         self.custom_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         self.custom_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
@@ -597,6 +597,9 @@ class ComponentsDBView(QWidget):
             self.custom_table.setItem(row, 1, lbl_item)
             
             self.custom_table.setItem(row, 2, QTableWidgetItem(comp["component_type"]))
+            description_item = QTableWidgetItem(comp.get("description") or "")
+            description_item.setToolTip(comp.get("description") or "")
+            self.custom_table.setItem(row, 7, description_item)
             
             fit_val = comp.get("fits", 0.0)
             self.custom_table.setItem(row, 3, QTableWidgetItem(f"{fit_val:.4f}"))

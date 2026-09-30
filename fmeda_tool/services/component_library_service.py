@@ -222,10 +222,7 @@ class ComponentLibraryService:
             cur = conn.cursor()
             comp = cur.execute("""
                 SELECT 
-                    c.id, c.failure_rate_id, c.item_id, c.item_no, c.display_name,
-                    c.component_type, c.component_subtype, c.component_use_category,
-                    c.mapping_status, c.mapping_basis, c.review_required,
-                    c.source_name, c.source_record_item_no, c.status,
+                    c.*,
                     cfr.fit
                 FROM components c
                 LEFT JOIN component_failure_rates cfr 
@@ -270,6 +267,9 @@ class ComponentLibraryService:
                 "displayed_label": displayed_label,
                 "display_name": comp_dict["display_name"],
                 "component_type": comp_dict["component_type"],
+                "description": comp_dict.get("description") or " - ".join(
+                    str(v) for v in (comp_dict["component_type"], comp_dict["component_subtype"]) if v
+                ),
                 "component_subtype": comp_dict["component_subtype"],
                 "component_use_category": comp_dict["component_use_category"],
                 "selected_profile": ComponentLibraryService._profile_id_to_name(profile_id),
@@ -348,7 +348,7 @@ class ComponentLibraryService:
         with get_db_connection(db_path) as conn:
             cur = conn.cursor()
             comp = cur.execute("""
-                SELECT id, display_name, shortcut, material, database, fits, mapping_status, review_required, status
+                SELECT *
                 FROM legacy_components
                 WHERE id = ?
             """, (component_id,)).fetchone()
@@ -369,6 +369,7 @@ class ComponentLibraryService:
                 "displayed_label": comp_dict["display_name"],
                 "display_name": comp_dict["display_name"],
                 "shortcut": comp_dict["shortcut"],
+                "description": comp_dict.get("description") or comp_dict["display_name"] or comp_dict["material"] or "",
                 "material": comp_dict["material"],
                 "failure_rate": comp_dict["fits"],
                 "failure_modes": failure_modes,
@@ -388,7 +389,7 @@ class ComponentLibraryService:
         """Searches SQLite custom_components catalog."""
         ensure_database_ready(db_path=db_path)
         sql = """
-            SELECT id, display_name, component_type, fits, status,
+            SELECT id, display_name, description, component_type, fits, status,
                    copied_from_source_type, copied_from_component_id,
                    copied_from_failure_rate_id, copied_at,
                    created_at, updated_at
@@ -434,6 +435,7 @@ class ComponentLibraryService:
                     match = (
                         (item["display_name"] and q_lower in item["display_name"].lower()) or
                         (item["component_type"] and q_lower in item["component_type"].lower()) or
+                        (item["description"] and q_lower in item["description"].lower()) or
                         any(q_lower in k.lower() for k in item["failure_modes"].keys())
                     )
                     if not match:
@@ -453,7 +455,7 @@ class ComponentLibraryService:
         with get_db_connection(db_path) as conn:
             cur = conn.cursor()
             comp = cur.execute("""
-                SELECT id, display_name, component_type, fits, status,
+                SELECT id, display_name, description, component_type, fits, status,
                        copied_from_source_type, copied_from_component_id,
                        copied_from_failure_rate_id, copied_at,
                        created_at, updated_at
@@ -477,6 +479,7 @@ class ComponentLibraryService:
                 "displayed_label": displayed_label,
                 "display_name": comp_dict["display_name"],
                 "component_type": comp_dict["component_type"],
+                "description": comp_dict.get("description") or "",
                 "material": comp_dict["component_type"],
                 "failure_rate": float(comp_dict["fits"]),
                 "failure_modes": failure_modes,
@@ -500,17 +503,22 @@ class ComponentLibraryService:
         copied_from_failure_rate_id: Optional[str] = None,
         copied_at: Optional[str] = None,
         user: str = "admin",
-        db_path: Optional[Path] = None
+        db_path: Optional[Path] = None,
+        description: str = ""
     ) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
         """
         Creates and persists a new Custom Component in SQLite.
-        Mandatory: component_type, fits, >= 2 failure modes.
+        Mandatory: component_type, description, fits, >= 2 failure modes.
         Optional: display_name (must be unique across all catalogs).
         Optional traceability: copied_from_source_type, copied_from_component_id, copied_from_failure_rate_id, copied_at.
         """
         if not component_type or not str(component_type).strip():
             return False, "Component Type is required.", None
             
+        description = (description or "").strip()
+        if not description:
+            return False, "Description is required.", None
+
         try:
             fit_val = float(fits)
             if fit_val < 0.0:
@@ -547,13 +555,13 @@ class ComponentLibraryService:
                 cur = conn.cursor()
                 cur.execute("""
                     INSERT INTO custom_components (
-                        id, display_name, component_type, fits, status,
+                        id, display_name, description, component_type, fits, status,
                         copied_from_source_type, copied_from_component_id,
                         copied_from_failure_rate_id, copied_at,
                         created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?)
                 """, (
-                    c_id, clean_dname, component_type.strip(), fit_val,
+                    c_id, clean_dname, description, component_type.strip(), fit_val,
                     copied_from_source_type, copied_from_component_id,
                     copied_from_failure_rate_id, copied_at or (now_str if copied_from_source_type else None),
                     now_str, now_str
@@ -589,12 +597,17 @@ class ComponentLibraryService:
         failure_modes: Dict[str, float],
         display_name: Optional[str] = None,
         user: str = "admin",
-        db_path: Optional[Path] = None
+        db_path: Optional[Path] = None,
+        description: str = ""
     ) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
         """Updates an existing Custom Component in SQLite."""
         if not component_type or not str(component_type).strip():
             return False, "Component Type is required.", None
             
+        description = (description or "").strip()
+        if not description:
+            return False, "Description is required.", None
+
         try:
             fit_val = float(fits)
             if fit_val < 0.0:
@@ -629,9 +642,9 @@ class ComponentLibraryService:
                 cur = conn.cursor()
                 cur.execute("""
                     UPDATE custom_components
-                    SET display_name = ?, component_type = ?, fits = ?, updated_at = ?
+                    SET display_name = ?, description = ?, component_type = ?, fits = ?, updated_at = ?
                     WHERE id = ?
-                """, (clean_dname, component_type.strip(), fit_val, now_str, custom_component_id))
+                """, (clean_dname, description, component_type.strip(), fit_val, now_str, custom_component_id))
                 
                 cur.execute("DELETE FROM custom_failure_modes WHERE custom_component_id = ?", (custom_component_id,))
                 

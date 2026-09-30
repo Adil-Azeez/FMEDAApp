@@ -11,13 +11,14 @@ from pathlib import Path
 from typing import Tuple, Optional, Any
 from fmeda_tool.models import Project
 from fmeda_tool.utils.performance import PerformanceTimer
+from .change_history_service import ChangeHistoryService
 
 
 class ProjectService:
     """Service to handle atomic project file saving, backups, and schema migrations"""
     
     @staticmethod
-    def save_project_atomically(project: Project, file_path: str) -> None:
+    def save_project_atomically(project: Project, file_path: str, comment: str = "", *, record_history: bool = True) -> None:
         """
         Saves a project atomically using a temporary file in the same directory,
         flushes/fsyncs to disk, verifies JSON integrity, creates a .json.bak backup,
@@ -25,6 +26,19 @@ class ProjectService:
         """
         path = Path(file_path).resolve()
         path.parent.mkdir(parents=True, exist_ok=True)
+
+        current_state = ChangeHistoryService.meaningful_state(project)
+        baseline = project._saved_state
+        if baseline is None and path.exists():
+            with path.open(encoding="utf-8") as saved_file:
+                saved = Project.model_validate(json.load(saved_file))
+            if saved.id == project.id:
+                baseline = ChangeHistoryService.meaningful_state(saved)
+        changes = ChangeHistoryService.changes(baseline, current_state) if record_history else []
+        entry = ChangeHistoryService.entry(project, changes, comment) if changes else None
+        payload = project.model_dump(mode='json')
+        if entry:
+            payload["change_history"].append(entry)
         
         # Unique temporary file in the same directory to guarantee same-filesystem atomic rename
         temp_path = path.parent / f".tmp_{path.stem}_{uuid.uuid4().hex[:8]}.json"
@@ -33,7 +47,7 @@ class ProjectService:
             # 1. Write project JSON to temporary file and fsync
             with open(temp_path, 'w', encoding='utf-8') as f:
                 json.dump(
-                    project.model_dump(mode='json'),
+                    payload,
                     f,
                     separators=(",", ":"),
                     ensure_ascii=False,
@@ -59,6 +73,12 @@ class ProjectService:
                     
             # 4. Atomically replace target with validated temp file
             os.replace(temp_path, path)
+            # Commit audit and baseline only after the atomic write succeeds. The staged
+            # payload includes the audit, so no recursive save or second-write failure is possible.
+            if entry:
+                project.change_history.append(entry)
+            project._saved_state = current_state
+            project._saved_path = str(path)
             print(f"[OK] Project saved atomically to: {path}")
             
         finally:
@@ -160,7 +180,10 @@ class ProjectService:
             timer.record_project_metrics(project, file_size)
             
         if was_migrated:
-            ProjectService.save_project_atomically(project, str(path))
+            ProjectService.save_project_atomically(project, str(path), record_history=False)
+
+        project._saved_state = ChangeHistoryService.meaningful_state(project)
+        project._saved_path = str(path.resolve())
             
         return project, was_migrated, migration_msg
 

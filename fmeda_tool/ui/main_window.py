@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QStackedWidget,
-    QMenuBar, QMenu, QMessageBox, QFileDialog, QApplication
+    QMenuBar, QMenu, QMessageBox, QFileDialog, QApplication, QInputDialog
 )
 from PyQt6.QtCore import Qt, QRect, QThread, pyqtSignal
 from PyQt6.QtGui import QAction, QScreen
@@ -397,6 +397,9 @@ class MainWindow(QMainWindow):
         self.show_view("create_project")
     
     def _on_project_created(self, project: Project):
+        if self.current_project and self.current_project.id == project.id:
+            project._saved_state = self.current_project._saved_state
+            project._saved_path = self.current_project._saved_path
         self.current_project = project
         self.setWindowTitle(f"FMEDA Tool - {project.name}")
         self.has_unsaved_changes = True
@@ -551,7 +554,10 @@ class MainWindow(QMainWindow):
                     self.current_project.last_active_tab_id = self.current_project.units[active_idx - 1].id
                     
             from fmeda_tool.services.project_service import ProjectService
-            ProjectService.save_project_atomically(self.current_project, file_path)
+            comment = self._request_save_comment()
+            if comment is None:
+                return
+            ProjectService.save_project_atomically(self.current_project, file_path, comment=comment)
             
             self.has_unsaved_changes = False
             QMessageBox.information(
@@ -682,7 +688,11 @@ class MainWindow(QMainWindow):
             return
             
         project_dump, orig_view, orig_tab_idx, action_desc = self.undo_stack.pop()
+        previous = self.current_project
         self.current_project = Project.model_validate(project_dump)
+        self.current_project._saved_state = previous._saved_state
+        self.current_project._saved_path = previous._saved_path
+        self.current_project.change_history = previous.change_history
         
         from fmeda_tool.services.calculation_service import CalculationService
         CalculationService.calculate_project(self.current_project)
@@ -749,15 +759,22 @@ class MainWindow(QMainWindow):
             self.add_view("unit_editor", self.unit_editor_view)
         self.show_view("unit_editor")
     
+    def _request_save_comment(self):
+        from fmeda_tool.services.change_history_service import ChangeHistoryService
+        changes = ChangeHistoryService.changes(self.current_project._saved_state,
+                                              ChangeHistoryService.meaningful_state(self.current_project))
+        if not changes:
+            return ""
+        comment, accepted = QInputDialog.getMultiLineText(
+            self, "Save Project", "Change Comment / Reason (optional):")
+        return comment if accepted else None
+
     def _on_save_project_from_editor(self):
         if not self.current_project:
             return
         try:
-            data_dir = Path("data/projects")
-            data_dir.mkdir(parents=True, exist_ok=True)
-            
             filename = f"{self.current_project.id}_{self.current_project.name.replace(' ', '_')}.json"
-            filepath = data_dir / filename
+            filepath = Path(self.current_project._saved_path) if self.current_project._saved_path else Path("data/projects") / filename
             
             from datetime import datetime
             self.current_project.updated_at = datetime.now()
@@ -770,7 +787,10 @@ class MainWindow(QMainWindow):
                     self.current_project.last_active_tab_id = self.current_project.units[active_idx - 1].id
             
             from fmeda_tool.services.project_service import ProjectService
-            ProjectService.save_project_atomically(self.current_project, str(filepath))
+            comment = self._request_save_comment()
+            if comment is None:
+                return False
+            ProjectService.save_project_atomically(self.current_project, str(filepath), comment=comment)
             
             self.has_unsaved_changes = False
             QMessageBox.information(
@@ -778,6 +798,7 @@ class MainWindow(QMainWindow):
                 "Project Saved",
                 f"Project '{self.current_project.name}' saved successfully!"
             )
+            return True
         except Exception as e:
             QMessageBox.critical(
                 self,
@@ -785,6 +806,7 @@ class MainWindow(QMainWindow):
                 f"Failed to save project:\n{str(e)}"
             )
             print(f"Error saving project: {e}")
+            return False
     
     def _on_fmeda_back(self):
         self.show_view("create_project")
@@ -823,7 +845,8 @@ class MainWindow(QMainWindow):
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel
             )
             if reply == QMessageBox.StandardButton.Yes:
-                self._on_save_project_from_editor()
+                if not self._on_save_project_from_editor():
+                    return
             elif reply == QMessageBox.StandardButton.Cancel:
                 return
         self.show_view("main_menu")
@@ -911,8 +934,8 @@ class MainWindow(QMainWindow):
                 QMessageBox.StandardButton.Yes
             )
             if reply == QMessageBox.StandardButton.Yes:
-                self._on_save_project_from_editor()
-                self.show_view("main_menu")
+                if self._on_save_project_from_editor():
+                    self.show_view("main_menu")
             elif reply == QMessageBox.StandardButton.No:
                 self.has_unsaved_changes = False
                 self.show_view("main_menu")

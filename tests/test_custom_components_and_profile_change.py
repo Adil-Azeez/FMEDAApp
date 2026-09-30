@@ -28,6 +28,7 @@ def test_custom_component_dialog_validation_and_creation(fresh_isolated_db, qapp
     """Test CustomComponentDialog field validation, non-100% total acceptance, and creation."""
     # 1. Test empty component type rejected
     dlg = CustomComponentDialog()
+    dlg.description_input.setPlainText("Test component description")
     dlg.type_input.setText("")
     dlg.fit_input.setValue(10.5)
     dlg.add_failure_mode("Mode 1", 50.0)
@@ -91,6 +92,7 @@ def test_custom_component_cross_catalog_display_name_uniqueness(fresh_isolated_d
     """Test that display names must be unique across Exida, Legacy, and Custom catalogs."""
     # Create first custom component with display name "CUSTOM_UNIQUE_1"
     ok, msg, c_id = ComponentLibraryService.create_custom_component(
+        description="Test component description",
         component_type="Optocoupler",
         fits=25.0,
         failure_modes={"Open": 50.0, "Short": 50.0},
@@ -100,6 +102,7 @@ def test_custom_component_cross_catalog_display_name_uniqueness(fresh_isolated_d
 
     # Try creating another custom component with same display name -> rejected with "Display Name already exists."
     ok2, msg2, _ = ComponentLibraryService.create_custom_component(
+        description="Test component description",
         component_type="Optocoupler",
         fits=25.0,
         failure_modes={"Open": 50.0, "Short": 50.0},
@@ -117,6 +120,7 @@ def test_custom_component_cross_catalog_display_name_uniqueness(fresh_isolated_d
 def test_custom_component_optional_display_name(fresh_isolated_db, qapp):
     """Test custom component with NULL / empty display name uses component type as active label."""
     ok, msg, c_id = ComponentLibraryService.create_custom_component(
+        description="Test component description",
         component_type="Pressure Sensor",
         fits=35.0,
         failure_modes={"Drift": 45.0, "Stuck Output": 35.0},
@@ -135,6 +139,7 @@ def test_custom_components_in_db_view_and_mapping_workspace(fresh_isolated_db, q
     """Test custom components appearing in ComponentsDBView and ComponentMappingDialog."""
     # Create custom component
     ok, msg, c_id = ComponentLibraryService.create_custom_component(
+        description="Test component description",
         component_type="CAN Transceiver",
         fits=18.5,
         failure_modes={"Dominant Stuck": 60.0, "Recessive Stuck": 40.0},
@@ -306,6 +311,7 @@ def test_custom_component_edit_crash_fix_and_update(fresh_isolated_db, qapp):
     """Test CustomComponentDialog accepts custom_comp arg, populates existing fields, and updates in-place without duplicating."""
     # 1. Create initial custom component
     ok, msg, initial_snap = ComponentLibraryService.create_custom_component(
+        description="Test component description",
         component_type="Microcontroller",
         fits=12.0,
         failure_modes={"Flash Error": 60.0, "RAM Error": 40.0},
@@ -358,6 +364,7 @@ def test_custom_component_deletion_workflow_and_confirmation(fresh_isolated_db, 
     """Test deleting an unreferenced custom component prompts confirmation and deletes permanently from SQLite."""
     # 1. Create custom component to delete
     ok, msg, snap = ComponentLibraryService.create_custom_component(
+        description="Test component description",
         component_type="Test Sensor",
         fits=5.0,
         failure_modes={"Mode A": 50.0, "Mode B": 50.0},
@@ -414,6 +421,7 @@ def test_custom_component_deletion_blocked_when_referenced(fresh_isolated_db, qa
     """Test reference check blocks deleting a custom component that is currently in use."""
     # 1. Create custom component
     ok, msg, snap = ComponentLibraryService.create_custom_component(
+        description="Test component description",
         component_type="ADC Driver",
         fits=8.0,
         failure_modes={"Gain Error": 70.0, "Offset Error": 30.0},
@@ -556,6 +564,7 @@ def test_copy_from_exida_component_workflow(fresh_isolated_db, qapp):
 
     # 1. Open CustomComponentDialog in create mode
     dlg = CustomComponentDialog()
+    dlg.description_input.setPlainText("Test component description")
     assert not dlg.is_edit
     assert hasattr(dlg, "copy_btn")
 
@@ -625,6 +634,7 @@ def test_copy_from_legacy_component_workflow(fresh_isolated_db, qapp):
     source_fms = dict(source_leg["failure_modes"])
 
     dlg = CustomComponentDialog()
+    dlg.description_input.setPlainText("Test component description")
     leg_snap = ComponentLibraryService.get_legacy_component_snapshot(source_id)
     dlg._apply_copied_snapshot(leg_snap)
 
@@ -661,6 +671,7 @@ def test_copied_custom_component_available_in_db_view_and_mapping(fresh_isolated
     """Test newly copied custom component is immediately visible and usable in ComponentsDBView and ComponentMappingDialog."""
     # Create copied custom component
     ok, msg, snap = ComponentLibraryService.create_custom_component(
+        description="Test component description",
         component_type="Optoisolator",
         fits=33.0,
         failure_modes={"CTR Degradation": 60.0, "LED Open": 40.0},

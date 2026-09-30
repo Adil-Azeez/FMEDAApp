@@ -1,7 +1,7 @@
 
 
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class FailureModeAssignment(BaseModel):
@@ -46,8 +46,25 @@ class FailureModeAssignment(BaseModel):
     )
     diagnostic_function: Optional[str] = Field(
         default=None,
-        description="Details of diagnostic function"
+        description="Explicit diagnostic function evaluation: Yes, No, or blank"
     )
+    legacy_diagnostic_function: Optional[str] = Field(
+        default=None, description="Unrecognized legacy diagnostic text retained for reference"
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_diagnostic_function(cls, values):
+        if isinstance(values, dict):
+            values = dict(values)
+            raw = values.get("diagnostic_function")
+            text = str(raw).strip() if raw is not None else ""
+            normalized = {"yes": "Yes", "y": "Yes", "true": "Yes", "1": "Yes",
+                          "no": "No", "n": "No", "false": "No", "0": "No"}.get(text.casefold())
+            if text and normalized is None:
+                values.setdefault("legacy_diagnostic_function", text)
+            values["diagnostic_function"] = normalized
+        return values
     dc_test_ref: Optional[str] = Field(
         default=None,
         description="Diagnostic coverage test reference"

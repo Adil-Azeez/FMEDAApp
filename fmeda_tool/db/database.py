@@ -130,6 +130,8 @@ def is_database_initialized(db_path: Optional[Path] = None) -> bool:
             if "custom_components" in tables:
                 cur.execute("PRAGMA table_info(custom_components);")
                 col_names = {row["name"] for row in cur.fetchall()}
+                if "description" not in col_names:
+                    cur.execute("ALTER TABLE custom_components ADD COLUMN description TEXT NOT NULL DEFAULT '';")
                 if "copied_from_source_type" not in col_names:
                     cur.execute("ALTER TABLE custom_components ADD COLUMN copied_from_source_type TEXT;")
                 if "copied_from_component_id" not in col_names:

@@ -379,6 +379,13 @@ class ComponentMappingDialog(QDialog):
         self.cfg_fit_input.setStyleSheet("background-color: #e9ecef; color: #495057;")
         grid.addWidget(self.cfg_fit_input, 1, 3)
         
+        self.cfg_description = QLabel()
+        self.cfg_description.setTextFormat(Qt.TextFormat.PlainText)
+        self.cfg_description.setWordWrap(True)
+        self.cfg_description.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        grid.addWidget(QLabel("Description:"), 2, 0)
+        grid.addWidget(self.cfg_description, 2, 1, 1, 3)
+
         grid.setColumnStretch(1, 1)
         grid.setColumnStretch(3, 1)
         cfg_lay.addLayout(grid)
@@ -654,8 +661,8 @@ class ComponentMappingDialog(QDialog):
                 fit_str = f"{fit_val:.4f}" if fit_val is not None else "0.0000"
                 self.lib_table.setItem(row, 3, QTableWidgetItem(fit_str))
         else:
-            self.lib_table.setColumnCount(4)
-            self.lib_table.setHorizontalHeaderLabels(["Display Label", "Component Type", "Failure Modes", "Failure Rate (FIT)"])
+            self.lib_table.setColumnCount(5)
+            self.lib_table.setHorizontalHeaderLabels(["Display Label", "Component Type", "Failure Modes", "Failure Rate (FIT)", "Description"])
             results = ComponentLibraryService.search_custom_components(query=query, component_type=comp_type)
             for item in results:
                 row = self.lib_table.rowCount()
@@ -664,6 +671,9 @@ class ComponentMappingDialog(QDialog):
                 lbl_item = QTableWidgetItem(item["display_label"])
                 lbl_item.setData(Qt.ItemDataRole.UserRole, item["id"])
                 lbl_item.setData(Qt.ItemDataRole.UserRole + 1, "custom")
+                description_item = QTableWidgetItem(item.get("description") or "")
+                description_item.setToolTip(item.get("description") or "")
+                self.lib_table.setItem(row, 4, description_item)
                 self.lib_table.setItem(row, 0, lbl_item)
                 
                 self.lib_table.setItem(row, 1, QTableWidgetItem(item.get("component_type") or ""))
@@ -681,7 +691,7 @@ class ComponentMappingDialog(QDialog):
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Interactive)
         header.setSectionResizeMode(3, QHeaderView.ResizeMode.Interactive)
         
-        if len(saved_widths) == 4 and saved_widths[0] > 0:
+        if len(saved_widths) >= 4 and saved_widths[0] > 0:
             self.lib_table.setColumnWidth(0, saved_widths[0])
             self.lib_table.setColumnWidth(2, saved_widths[2])
             self.lib_table.setColumnWidth(3, saved_widths[3])
@@ -689,6 +699,9 @@ class ComponentMappingDialog(QDialog):
             self.lib_table.setColumnWidth(0, 200)
             self.lib_table.setColumnWidth(2, 125)
             self.lib_table.setColumnWidth(3, 85)
+
+        if self.lib_table.columnCount() == 5:
+            self.lib_table.setColumnWidth(4, saved_widths[4] if len(saved_widths) == 5 else 240)
 
         if self.lib_table.rowCount() > 0:
             self.lib_table.selectRow(0)
@@ -698,6 +711,7 @@ class ComponentMappingDialog(QDialog):
             self._clear_configuration_panel()
 
     def _clear_configuration_panel(self):
+        self.cfg_description.clear()
         self.cfg_label_input.clear()
         self.cfg_value_input.clear()
         self.cfg_type_input.clear()
@@ -758,6 +772,7 @@ class ComponentMappingDialog(QDialog):
         )
         
         # Populate configuration panel
+        self.cfg_description.setText(snapshot.get("description") or "")
         self.cfg_label_input.setText(shortcut or disp_label)
         self.cfg_value_input.setText(disp_label)
         sub_type = snapshot.get("component_subtype")

@@ -315,7 +315,7 @@ def test_verification_view_no_functional_groups(qapp):
 
     # Must not crash
     view.refresh_validation()
-    assert view.secondary_table.rowCount() == 14  # Summary rows rendered with zero values
+    assert view.secondary_table.rowCount() == 15  # Summary rows, including λDiagGesamt, rendered with zero values
     assert view.validation_tree.topLevelItemCount() > 0  # Global alert: "No functional groups exist"
 
 

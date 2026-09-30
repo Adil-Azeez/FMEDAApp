@@ -227,6 +227,7 @@ class TestIncrement6(unittest.TestCase):
             failure_mode_name="Open",
             failure_rate_percentage=100.0,
             diagnostic_measure_id="dm_some",
+            diagnostic_function="No",
             detection_percentage=90.0,
             classification="dangerous_failure",
             deviation_id="dev_some",

@@ -532,8 +532,8 @@ class VerificationView(QWidget):
         add_summary_row("Dangerous Detected λdd", f"{gg['lambda_dd']:.4f} FIT", f"{sk['lambda_dd']:.4f} FIT")
         add_summary_row("Dangerous Undetected λdu", f"{gg['lambda_du']:.4f} FIT", f"{sk['lambda_du']:.4f} FIT")
         
-        add_summary_row("Average PFD (PFDavg)", "N/A", f"{sk['pfd_avg']:.6e}" if sk['pfd_avg'] is not None else "N/A")
-        add_summary_row("Maximum PFD (PFHd)", "N/A", f"{sk['pfd_max']:.6e} /h" if sk['pfd_max'] is not None else "N/A")
+        add_summary_row("PFDavg", "N/A", f"{sk['pfd_avg']:.6e}" if sk['pfd_avg'] is not None else "N/A")
+        add_summary_row("PFHd", "N/A", f"{sk['pfd_max']:.6e} /h" if sk['pfd_max'] is not None else "N/A")
         add_summary_row("MTTFd (years)", "N/A", f"{sk['mttfd']:.1f} years" if sk['mttfd'] is not None and sk['mttfd'] > 0 else "N/A")
         
         t_proof = scope_res["test_interval"]
@@ -542,6 +542,7 @@ class VerificationView(QWidget):
         add_summary_row("Diagnostic Test Interval", f"{t_diag:.1f} hours", f"{t_diag:.1f} hours")
         add_summary_row("Component Count", str(gg['comp_count']), str(sk['comp_count']))
         add_summary_row("FMEDA Row Count", str(gg['row_count']), str(sk['row_count']))
+        add_summary_row("λDiagGesamt (selected groups)", f"{scope_res['lambda_diag_gesamt']:.4f} FIT", "N/A")
 
     def refresh_validation(self):
         if not self.project:
@@ -677,6 +678,8 @@ class VerificationView(QWidget):
         # Calculate metrics for selected units only
         scoped_units = [u for u in self.project.units if u.id in self.selected_unit_ids]
 
+        diag = CalculationService.calculate_scope(scoped_units, self.project)["lambda_diag_gesamt"]
+
         # Aggregate scoped metrics
         lambda_total_gg = 0.0
         lambda_safe_gg = 0.0
@@ -748,11 +751,12 @@ class VerificationView(QWidget):
         add_summary_row("Dangerous Detected λdd", f"{lambda_dd_gg:.4f} FIT", f"{lambda_dd_sk:.4f} FIT")
         add_summary_row("Dangerous Undetected λdu", f"{lambda_du_gg:.4f} FIT", f"{lambda_du_sk:.4f} FIT")
         
-        add_summary_row("Average PFD (PFDavg)", "N/A", f"{pfd_avg:.6e}")
-        add_summary_row("Maximum PFD (PFHd)", "N/A", f"{pfd_max:.6e} /h")
+        add_summary_row("PFDavg", "N/A", f"{pfd_avg:.6e}")
+        add_summary_row("PFHd", "N/A", f"{pfd_max:.6e} /h")
         add_summary_row("MTTFd (years)", "N/A", f"{mttfd_years:.1f} years" if mttfd_years > 0 else "N/A")
         
         add_summary_row("Proof Test Interval", f"{self.project.test_interval or 8760.0:.1f} hours", f"{self.project.test_interval or 8760.0:.1f} hours")
         add_summary_row("Diagnostic Test Interval", f"{self.project.diagnostic_test_interval or 8.0:.1f} hours", f"{self.project.diagnostic_test_interval or 8.0:.1f} hours")
         add_summary_row("Component Count", str(gg_comp_count), str(sk_comp_count))
         add_summary_row("FMEDA Row Count", str(gg_row_count), str(sk_row_count))
+        add_summary_row("λDiagGesamt (selected groups)", f"{diag:.4f} FIT", "N/A")

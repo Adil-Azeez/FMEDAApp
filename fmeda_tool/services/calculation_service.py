@@ -1,10 +1,19 @@
 from typing import Dict, Any, List, Optional
+import weakref
 from fmeda_tool.models import Project, Unit, Component, FailureModeAssignment
 
 
 class CalculationService:
     """Service to handle FMEDA and reliability calculations for rows, components, units, and projects"""
     
+    # Transient results from normal calculation passes, never serialized as project data.
+    _unit_results = {}
+
+    @staticmethod
+    def get_unit_result(unit: Unit):
+        cached = CalculationService._unit_results.get(id(unit))
+        return cached[1] if cached and cached[0]() is unit else None
+
     @staticmethod
     def calculate_row_detailed(local_fit: float, classification: str, dangerous_pct: float, detection_pct: float) -> Dict[str, float]:
         """
@@ -175,6 +184,16 @@ class CalculationService:
         }
 
     @staticmethod
+    def calculate_diagnostic_lambda(component: Component) -> float:
+        """Full failure-mode lambda for explicit Yes, independent of all safety classifications."""
+        if component.position in ("Mapping Template", "Template") or getattr(component, "is_template", False):
+            return 0.0
+        assignments = {a.failure_mode_name: a for a in component.failure_mode_assignments}
+        return sum((component.failure_rate or 0.0) * percentage / 100.0
+                   for name, percentage in component.failure_modes.items()
+                   if name in assignments and assignments[name].diagnostic_function == "Yes")
+
+    @staticmethod
     def calculate_unit(unit: Unit) -> Dict[str, Any]:
         """
         Calculates failure-rate totals, SFF, and DC for one functional group.
@@ -248,8 +267,9 @@ class CalculationService:
             "dc": sk_dc
         }
         
-        return {
+        result = {
             **legacy_res,
+            "lambda_diag_gesamt": sum(CalculationService.calculate_diagnostic_lambda(c) for c in unit.components),
             "gesamtgerat": {
                 "lambda": gg_fit,
                 "lambda_safe": gg_safe,
@@ -273,6 +293,11 @@ class CalculationService:
                 "dc": sk_dc
             }
         }
+
+        key = id(unit)
+        CalculationService._unit_results[key] = (
+            weakref.ref(unit, lambda _: CalculationService._unit_results.pop(key, None)), result)
+        return result
 
     @staticmethod
     def calculate_scope(units: List[Unit], project: Optional[Project] = None) -> Dict[str, Any]:
@@ -299,6 +324,7 @@ class CalculationService:
         sk_dd = 0.0
         sk_du = 0.0
         
+        lambda_diag_gesamt = 0.0
         gg_comp_count = 0
         gg_row_count = 0
         sk_comp_count = 0
@@ -306,6 +332,7 @@ class CalculationService:
         
         for unit in units:
             unit_metrics = CalculationService.calculate_unit(unit)
+            lambda_diag_gesamt += unit_metrics["lambda_diag_gesamt"]
             
             # Gesamtgerät includes all components in selected units
             gg_fit += unit_metrics["gesamtgerat"]["lambda"]
@@ -427,6 +454,7 @@ class CalculationService:
             "target_sil": (project.target_sil or "N/A") if project else "N/A",
             "test_interval": t_proof,
             "diagnostic_test_interval": t_diag,
+            "lambda_diag_gesamt": lambda_diag_gesamt,
             "selected_unit_ids": [u.id for u in units],
             "selected_unit_names": [u.name for u in units]
         }
@@ -532,6 +560,7 @@ class CalculationService:
         achieved_sil = scope_res["achieved_sil"] if is_safety else "N/A"
         
         return {
+            "lambda_diag_gesamt": scope_res["lambda_diag_gesamt"],
             "unit_id": unit.id,
             "unit_name": unit.name,
             "included_in_safety_function": is_safety,

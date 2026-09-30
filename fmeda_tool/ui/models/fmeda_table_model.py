@@ -62,8 +62,48 @@ class FmedaTableModel(QAbstractTableModel):
         self.project = project
         self.is_edit_mode: bool = False
         self.rows: List[FmedaRowEntry] = []
+        self.active_search_row: Optional[int] = None
+        self._search_texts = {}
+        self.dataChanged.connect(self._invalidate_search_text)
         if auto_populate:
             self._rebuild_rows()
+
+    def search_rows(self, query: str):
+        """Return only matching data rows, without recalculating or mutating project data."""
+        query = query.strip().casefold()
+        if not query:
+            return [], set(range(len(self.rows)))
+        matches = []
+        for row, entry in enumerate(self.rows):
+            if entry.is_separator:
+                continue
+            comp = entry.component
+            if row not in self._search_texts:
+                values = [self._get_cell_value(col, comp, entry.assignment, entry, Qt.ItemDataRole.DisplayRole)
+                          for col in range(self.columnCount()) if col != 1]
+                # A lazy text index, not a second set of project objects. Hidden/raw engineering
+                # values remain searchable alongside their displayed names and numbers.
+                values.extend(entry.assignment.model_dump().values())
+                values.extend((comp.name, comp.type, comp.value, comp.part_number,
+                               (comp.snapshot or {}).get("description"),
+                               "No Part / No Effect" if entry.assignment.dont_care else ""))
+                self._search_texts[row] = "\n".join(str(v).casefold() for v in values if v is not None)
+            if query in self._search_texts[row]:
+                matches.append(row)
+        return matches, set(matches)
+
+    def _invalidate_search_text(self, first, last, roles=None):
+        if not roles or Qt.ItemDataRole.DisplayRole in roles:
+            for row in range(first.row(), last.row() + 1):
+                self._search_texts.pop(row, None)
+
+    def set_active_search_row(self, row):
+        previous = self.active_search_row
+        self.active_search_row = row
+        for affected in (previous, row):
+            if affected is not None and 0 <= affected < len(self.rows):
+                self.dataChanged.emit(self.index(affected, 0), self.index(affected, self.columnCount() - 1),
+                                      [Qt.ItemDataRole.BackgroundRole])
 
     def set_edit_mode(self, enabled: bool) -> None:
         """Enables or disables cell editing."""
@@ -77,6 +117,7 @@ class FmedaTableModel(QAbstractTableModel):
     def _rebuild_rows(self) -> None:
         """Builds internal row entries and precomputes initial row metrics."""
         self.rows.clear()
+        self._search_texts.clear()
         if not self.unit or not self.unit.components:
             return
 
@@ -213,6 +254,8 @@ class FmedaTableModel(QAbstractTableModel):
 
         # 1. Background Role (Validation status + subtle entry-origin colors)
         if role == Qt.ItemDataRole.BackgroundRole:
+            if row == self.active_search_row:
+                return QBrush(QColor("#ffe08a"))
             # High priority: Validation warnings and errors on identification columns
             if col < 9:
                 if entry.validation_status == "error":
@@ -280,6 +323,8 @@ class FmedaTableModel(QAbstractTableModel):
             for dev in self.project.deviations:
                 opts.append({"label": dev.name, "data": dev.id})
             return opts
+        elif col == 10:  # Diagnostic Function: no implicit default
+            return [{"label": "", "data": ""}, {"label": "Yes", "data": "Yes"}, {"label": "No", "data": "No"}]
         elif col == 11:  # Classification
             return [
                 {"label": "Not Evaluated", "data": "not_evaluated"},
@@ -494,8 +539,15 @@ class FmedaTableModel(QAbstractTableModel):
 
         # Diagnostic Function (col 10)
         if col == 10:
-            assignment.diagnostic_function = str(value) if value else None
-            self.dataChanged.emit(self.index(row, 10), self.index(row, 10))
+            if value not in (None, "", "Yes", "No"):
+                return False
+            value = value or None
+            if assignment.diagnostic_function == value:
+                return False
+            assignment.diagnostic_function = value
+            # Refresh validation only; this independent choice changes no other assignment field.
+            entry.validation_status, entry.validation_messages = ValidationService.validate_row(assignment, comp)
+            self.dataChanged.emit(self.index(row, 0), self.index(row, len(COLUMN_HEADERS) - 1))
             self.data_modified.emit()
             return True
 

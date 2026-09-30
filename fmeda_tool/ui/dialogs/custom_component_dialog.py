@@ -1,6 +1,6 @@
 """
 Custom Component Dialog for creating and editing SQLite-persisted custom components.
-Enforces mandatory component type, mandatory FIT, at least 2 failure modes,
+Enforces mandatory component type and description, mandatory FIT, at least 2 failure modes,
 optional unique display name validation, and live running total percentage calculation.
 """
 
@@ -9,7 +9,7 @@ from datetime import datetime
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QTableWidget,
     QTableWidgetItem, QPushButton, QLabel, QLineEdit, QDoubleSpinBox,
-    QMessageBox, QHeaderView, QWidget, QFrame, QAbstractItemView
+    QMessageBox, QHeaderView, QWidget, QFrame, QAbstractItemView, QTextEdit
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont, QColor
@@ -123,6 +123,11 @@ class CustomComponentDialog(QDialog):
         self.type_input = QLineEdit()
         self.type_input.setPlaceholderText("e.g. Microcontroller, Custom Sensor, Power IC...")
         form_lay.addRow("<b>Component Type*:</b>", self.type_input)
+
+        self.description_input = QTextEdit()
+        self.description_input.setAcceptRichText(False)
+        self.description_input.setMaximumHeight(80)
+        form_lay.addRow("<b>Description *:</b>", self.description_input)
         
         self.display_name_input = QLineEdit()
         self.display_name_input.setPlaceholderText("Optional unique label (e.g. MCU_STM32, SENS_OPTICAL)...")
@@ -259,6 +264,7 @@ class CustomComponentDialog(QDialog):
             return
             
         self.type_input.setText(snap.get("component_type") or "")
+        self.description_input.setPlainText(snap.get("description") or "")
         self.display_name_input.setText(snap.get("display_name") or "")
         self.fit_input.setValue(float(snap.get("failure_rate") or 0.0))
         
@@ -307,6 +313,7 @@ class CustomComponentDialog(QDialog):
         # Component Type
         comp_type = snap.get("component_type") or snap.get("material") or snap.get("displayed_label") or ""
         self.type_input.setText(comp_type)
+        self.description_input.setPlainText(snap.get("description") or "")
         
         # Suggested Display Name
         suggested_name = snap.get("display_name") or snap.get("displayed_label") or ""
@@ -392,6 +399,12 @@ class CustomComponentDialog(QDialog):
             return
             
         disp_name = self.display_name_input.text().strip() or None
+
+        description = self.description_input.toPlainText().strip()
+        if not description:
+            QMessageBox.warning(self, "Validation Error", "Description is required.")
+            self.description_input.setFocus()
+            return
         
         valid_fm, err_fm, failure_modes = self._collect_failure_modes()
         if not valid_fm:
@@ -417,6 +430,7 @@ class CustomComponentDialog(QDialog):
         if self.is_edit:
             success, msg, snap = ComponentLibraryService.update_custom_component(
                 custom_component_id=self.component_id,
+                description=description,
                 component_type=comp_type,
                 fits=fit_val,
                 failure_modes=failure_modes,
@@ -429,6 +443,7 @@ class CustomComponentDialog(QDialog):
                 failure_modes=failure_modes,
                 display_name=disp_name,
                 copied_from_source_type=self.copied_from_source_type,
+                description=description,
                 copied_from_component_id=self.copied_from_component_id,
                 copied_from_failure_rate_id=self.copied_from_failure_rate_id,
                 copied_at=self.copied_at

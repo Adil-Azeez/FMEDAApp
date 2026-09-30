@@ -34,6 +34,8 @@ from fmeda_tool.ui.delegates.fmeda_delegates import (
 )
 from fmeda_tool.services import ValidationService, ComponentLibraryService
 from fmeda_tool.ui.widgets import WorkflowPageHeader
+from fmeda_tool.ui.widgets.fmeda_search import FmedaSearchBar
+from fmeda_tool.ui.dialogs.change_history_dialog import ChangeHistoryDialog
 from fmeda_tool.utils.performance import PerformanceTimer
 
 
@@ -546,41 +548,6 @@ class ComponentCanvas(QGraphicsView):
         super().contextMenuEvent(event)
 
 
-class ChangeHistoryDialog(QDialog):
-    """Dialog to display the chronological change history log of a project"""
-    def __init__(self, project: Project, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle(f"Project Change History - {project.name}")
-        self.setMinimumSize(800, 450)
-        self.project = project
-        self._setup_ui()
-        
-    def _setup_ui(self):
-        layout = QVBoxLayout(self)
-        from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem
-        self.table = QTableWidget()
-        self.table.setColumnCount(4)
-        self.table.setHorizontalHeaderLabels(["Timestamp", "User", "Action", "Details"])
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
-        self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
-        self.table.verticalHeader().setVisible(False)
-        layout.addWidget(self.table)
-        
-        history = getattr(self.project, "change_history", []) or []
-        self.table.setRowCount(len(history))
-        for row, entry in enumerate(history):
-            ts = entry.get("timestamp", "")
-            ts_str = ts[:19].replace("T", " ") if ts else ""
-            self.table.setItem(row, 0, QTableWidgetItem(ts_str))
-            self.table.setItem(row, 1, QTableWidgetItem(entry.get("user", "")))
-            self.table.setItem(row, 2, QTableWidgetItem(entry.get("action", "")))
-            self.table.setItem(row, 3, QTableWidgetItem(entry.get("details", "")))
-            
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
-        buttons.rejected.connect(self.accept)
-        layout.addWidget(buttons)
-
-
 class ChangeEnvironmentalProfileDialog(QDialog):
     """Dialog to select a target environmental profile for the project."""
     def __init__(self, current_profile: str, parent=None):
@@ -748,6 +715,7 @@ class ProjectOverviewTab(QScrollArea):
             lbl.setStyleSheet("color: #495057;")
             val = QLabel(value)
             val.setStyleSheet("color: #212529;")
+            val.setTextFormat(Qt.TextFormat.PlainText)
             if word_wrap:
                 val.setWordWrap(True)
             self.grid.addWidget(lbl, r, c)
@@ -776,11 +744,12 @@ class ProjectOverviewTab(QScrollArea):
         
         add_info_row("Safety Function:", safety_fn, 5, 0)
         add_info_row("Safe State:", safe_st, 5, 2)
-        add_info_row("Architecture:", arch, 6, 0)
+        add_info_row("Safety Architecture:", arch, 6, 0, word_wrap=True)
         add_info_row("Mission Time:", f"{project.mission_time or 87600:.1f} hours", 6, 2)
         add_info_row("Proof Test Interval:", f"{project.test_interval or 8760:.1f} hours", 7, 0)
         add_info_row("No Part Failure Def:", no_part_def, 7, 2, word_wrap=True)
         add_info_row("No Effect Failure Def:", no_effect_def, 8, 0, word_wrap=True)
+        add_info_row("Schematic Version:", project.schematic_version, 8, 2, word_wrap=True)
         
         div2 = QFrame()
         div2.setFrameShape(QFrame.Shape.HLine)
@@ -959,11 +928,7 @@ class ProjectOverviewTab(QScrollArea):
         CalculationService.calculate_project(self.project)
         
         # Log change
-        ProjectService.log_change(
-            self.project,
-            "Change Environmental Profile",
-            f"Environmental profile changed from '{current_profile}' to '{new_profile}'. Profile-dependent FIT values updated."
-        )
+        # Included in the automatic audit after the next successful save.
         
         # Reload project in editor to update all unit tabs and overview
         self.main_editor.load_project(self.project)
@@ -979,11 +944,7 @@ class ProjectOverviewTab(QScrollArea):
         if old_val != new_val:
             self.project.reviewer = new_val or None
             from fmeda_tool.services.project_service import ProjectService
-            ProjectService.log_change(
-                self.project,
-                "Update Reviewer",
-                f"Assigned reviewer changed from '{old_val or 'None'}' to '{new_val or 'None'}'."
-            )
+            # Included in the automatic audit after the next successful save.
             self.main_editor.project_changed.emit()
             
     def _on_status_changed(self, idx: int):
@@ -1018,16 +979,20 @@ class ProjectOverviewTab(QScrollArea):
         self.project.status = ProjectStatus(new_status)
         
         from fmeda_tool.services.project_service import ProjectService
-        ProjectService.log_change(
-            self.project,
-            "Change Status",
-            f"Project status changed from '{old_status}' to '{new_status}'."
-        )
+        # Included in the automatic audit after the next successful save.
         self.main_editor.project_changed.emit()
 
     def _on_view_history(self):
         dialog = ChangeHistoryDialog(self.project, self)
+        if self.main_editor:
+            dialog.comment_changed.connect(self._on_history_comment_changed)
         dialog.exec()
+
+    def _on_history_comment_changed(self):
+        window = getattr(self.main_editor, "main_window", None)
+        if window:
+            window.has_unsaved_changes = True
+        self.main_editor.project_changed.emit()
 
 
 class TableItemProxy:
@@ -1109,6 +1074,8 @@ class FmedaTableView(QTableView):
                 if not entry.is_separator and entry.component and entry.component.id:
                     if entry.component.id not in all_ids:
                         all_ids.append(entry.component.id)
+        visible_ids = {e.component.id for r, e in enumerate(m.rows) if not e.is_separator and not self.isRowHidden(r)}
+        all_ids = [cid for cid in all_ids if cid in visible_ids]
         self.selected_component_ids = set(all_ids)
         if all_ids:
             self.anchor_component_id = all_ids[0]
@@ -1223,6 +1190,8 @@ class FmedaTableView(QTableView):
                         if not e.is_separator and e.component and e.component.id and e.component.id not in all_ids:
                             all_ids.append(e.component.id)
 
+                visible_ids = {e.component.id for r, e in enumerate(m.rows) if not e.is_separator and not self.isRowHidden(r)}
+                all_ids = [cid for cid in all_ids if cid in visible_ids]
                 if self.anchor_component_id in all_ids and comp_id in all_ids:
                     i1 = all_ids.index(self.anchor_component_id)
                     i2 = all_ids.index(comp_id)
@@ -1401,19 +1370,24 @@ class FunctionalGroupTab(QWidget):
         self.table = FmedaTableView(parent_tab=self)
         self.model = FmedaTableModel(self.unit, self.project, auto_populate=False, parent=self)
         self.table.setModel(self.model)
+        self.search_bar = FmedaSearchBar(self.table, self.model, self)
+        table_layout.addWidget(self.search_bar)
+        self.diagnostic_summary = QLabel("λDiagGesamt: 0.0000 FIT")
+        self.model.data_modified.connect(self._on_model_modified)
+        self.model.modelReset.connect(self._refresh_diagnostic_summary)
         
         # Attach custom lightweight delegates
         self.combo_delegate = FmedaComboBoxDelegate(parent=self.table)
         self.spin_delegate = FmedaSpinBoxDelegate(parent=self.table)
         self.text_delegate = FmedaLineEditDelegate(parent=self.table)
         
-        for col in (9, 11, 14, 17, 19):
+        for col in (9, 10, 11, 14, 17, 19):
             self.table.setItemDelegateForColumn(col, self.combo_delegate)
             
         for col in (7, 12, 13, 15, 20, 21, 22):
             self.table.setItemDelegateForColumn(col, self.spin_delegate)
             
-        for col in (2, 3, 4, 10, 18):
+        for col in (2, 3, 4, 18):
             self.table.setItemDelegateForColumn(col, self.text_delegate)
             
         # Hide col 16 (DC Test Ref)
@@ -1422,6 +1396,7 @@ class FunctionalGroupTab(QWidget):
         self.table.horizontalHeader().setStretchLastSection(True)
         
         table_layout.addWidget(self.table)
+        table_layout.addWidget(self.diagnostic_summary)
         
         # Comprehensive Legend with Entry Origin & Validation Indicators
         legend = QFrame()
@@ -1460,6 +1435,23 @@ class FunctionalGroupTab(QWidget):
         self.stacked_view.setCurrentIndex(0)
         self.ui_initialized = True
 
+    def _refresh_diagnostic_summary(self):
+        from fmeda_tool.services.calculation_service import CalculationService
+        from math import isfinite
+        metrics = CalculationService.get_unit_result(self.unit) or {}
+        overall = metrics.get("gesamtgerat", {})
+        values = (("λtotal", overall.get("lambda")), ("λsafe", overall.get("lambda_safe")),
+                  ("λdangerous", overall.get("lambda_dangerous")),
+                  ("λDiagGesamt", metrics.get("lambda_diag_gesamt")))
+        self.diagnostic_summary.setText("    |    ".join(
+            f"{label}: {value:.4f} FIT" if value is not None and isfinite(value) else f"{label}: N/A"
+            for label, value in values))
+
+    def _on_model_modified(self):
+        from fmeda_tool.services.calculation_service import CalculationService
+        CalculationService.calculate_project(self.project)
+        self._refresh_diagnostic_summary()
+
     def enable_editing(self) -> bool:
         """Enters Edit Mode for this functional group tab."""
         if self.is_in_edit_mode:
@@ -1496,17 +1488,22 @@ class FunctionalGroupTab(QWidget):
             self.table.clear_component_selection()
             self.table.setFocus()
         
+        changed = self.unit_snapshot != self.unit.model_dump(mode='json')
+        if changed and self.main_editor and getattr(self.main_editor, "main_window", None):
+            restored = Unit.model_validate(self.unit_snapshot)
+            index = self.project.units.index(self.unit)
+            self.project.units[index] = restored
+            self.main_editor.main_window.push_undo_state(f"Edit FMEDA Table: {self.unit.name}")
+            self.project.units[index] = self.unit
+
         from fmeda_tool.services.calculation_service import CalculationService
         CalculationService.calculate_project(self.project)
-        
+        self._refresh_diagnostic_summary()
         if self.model:
             self.model.refresh_all_metrics()
             self.model.set_edit_mode(False)
             
-        if self.main_editor and hasattr(self.main_editor, "main_window") and self.main_editor.main_window:
-            self.main_editor.main_window.push_undo_state(f"Edit FMEDA Table: {self.unit.name}")
-            
-        if self.main_editor and hasattr(self.main_editor, "project_changed"):
+        if changed and self.main_editor and hasattr(self.main_editor, "project_changed"):
             self.main_editor.project_changed.emit()
             
         self.unit_snapshot = None
@@ -1538,6 +1535,7 @@ class FunctionalGroupTab(QWidget):
         if self.model:
             self.model.reload_data()
             self.model.set_edit_mode(False)
+        self._refresh_diagnostic_summary()
             
         self.unit_snapshot = None
         self.is_in_edit_mode = False
@@ -1705,12 +1703,22 @@ class FunctionalGroupTab(QWidget):
         if not target_comp:
             return False
 
-        dialog = ComponentInstanceDialog(target_comp, self.project, parent=self)
+        before = target_comp.model_copy(deep=True)
+        dialog = ComponentInstanceDialog(target_comp, self.project, parent=self, allow_distribution=True)
         if dialog.exec() == QDialog.DialogCode.Accepted:
+            if before.model_dump() == target_comp.model_dump():
+                return True
+            window = getattr(self.main_editor, "main_window", None)
+            if window:
+                index = self.unit.components.index(target_comp)
+                self.unit.components[index] = before
+                window.push_undo_state(f"Edit Component: {target_comp.position}")
+                self.unit.components[index] = target_comp
             from fmeda_tool.services.calculation_service import CalculationService
             CalculationService.calculate_project(self.project)
             if self.model:
-                self.model.refresh_all_metrics()
+                self.model.reload_data()
+            self._refresh_diagnostic_summary()
             if self.table:
                 self.table.update_visual_selection()
             if self.main_editor and hasattr(self.main_editor, "project_changed"):
@@ -2127,9 +2135,15 @@ class FunctionalGroupTab(QWidget):
             timer.start_phase("every_call_to_populate_or_refresh_table")
             
         try:
+            from fmeda_tool.services.calculation_service import CalculationService
+            assignment_count = sum(len(c.failure_mode_assignments) for c in self.unit.components)
             if self.model:
                 self.model.reload_data()
+            if (CalculationService.get_unit_result(self.unit) is None or
+                    assignment_count != sum(len(c.failure_mode_assignments) for c in self.unit.components)):
+                CalculationService.calculate_unit(self.unit)
             self._toggle_column_groups()
+            self._refresh_diagnostic_summary()
         finally:
             if timer:
                 timer.end_phase("every_call_to_populate_or_refresh_table")
@@ -2260,11 +2274,7 @@ class FunctionalGroupTab(QWidget):
                 self.unit.component_templates.append(template)
                 
             from fmeda_tool.services.project_service import ProjectService
-            ProjectService.log_change(
-                self.project,
-                "Add Component Type",
-                f"Added component template '{template.display_name}' ({template.fits or 0.0:.4f} FIT) to functional group '{self.unit.name}'."
-            )
+            # Included in the automatic audit after the next successful save.
             if self.main_editor and hasattr(self.main_editor, "project_changed"):
                 self.main_editor.project_changed.emit()
                 
@@ -2402,11 +2412,7 @@ class FunctionalGroupTab(QWidget):
         self.canvas.scene.addItem(visual_item)
         
         from fmeda_tool.services.project_service import ProjectService
-        ProjectService.log_change(
-            self.project,
-            "Add Component",
-            f"Added component '{component.position}' ({component.name}) to functional group '{self.unit.name}'."
-        )
+        # Included in the automatic audit after the next successful save.
         
         if self.main_editor and hasattr(self.main_editor, "project_changed"):
             self.main_editor.project_changed.emit()
@@ -2419,11 +2425,7 @@ class FunctionalGroupTab(QWidget):
         dialog = ComponentInstanceDialog(component_item.component_instance, self.project, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             from fmeda_tool.services.project_service import ProjectService
-            ProjectService.log_change(
-                self.project,
-                "Configure Component",
-                f"Configured properties / failure modes for component '{component_item.component_instance.position}'."
-            )
+            # Included in the automatic audit after the next successful save.
             self._load_fmeda_table()
             self._trigger_recalculation()
             
@@ -2720,6 +2722,7 @@ class UnitEditorView(QWidget):
             if isinstance(tab_widget, FunctionalGroupTab):
                 tab_widget.ensure_populated(reason="focus_row")
                 tab_widget.stacked_view.setCurrentIndex(0)
+                tab_widget.search_bar.search_input.clear()
                 
                 target_comp = None
                 target_fm = None
@@ -2861,6 +2864,10 @@ class UnitEditorView(QWidget):
             return
         if self.project:
             self.overview_tab.refresh(self.project)
+            for index in range(1, self.unit_tabs.count()):
+                tab = self.unit_tabs.widget(index)
+                if isinstance(tab, FunctionalGroupTab) and tab.ui_initialized:
+                    tab._refresh_diagnostic_summary()
             
     def _on_add_fg(self):
         if not self.project:

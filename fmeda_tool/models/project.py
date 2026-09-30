@@ -1,6 +1,6 @@
 
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PrivateAttr
 from datetime import datetime
 from enum import Enum
 from .unit import Unit
@@ -28,6 +28,8 @@ class SafetyStandard(str, Enum):
 
 class Project(BaseModel):
     """FMEDA analysis project"""
+    _saved_state: Optional[Dict[str, Any]] = PrivateAttr(default=None)
+    _saved_path: Optional[str] = PrivateAttr(default=None)
     
     # Basic identification
     id: str = Field(description="Unique project identifier")
@@ -50,6 +52,7 @@ class Project(BaseModel):
     product_name: Optional[str] = Field(default=None, description="Product name")
     product_group: Optional[str] = Field(default=None, description="Product group")
     product_version: Optional[str] = Field(default=None, description="Product version")
+    schematic_version: str = Field(default="", description="Schematic version")
     hardware_version: Optional[str] = Field(default=None, description="Hardware version")
     software_version: Optional[str] = Field(default=None, description="Software version")
     
