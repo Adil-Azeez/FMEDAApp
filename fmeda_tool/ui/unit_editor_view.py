@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (
     QComboBox, QDoubleSpinBox, QLineEdit, QDialog, QDialogButtonBox, QFormLayout,
     QTextEdit, QCheckBox, QFileDialog, QAbstractItemView
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QPointF, QRectF, QModelIndex, QItemSelection, QItemSelectionModel, QPoint
+from PyQt6.QtCore import Qt, pyqtSignal, QPointF, QRectF, QModelIndex, QItemSelection, QItemSelectionModel, QPoint, QEvent, QTimer
 from PyQt6.QtGui import (
     QFont, QPainter, QWheelEvent, QMouseEvent, QContextMenuEvent, QKeyEvent,
     QColor, QPen, QBrush, QAction
@@ -37,63 +37,72 @@ from fmeda_tool.ui.widgets import WorkflowPageHeader
 from fmeda_tool.ui.widgets.fmeda_search import FmedaSearchBar
 from fmeda_tool.ui.dialogs.change_history_dialog import ChangeHistoryDialog
 from fmeda_tool.utils.performance import PerformanceTimer
+from fmeda_tool.services.catalog_service import linked_mitigations, valid_mitigation, deviation_search_text
 
 
 class DiagnosticMeasureMiniDialog(QDialog):
-    """Dialog to create or edit a single Diagnostic Measure"""
-    def __init__(self, dm: Optional[DiagnosticMeasure] = None, parent=None):
+    """Structured catalog editor. Existing metadata survives edits."""
+    OPTIONAL_FIELDS = ("failure_reaction", "execution_timing", "verification_method",
+                       "implementation_type", "responsible", "risk_id", "sw_requirement_id")
+
+    def __init__(self, dm=None, parent=None, project=None):
         super().__init__(parent)
-        self.setWindowTitle("Add Diagnostic Measure" if dm is None else "Edit Diagnostic Measure")
-        self.setMinimumWidth(450)
+        self.project = project or getattr(parent, "project", None)
         self.dm = dm
-        self._setup_ui()
-        if self.dm:
-            self._load_data()
-            
-    def _setup_ui(self):
+        self.setWindowTitle("Edit Diagnostic Measure" if dm else "Add Diagnostic Measure")
+        self.setMinimumWidth(550)
         layout = QVBoxLayout(self)
         form = QFormLayout()
-        
-        self.desc_input = QLineEdit()
-        form.addRow("Description / Test Name*:", self.desc_input)
-        
+        self.id_input = QLineEdit(dm.id if dm else f"dm_{uuid.uuid4().hex[:8]}")
+        self.name_input = QLineEdit(dm.name if dm else "")
+        self.desc_input = QLineEdit(dm.description if dm else "")
+        form.addRow("Diagnostic Measure ID*:", self.id_input)
+        form.addRow("Name*:", self.name_input)
+        form.addRow("Description*:", self.desc_input)
         self.dc_input = QDoubleSpinBox()
-        self.dc_input.setRange(0.0, 100.0)
-        self.dc_input.setValue(90.0)
+        self.dc_input.setRange(-1, 100)
+        self.dc_input.setDecimals(2)
+        self.dc_input.setSpecialValueText(" ")
         self.dc_input.setSuffix("%")
-        form.addRow("Diagnostic Coverage (DC %)*:", self.dc_input)
-        
-        self.notes_input = QTextEdit()
+        self.dc_input.setValue(dm.dc if dm and dm.dc is not None else -1)
+        self.dc_input.setToolTip("Leave empty for no default DC; 0% is an explicit default.")
+        form.addRow("Default DC %:", self.dc_input)
+        clear_dc = QPushButton("Clear Default DC")
+        clear_dc.clicked.connect(lambda: self.dc_input.setValue(-1))
+        form.addRow("", clear_dc)
+        for field in self.OPTIONAL_FIELDS:
+            widget = QLineEdit((getattr(dm, field) or "") if dm else "")
+            setattr(self, field + "_input", widget)
+            form.addRow(field.replace("_", " ").title() + ":", widget)
+        self.notes_input = QTextEdit(dm.notes or "" if dm else "")
         self.notes_input.setMaximumHeight(80)
-        self.notes_input.setPlaceholderText("Optional engineering notes or references...")
         form.addRow("Notes:", self.notes_input)
-        
         layout.addLayout(form)
-        
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(self._on_accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
-        
+
     def _on_accept(self):
-        desc = self.desc_input.text().strip()
-        if not desc:
-            QMessageBox.warning(self, "Validation Error", "Description is required.")
+        values = {"id": self.id_input.text().strip(), "name": self.name_input.text().strip(),
+                  "description": self.desc_input.text().strip()}
+        for field, label in (("id", "Diagnostic Measure ID"), ("name", "Name"), ("description", "Description")):
+            if not values[field]:
+                QMessageBox.warning(self, "Validation Error", f"{label} is required.")
+                return
+        if self.project and any(m.id == values["id"] and m is not self.dm
+                                for m in self.project.diagnostic_measures):
+            QMessageBox.warning(self, "Validation Error", "Diagnostic Measure ID must be unique.")
             return
-            
-        dm_id = self.dm.id if self.dm else f"dm_{uuid.uuid4().hex[:8]}"
-        self.dm = DiagnosticMeasure(
-            id=dm_id,
-            description=desc,
-            dc=self.dc_input.value(),
-            notes=self.notes_input.toPlainText().strip() or None
-        )
+        values.update({field: getattr(self, field + "_input").text().strip() or None
+                       for field in self.OPTIONAL_FIELDS})
+        values["dc"] = self.dc_input.value() if self.dc_input.value() >= 0 else None
+        values["notes"] = self.notes_input.toPlainText().strip() or None
+        if self.dm:
+            from datetime import datetime
+            values = dict(self.dm.model_dump(), **values, updated_at=datetime.now())
+        self.dm = DiagnosticMeasure.model_validate(values)
         self.accept()
-        
-    def _load_data(self):
-        self.desc_input.setText(self.dm.description)
-        self.dc_input.setValue(self.dm.dc)
-        self.notes_input.setPlainText(getattr(self.dm, "notes", "") or "")
 
 
 class DiagnosticMeasureManagerDialog(QDialog):
@@ -102,18 +111,40 @@ class DiagnosticMeasureManagerDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle(f"Diagnostic Measures Library - {project.name}")
         self.setMinimumSize(700, 400)
+        self.resize(1440, 650)
         self.project = project
         self._setup_ui()
         
     def _setup_ui(self):
         layout = QVBoxLayout(self)
         from PyQt6.QtWidgets import QTableWidget
+        search_layout = QHBoxLayout()
+        search_layout.addWidget(QLabel("Search:"))
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Search ID, name, description, verification method, execution timing, notes...")
+        self.search_input.setClearButtonEnabled(True)
+        self.search_input.textChanged.connect(self._filter_table)
+        search_layout.addWidget(self.search_input, stretch=1)
+        self.clear_search_btn = QPushButton("Clear Search")
+        self.clear_search_btn.clicked.connect(self.search_input.clear)
+        search_layout.addWidget(self.clear_search_btn)
+        layout.addLayout(search_layout)
         self.table = QTableWidget()
-        self.table.setColumnCount(3)
-        self.table.setHorizontalHeaderLabels(["Description / Test", "DC %", "Notes"])
-        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        self.table.setColumnCount(6)
+        self.table.setHorizontalHeaderLabels(["Diagnostic Measure ID", "Name", "Default DC %", "Description", "Execution Timing", "Verification Method"])
+        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        header.setSectionsMovable(True)
+        header.setStretchLastSection(False)
+        header.setMinimumSectionSize(60)
+        for column, width in enumerate((190, 220, 120, 330, 180, 220)):
+            header.resizeSection(column, max(width, header.sectionSizeHint(column)))
+        self._fitting_columns = False
+        self.table.viewport().installEventFilter(self)
+        header.sectionResized.connect(self._on_column_resized)
+        self.table.setWordWrap(True)
         self.table.verticalHeader().setVisible(False)
         layout.addWidget(self.table)
         
@@ -137,17 +168,61 @@ class DiagnosticMeasureManagerDialog(QDialog):
         layout.addLayout(btn_lay)
         
         self._refresh_table()
+
+    def eventFilter(self, watched, event):
+        if watched is self.table.viewport() and event.type() == QEvent.Type.Resize:
+            QTimer.singleShot(0, self._fit_columns)
+        return super().eventFilter(watched, event)
+
+    def _on_column_resized(self, column, old_size, new_size):
+        if not self._fitting_columns:
+            # Keep the user's chosen width; absorb remaining space elsewhere.
+            self._fit_columns(1 if column == 3 else 3)
+            self.table.resizeRowsToContents()
+
+    def _fit_columns(self, flexible_column=3):
+        if self._fitting_columns:
+            return
+        header = self.table.horizontalHeader()
+        remaining = self.table.viewport().width() - header.length()
+        if remaining:
+            minimum = max(header.sectionSizeHint(flexible_column), 200)
+            width = max(minimum, header.sectionSize(flexible_column) + remaining)
+            self._fitting_columns = True
+            try:
+                header.resizeSection(flexible_column, width)
+                self.table.resizeRowsToContents()
+            finally:
+                self._fitting_columns = False
         
     def _refresh_table(self):
         from PyQt6.QtWidgets import QTableWidgetItem
         self.table.setRowCount(len(self.project.diagnostic_measures))
         for r, dm in enumerate(self.project.diagnostic_measures):
-            it_desc = QTableWidgetItem(dm.description)
-            it_desc.setData(Qt.ItemDataRole.UserRole, dm)
-            self.table.setItem(r, 0, it_desc)
-            self.table.setItem(r, 1, QTableWidgetItem(f"{dm.dc:.1f}%"))
-            self.table.setItem(r, 2, QTableWidgetItem(getattr(dm, "notes", "") or ""))
-            
+            values = [dm.id, dm.name, f"{dm.dc:.1f}%" if dm.dc is not None else "",
+                      dm.description, dm.execution_timing or "", dm.verification_method or ""]
+            for col, value in enumerate(values):
+                item = QTableWidgetItem(value)
+                item.setData(Qt.ItemDataRole.UserRole, dm)
+                item.setToolTip(value)
+                self.table.setItem(r, col, item)
+        self.table.resizeRowsToContents()
+        self._filter_table()
+
+    def _filter_table(self):
+        """Filter the view only; retain catalog row indices for edit/remove."""
+        query = self.search_input.text().strip().casefold()
+        for row, dm in enumerate(self.project.diagnostic_measures):
+            matches = not query or any(
+                query in (getattr(dm, field) or "").casefold()
+                for field in ("id", "name", "description", "verification_method",
+                              "execution_timing", "notes")
+            )
+            self.table.setRowHidden(row, not matches)
+        if self.table.currentRow() >= 0 and self.table.isRowHidden(self.table.currentRow()):
+            self.table.clearSelection()
+            self.table.setCurrentItem(None)
+
     def _on_add(self):
         dialog = DiagnosticMeasureMiniDialog(parent=self)
         if dialog.exec() == QDialog.DialogCode.Accepted and dialog.dm:
@@ -162,6 +237,12 @@ class DiagnosticMeasureManagerDialog(QDialog):
         dm = self.table.item(row, 0).data(Qt.ItemDataRole.UserRole)
         dialog = DiagnosticMeasureMiniDialog(dm, parent=self)
         if dialog.exec() == QDialog.DialogCode.Accepted and dialog.dm:
+            if dm.id != dialog.dm.id:
+                for unit in self.project.units:
+                    for comp in unit.components:
+                        for assignment in comp.failure_mode_assignments:
+                            if assignment.diagnostic_measure_id == dm.id:
+                                assignment.diagnostic_measure_id = dialog.dm.id
             self.project.diagnostic_measures[row] = dialog.dm
             self._refresh_table()
             
@@ -270,10 +351,16 @@ class DeviationManagerDialog(QDialog):
             QMessageBox.warning(self, "Selection Required", "Please select a deviation to edit.")
             return
         dev = self.table.item(row, 0).data(Qt.ItemDataRole.UserRole)
-        associated_mitigations = [m for m in self.project.mitigations if m.id in getattr(dev, "mitigation_ids", [])]
+        associated_mitigations = linked_mitigations(self.project, dev.id)
         dialog = DeviationDialog(unit_name=self.unit_name, deviation=dev, mitigations=associated_mitigations, parent=self)
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
+        for mit in self.project.mitigations:
+            if dev.id in mit.deviation_ids and mit.id not in dev.mitigation_ids:
+                mit.deviation_ids.remove(dev.id)
+        for mit in dialog.get_mitigations():
+            if not any(m.id == mit.id for m in self.project.mitigations):
+                self.project.mitigations.append(mit)
         self._refresh_table()
         if self.parent() and hasattr(self.parent(), "main_editor") and self.parent().main_editor:
             self.parent().main_editor.project_changed.emit()
@@ -306,6 +393,7 @@ class DeviationManagerDialog(QDialog):
                     for a in comp.failure_mode_assignments:
                         if a.deviation_id == dev.id:
                             a.deviation_id = None
+                            a.mitigation_id = None
                             
         self.project.deviations.pop(row)
         self._refresh_table()
@@ -1366,7 +1454,7 @@ class FunctionalGroupTab(QWidget):
         group_layout.addStretch()
         table_layout.addLayout(group_layout)
         
-        # FmedaTableView and FmedaTableModel (37 Columns)
+        # FmedaTableView and FmedaTableModel (36 Columns)
         self.table = FmedaTableView(parent_tab=self)
         self.model = FmedaTableModel(self.unit, self.project, auto_populate=False, parent=self)
         self.table.setModel(self.model)
@@ -1381,17 +1469,15 @@ class FunctionalGroupTab(QWidget):
         self.spin_delegate = FmedaSpinBoxDelegate(parent=self.table)
         self.text_delegate = FmedaLineEditDelegate(parent=self.table)
         
-        for col in (9, 10, 11, 14, 17, 19):
+        for col in (9, 10, 11, 14, 16, 18):
             self.table.setItemDelegateForColumn(col, self.combo_delegate)
             
-        for col in (7, 12, 13, 15, 20, 21, 22):
+        for col in (7, 12, 13, 15, 19, 20, 21):
             self.table.setItemDelegateForColumn(col, self.spin_delegate)
             
-        for col in (2, 3, 4, 18):
+        for col in (2, 3, 4, 17):
             self.table.setItemDelegateForColumn(col, self.text_delegate)
             
-        # Hide col 16 (DC Test Ref)
-        self.table.setColumnHidden(16, True)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         self.table.horizontalHeader().setStretchLastSection(True)
         
@@ -1600,17 +1686,16 @@ class FunctionalGroupTab(QWidget):
             self.table.setColumnHidden(c, not show_fail)
 
         show_eng = self.cb_eng.isChecked()
-        for c in range(9, 20):
+        for c in range(9, 19):
             self.table.setColumnHidden(c, not show_eng)
 
-        self.table.setColumnHidden(16, True)  # DC Test Ref always hidden
 
         show_proof = self.cb_proof.isChecked()
-        for c in range(20, 24):
+        for c in range(19, 23):
             self.table.setColumnHidden(c, not show_proof)
 
         show_calc = self.cb_calc.isChecked()
-        for c in range(24, 37):
+        for c in range(23, 36):
             self.table.setColumnHidden(c, not show_calc)
 
     def show_component_context_menu(self, global_pos: QPoint):
@@ -1882,7 +1967,7 @@ class FunctionalGroupTab(QWidget):
             return False
 
         if selected_dev_id == "PROMPT":
-            dev_items = [(d.name, d.effect or d.description, d.id) for d in self.project.deviations]
+            dev_items = [(d.name, deviation_search_text(d), d.id) for d in self.project.deviations]
             picker = BulkItemPickerDialog("Assign Deviation", "Deviation", dev_items, allow_create_new=True, parent=self)
             if picker.exec() != QDialog.DialogCode.Accepted:
                 return False
@@ -1892,6 +1977,9 @@ class FunctionalGroupTab(QWidget):
                 if dlg.exec() == QDialog.DialogCode.Accepted and dlg.deviation:
                     if dlg.deviation not in self.project.deviations:
                         self.project.deviations.append(dlg.deviation)
+                    for mit in dlg.get_mitigations():
+                        if not any(m.id == mit.id for m in self.project.mitigations):
+                            self.project.mitigations.append(mit)
                     dev_id = dlg.deviation.id
                     dev_label = dlg.deviation.name
                 else:
@@ -1919,6 +2007,8 @@ class FunctionalGroupTab(QWidget):
         for c in comps:
             for a in c.failure_mode_assignments:
                 a.deviation_id = dev_id
+                if not valid_mitigation(self.project, dev_id, a.mitigation_id):
+                    a.mitigation_id = None
 
         from fmeda_tool.services.calculation_service import CalculationService
         CalculationService.calculate_project(self.project)
@@ -1944,7 +2034,7 @@ class FunctionalGroupTab(QWidget):
             return False
 
         if selected_dm_id == "PROMPT":
-            dm_items = [(f"{dm.description} (DC: {dm.dc:.1f}%)", dm.notes or "", dm.id) for dm in self.project.diagnostic_measures]
+            dm_items = [(dm.display_label, dm.notes or "", dm.id) for dm in self.project.diagnostic_measures]
             picker = BulkItemPickerDialog("Assign Diagnostic Measure", "Diagnostic Measure", dm_items, allow_create_new=True, parent=self)
             if picker.exec() != QDialog.DialogCode.Accepted:
                 return False
@@ -1955,7 +2045,7 @@ class FunctionalGroupTab(QWidget):
                     if dlg.dm not in self.project.diagnostic_measures:
                         self.project.diagnostic_measures.append(dlg.dm)
                     dm_id = dlg.dm.id
-                    dm_label = f"{dlg.dm.description} (DC: {dlg.dm.dc:.1f}%)"
+                    dm_label = dlg.dm.display_label
                 else:
                     return False
             else:
@@ -1963,7 +2053,7 @@ class FunctionalGroupTab(QWidget):
         else:
             dm_id = selected_dm_id
             dm_obj = next((m for m in self.project.diagnostic_measures if m.id == dm_id), None)
-            dm_label = f"{dm_obj.description} (DC: {dm_obj.dc:.1f}%)" if dm_obj else ("Clear Diagnostic Measure" if not dm_id else dm_id)
+            dm_label = dm_obj.display_label if dm_obj else ("Clear Diagnostic Measure" if not dm_id else dm_id)
 
         affected_rows = sum(len(c.failure_mode_assignments) for c in comps)
         des_list = [c.position for c in comps]
@@ -1982,7 +2072,7 @@ class FunctionalGroupTab(QWidget):
         for c in comps:
             for a in c.failure_mode_assignments:
                 a.diagnostic_measure_id = dm_id
-                if dm_obj:
+                if dm_obj and dm_obj.dc is not None:
                     a.detection_percentage = dm_obj.dc
                 elif dm_id is None:
                     a.detection_percentage = 0.0
@@ -2011,8 +2101,10 @@ class FunctionalGroupTab(QWidget):
             return False
 
         if selected_mit_id == "PROMPT":
-            mit_items = [(mit.name or mit.id, mit.description or "", mit.id) for mit in self.project.mitigations]
-            picker = BulkItemPickerDialog("Assign Mitigation", "Mitigation", mit_items, allow_create_new=True, parent=self)
+            mit_items = [(mit.name or mit.id, mit.description or "", mit.id) for mit in self.project.mitigations
+                         if all(valid_mitigation(self.project, a.deviation_id, mit.id)
+                                for c in comps for a in c.failure_mode_assignments)]
+            picker = BulkItemPickerDialog("Assign Mitigation", "Mitigation", mit_items, allow_create_new=False, parent=self)
             if picker.exec() != QDialog.DialogCode.Accepted:
                 return False
 
@@ -2031,6 +2123,11 @@ class FunctionalGroupTab(QWidget):
             mit_id = selected_mit_id
             mit_obj = next((m for m in self.project.mitigations if m.id == mit_id), None)
             mit_label = mit_obj.name if mit_obj else ("Clear Mitigation" if not mit_id else mit_id)
+
+        if any(not valid_mitigation(self.project, a.deviation_id, mit_id)
+               for c in comps for a in c.failure_mode_assignments):
+            QMessageBox.warning(self, "Invalid Mitigation", "The mitigation must be linked to every selected deviation.")
+            return False
 
         affected_rows = sum(len(c.failure_mode_assignments) for c in comps)
         des_list = [c.position for c in comps]
@@ -2536,6 +2633,7 @@ class UnitEditorView(QWidget):
     save_requested = pyqtSignal()
     back_requested = pyqtSignal()
     next_requested = pyqtSignal()
+    formulas_requested = pyqtSignal()
     project_changed = pyqtSignal()
     
     def __init__(self):
@@ -2691,6 +2789,11 @@ class UnitEditorView(QWidget):
         self.back_btn.setStyleSheet("background-color: #6c757d; color: white; font-weight: bold; padding: 6px 15px;")
         self.back_btn.clicked.connect(self.back_requested.emit)
         layout.addWidget(self.back_btn)
+
+        self.formulas_btn = QPushButton("Formulas")
+        self.formulas_btn.setToolTip("View the formulas used by FMEDA calculations")
+        self.formulas_btn.clicked.connect(self.formulas_requested.emit)
+        layout.addWidget(self.formulas_btn)
         
         layout.addStretch()
         

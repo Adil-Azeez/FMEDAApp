@@ -135,6 +135,7 @@ class MainWindow(QMainWindow):
         self.unit_editor_view.save_requested.connect(self._on_save_project_from_editor)
         self.unit_editor_view.back_requested.connect(self._on_fmeda_back)
         self.unit_editor_view.next_requested.connect(self._on_fmeda_next)
+        self.unit_editor_view.formulas_requested.connect(self._on_formulas)
         self.add_view("unit_editor", self.unit_editor_view)
         
         self.verification_view = VerificationView()
@@ -893,6 +894,14 @@ class MainWindow(QMainWindow):
     def add_view(self, name: str, widget: QWidget):
         self.views[name] = widget
         self.stacked_widget.addWidget(widget)
+
+    def _on_formulas(self):
+        if "formula_reference" not in self.views:
+            from fmeda_tool.ui.formula_reference_view import FormulaReferenceView
+            reference = FormulaReferenceView()
+            reference.back_requested.connect(self._on_back)
+            self.add_view("formula_reference", reference)
+        self.show_view("formula_reference")
     
     def show_view(self, name: str):
         if name in self.views:

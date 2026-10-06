@@ -154,7 +154,7 @@ def test_search_filters_every_term_and_selects_only_visible_matches(qapp, edit_m
             assert not table.isRowHidden(row)
             assert model.active_search_row == row
         assert_filter("hidden isolated", [1])
-        assert table.isColumnHidden(16)
+        assert "DC Test Ref" not in [model.headerData(c, Qt.Orientation.Horizontal) for c in range(model.columnCount())]
         # Component context remains available on a non-first failure-mode row.
         assert model.index(1, 0).data() == "C3"
         assert model.index(1, 3).data() == "Signal path"
@@ -435,7 +435,7 @@ def test_search_edit_invalidates_index_and_selection_stays_visible(qapp):
     assert tab.table.selected_component_ids == {"c0"}
     tab.search_bar.search_input.setText("Row justification")
     assert tab.search_bar.matches == [0, 1, 3, 4]
-    tab.model.setData(tab.model.index(0, 18), "Replaced note")
+    tab.model.setData(tab.model.index(0, 17), "Replaced note")
     assert tab.search_bar.matches == [1, 3, 4]
     tab.search_bar.search_input.setText("replaced")
     assert tab.search_bar.matches == [0]

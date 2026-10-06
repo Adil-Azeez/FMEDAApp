@@ -204,7 +204,7 @@ def test_preallocated_row_count_and_targeted_updates(qapp):
     
     assert assignment0.classification == "safe_failure"
     assert assignment0.dangerous_failure_percentage == 0.0
-    item_safe = tab.table.item(0, 25)
+    item_safe = tab.table.item(0, 24)
     assert item_safe is not None
     assert float(item_safe.text()) > 0.0
 

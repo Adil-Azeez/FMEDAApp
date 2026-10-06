@@ -1,3 +1,5 @@
+from fmeda_tool.services.catalog_service import linked_mitigations, valid_mitigation, deviation_search_text
+from fmeda_tool.ui.widgets.deviation_selector import DeviationSelector
 
 
 from PyQt6.QtWidgets import (
@@ -257,13 +259,13 @@ class ComponentInstanceDialog(QDialog):
         self.custom_fields.hide()
         self._update_total()
 
-    def _choices(self, field):
+    def _choices(self, field, deviation_id=None):
         if field == "deviation_id":
             return [("-- None --", None)] + [(d.name, d.id) for d in self.project.deviations]
         if field == "diagnostic_measure_id":
-            return [("-- None --", None)] + [(d.description, d.id) for d in self.project.diagnostic_measures]
+            return [("-- None --", None)] + [(d.display_label, d.id) for d in self.project.diagnostic_measures]
         if field == "mitigation_id":
-            return [("-- None --", None)] + [(m.name or m.id, m.id) for m in self.project.mitigations]
+            return [("-- None --", None)] + [(m.name or m.id, m.id) for m in linked_mitigations(self.project, deviation_id)]
         if field == "classification":
             return [("Not Evaluated", "not_evaluated"), ("Safe Failure", "safe_failure"), ("Dangerous Failure", "dangerous_failure")]
         if field == "review_status":
@@ -286,14 +288,22 @@ class ComponentInstanceDialog(QDialog):
         self.failure_mode_rows[name] = row
         for col, field in enumerate(self.ENGINEERING_FIELDS, 2):
             value = getattr(assignment, field)
-            choices = self._choices(field)
+            choices = self._choices(field, assignment.deviation_id)
             if choices is not None:
-                widget = QComboBox()
-                for label, data in choices:
-                    widget.addItem(label, data)
+                if field == "deviation_id":
+                    options = [{"label": "-- None --", "data": None}] + [
+                        {"label": d.name, "data": d.id, "search": deviation_search_text(d)}
+                        for d in self.project.deviations]
+                    widget = DeviationSelector(options)
+                else:
+                    widget = QComboBox()
+                    for label, data in choices:
+                        widget.addItem(label, data)
                 index = widget.findData(value)
                 if index < 0:
-                    widget.addItem(str(value or ""), value)
+                    widget.addItem(("⚠ Invalid: " if field == "mitigation_id" else "") + str(value or ""), value)
+                    if field == "mitigation_id":
+                        widget.model().item(widget.count() - 1).setEnabled(False)
                     index = widget.count() - 1
                 widget.setCurrentIndex(index)
             elif field == "dont_care":
@@ -309,7 +319,37 @@ class ComponentInstanceDialog(QDialog):
                 widget.setSuffix("%")
             widget.setProperty("originalValue", self._widget_value(widget))
             self.table.setCellWidget(row, col, widget)
+        dev_widget = self._engineering_widget(row, "deviation_id")
+        dm_widget = self._engineering_widget(row, "diagnostic_measure_id")
+        # Bind to widgets rather than row numbers, which can change when a mode is removed.
+        dev_widget.currentIndexChanged.connect(lambda: self._refresh_row_catalogs(dev_widget, True))
+        dm_widget.currentIndexChanged.connect(lambda: self._refresh_row_catalogs(dm_widget, False))
+        dm = next((m for m in self.project.diagnostic_measures if m.id == assignment.diagnostic_measure_id), None)
+        self._engineering_widget(row, "dc_test_ref").setPlaceholderText(dm.verification_method or "" if dm else "")
         self._update_total()
+
+    def _engineering_widget(self, row, field):
+        return self.table.cellWidget(row, self.ENGINEERING_FIELDS.index(field) + 2)
+
+    def _refresh_row_catalogs(self, sender, deviation_changed):
+        field = "deviation_id" if deviation_changed else "diagnostic_measure_id"
+        row = next((r for r in range(self.table.rowCount()) if self._engineering_widget(r, field) is sender), None)
+        if row is None:
+            return
+        if deviation_changed:
+            mitigation = self._engineering_widget(row, "mitigation_id")
+            previous = mitigation.currentData()
+            mitigation.clear()
+            for label, data in self._choices("mitigation_id", sender.currentData()):
+                mitigation.addItem(label, data)
+            mitigation.setCurrentIndex(max(0, mitigation.findData(previous)))
+        else:
+            dm = next((m for m in self.project.diagnostic_measures if m.id == sender.currentData()), None)
+            if dm and dm.dc is not None:
+                detection = self._engineering_widget(row, "detection_percentage")
+                detection.setValue(dm.dc)
+                detection.setProperty("catalogPrefilled", True)
+            self._engineering_widget(row, "dc_test_ref").setPlaceholderText(dm.verification_method or "" if dm else "")
 
     @staticmethod
     def _widget_value(widget):
@@ -388,8 +428,11 @@ class ComponentInstanceDialog(QDialog):
                 for col, field in enumerate(self.ENGINEERING_FIELDS, 2):
                     widget = self.table.cellWidget(row, col)
                     value = self._widget_value(widget)
-                    if value != widget.property("originalValue"):
+                    if value != widget.property("originalValue") or widget.property("catalogPrefilled"):
                         data[field] = value
+                if ((data["deviation_id"], data["mitigation_id"]) != (original.deviation_id, original.mitigation_id)
+                        and not valid_mitigation(self.project, data["deviation_id"], data["mitigation_id"])):
+                    raise ValueError("Mitigation must be linked to the selected deviation.")
                 assignments.append(FailureModeAssignment.model_validate(data))
             changed = modes != self.component.failure_modes
             snapshot = None

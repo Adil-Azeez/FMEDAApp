@@ -109,6 +109,11 @@ class DeviationDialog(QDialog):
         self.name_input.setPlaceholderText("Enter deviation name...")
         parent_layout.addWidget(self.name_input)
         
+        self.keywords_input = QLineEdit()
+        self.keywords_input.setPlaceholderText("Search keywords...")
+        parent_layout.addWidget(QLabel("Keywords:"))
+        parent_layout.addWidget(self.keywords_input)
+
         # Potential Impact field
         impact_label = QLabel("Potential Impact:")
         parent_layout.addWidget(impact_label)
@@ -258,6 +263,7 @@ class DeviationDialog(QDialog):
             return
         
         self.name_input.setText(self.deviation.name)
+        self.keywords_input.setText(self.deviation.keywords)
         self.impact_input.setText(self.deviation.effect or "")
         self.description_input.setPlainText(self.deviation.description)
     
@@ -331,6 +337,7 @@ class DeviationDialog(QDialog):
                 mitigation_ids=[m.id for m in self.mitigations]
             )
         
+        deviation_to_save.keywords = self.keywords_input.text().strip()
         self.saved_deviation = deviation_to_save
         self.deviation = deviation_to_save
         self.deviation_saved.emit(deviation_to_save, self.mitigations)

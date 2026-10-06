@@ -122,14 +122,14 @@ def test_model_structure_and_headers(qapp):
     unit = project.units[0]
     model = FmedaTableModel(unit, project)
 
-    assert model.columnCount() == 37
+    assert model.columnCount() == 36
     # comp1 has 2 failure modes, comp2 has 1 failure mode, plus 1 separator between them = 4 rows
     assert model.rowCount() == 4
 
     assert model.headerData(0, Qt.Orientation.Horizontal) == "Component ID / Designator"
     assert model.headerData(11, Qt.Orientation.Horizontal) == "Failure Classification"
-    assert model.headerData(23, Qt.Orientation.Horizontal) == "No Part / No Effect"
-    assert model.headerData(36, Qt.Orientation.Horizontal) == "MTTFd (y)"
+    assert model.headerData(22, Qt.Orientation.Horizontal) == "No Part / No Effect"
+    assert model.headerData(35, Qt.Orientation.Horizontal) == "MTTFd (y)"
 
 
 def test_model_flags_in_view_vs_edit_mode(qapp):
@@ -140,7 +140,7 @@ def test_model_flags_in_view_vs_edit_mode(qapp):
     # In Locked View Mode (default):
     idx_func = model.index(0, 2)  # Function (normally editable)
     idx_class = model.index(0, 11)  # Classification (normally editable)
-    idx_chk = model.index(0, 23)  # Checkbox
+    idx_chk = model.index(0, 22)  # Checkbox
 
     assert not (model.flags(idx_func) & Qt.ItemFlag.ItemIsEditable)
     assert not (model.flags(idx_class) & Qt.ItemFlag.ItemIsEditable)
@@ -203,8 +203,8 @@ def test_model_set_data_and_recalculation(qapp):
     # Check that lambda_safe and lambda_dangerous were updated
     # Total local FIT = 20.0 * 50% = 10.0 FIT
     # lambda_safe = 10.0 * 0.6 = 6.0 FIT, lambda_dangerous = 10.0 * 0.4 = 4.0 FIT
-    idx_lam_s = model.index(0, 25)
-    idx_lam_d = model.index(0, 26)
+    idx_lam_s = model.index(0, 24)
+    idx_lam_d = model.index(0, 25)
     assert model.data(idx_lam_s, Qt.ItemDataRole.DisplayRole) == "6.0000"
     assert model.data(idx_lam_d, Qt.ItemDataRole.DisplayRole) == "4.0000"
 
@@ -215,7 +215,7 @@ def test_model_checkbox_dont_care(qapp):
     model = FmedaTableModel(unit, project)
     model.set_edit_mode(True)
 
-    idx_chk = model.index(0, 23)
+    idx_chk = model.index(0, 22)
     assert model.data(idx_chk, Qt.ItemDataRole.CheckStateRole) == Qt.CheckState.Unchecked
 
     # Check the box

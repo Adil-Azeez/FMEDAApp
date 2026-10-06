@@ -19,8 +19,9 @@ class CreateDiagnosticMeasureView(QWidget):
     measure_saved = pyqtSignal(DiagnosticMeasure)
     cancel_requested = pyqtSignal()
     
-    def __init__(self):
+    def __init__(self, project=None):
         super().__init__()
+        self.project = project
         self.measure: Optional[DiagnosticMeasure] = None
         self.edit_mode = False
         self._setup_ui()
@@ -137,16 +138,20 @@ class CreateDiagnosticMeasureView(QWidget):
         # ID (auto-generated, read-only in create mode)
         self.id_input = QLineEdit()
         self.id_input.setPlaceholderText("Auto-generated...")
-        self.id_input.setReadOnly(True)
+        self.id_input.setReadOnly(False)
         self.id_input.setMinimumHeight(35)
         self.id_input.setStyleSheet("background-color: #e9ecef;")
-        form_layout.addRow("ID:", self.id_input)
+        form_layout.addRow("Diagnostic Measure ID*:", self.id_input)
+        self.id_input.setText(f"dm_{uuid.uuid4().hex[:8]}")
+        self.name_input = QLineEdit()
+        form_layout.addRow("Name*:", self.name_input)
         
         # Diagnostic Coverage (0-100)
         dc_layout = QHBoxLayout()
         self.dc_input = QDoubleSpinBox()
-        self.dc_input.setRange(0.0, 100.0)
-        self.dc_input.setValue(95.0)
+        self.dc_input.setRange(-1.0, 100.0)
+        self.dc_input.setSpecialValueText(" ")
+        self.dc_input.setValue(-1)
         self.dc_input.setDecimals(2)
         self.dc_input.setSuffix(" %")
         self.dc_input.setMinimumHeight(35)
@@ -154,7 +159,10 @@ class CreateDiagnosticMeasureView(QWidget):
         dc_layout.addWidget(self.dc_input)
         dc_layout.addWidget(QLabel("Diagnostic Coverage (0-100%)"))
         dc_layout.addStretch()
-        form_layout.addRow("DC*:", dc_layout)
+        form_layout.addRow("Default DC %:", dc_layout)
+        clear_dc = QPushButton("Clear Default DC")
+        clear_dc.clicked.connect(lambda: self.dc_input.setValue(-1))
+        form_layout.addRow("", clear_dc)
         
         # Description
         self.description_input = QTextEdit()
@@ -175,6 +183,11 @@ class CreateDiagnosticMeasureView(QWidget):
         self.sw_req_id_input.setMinimumHeight(35)
         form_layout.addRow("SW Requirement ID:", self.sw_req_id_input)
         
+        self.catalog_inputs = {}
+        for field in ("failure_reaction", "execution_timing", "verification_method", "implementation_type", "responsible", "notes"):
+            widget = QLineEdit()
+            self.catalog_inputs[field] = widget
+            form_layout.addRow(field.replace("_", " ").title() + ":", widget)
         parent_layout.addLayout(form_layout)
         
         # Help text
@@ -184,6 +197,13 @@ class CreateDiagnosticMeasureView(QWidget):
         
     def _validate_inputs(self) -> bool:
         """Validate user inputs"""
+        if not self.id_input.text().strip() or not self.name_input.text().strip():
+            QMessageBox.warning(self, "Validation Error", "Diagnostic Measure ID and Name are required.")
+            return False
+        if self.project and any(m.id == self.id_input.text().strip() and m is not self.measure
+                                for m in self.project.diagnostic_measures):
+            QMessageBox.warning(self, "Validation Error", "Diagnostic Measure ID must be unique.")
+            return False
         if not self.description_input.toPlainText().strip():
             QMessageBox.warning(
                 self,
@@ -194,7 +214,7 @@ class CreateDiagnosticMeasureView(QWidget):
             return False
         
         # DC validation (already constrained by spinbox, but double-check)
-        if self.dc_input.value() < 0 or self.dc_input.value() > 100:
+        if self.dc_input.value() < -1 or self.dc_input.value() > 100:
             QMessageBox.warning(
                 self,
                 "Validation Error",
@@ -221,14 +241,14 @@ class CreateDiagnosticMeasureView(QWidget):
             sw_req_id = self.sw_req_id_input.text().strip() or None
             
             # Create diagnostic measure
-            self.measure = DiagnosticMeasure(
-                id=measure_id,
-                dc=self.dc_input.value(),
-                description=self.description_input.toPlainText().strip(),
-                riskId=risk_id,
-                swRequirementId=sw_req_id
-            )
-            
+            values = self.measure.model_dump() if self.measure else {}
+            values.update(id=measure_id, name=self.name_input.text().strip(),
+                          dc=self.dc_input.value() if self.dc_input.value() >= 0 else None,
+                          description=self.description_input.toPlainText().strip(),
+                          risk_id=risk_id, sw_requirement_id=sw_req_id)
+            values.update({field: widget.text().strip() or None for field, widget in self.catalog_inputs.items()})
+            self.measure = DiagnosticMeasure.model_validate(values)
+
             # Emit signal
             self.measure_saved.emit(self.measure)
             
@@ -261,8 +281,11 @@ class CreateDiagnosticMeasureView(QWidget):
     
     def reset_form(self):
         """Reset the form to default values"""
-        self.id_input.clear()
-        self.dc_input.setValue(95.0)
+        self.id_input.setText(f"dm_{uuid.uuid4().hex[:8]}")
+        self.name_input.clear()
+        for widget in self.catalog_inputs.values():
+            widget.clear()
+        self.dc_input.setValue(-1)
         self.description_input.clear()
         self.risk_id_input.clear()
         self.sw_req_id_input.clear()
@@ -277,7 +300,10 @@ class CreateDiagnosticMeasureView(QWidget):
         self.title_label.setText("Edit Diagnostic Measure")
         
         self.id_input.setText(measure.id)
-        self.dc_input.setValue(measure.dc)
+        self.name_input.setText(measure.name)
+        for field, widget in self.catalog_inputs.items():
+            widget.setText(getattr(measure, field) or "")
+        self.dc_input.setValue(measure.dc if measure.dc is not None else -1)
         self.description_input.setPlainText(measure.description)
         self.risk_id_input.setText(measure.risk_id or "")
         self.sw_req_id_input.setText(measure.sw_requirement_id or "")

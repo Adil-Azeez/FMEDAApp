@@ -11,6 +11,8 @@ from PyQt6.QtWidgets import (
     QStyledItemDelegate, QComboBox, QDoubleSpinBox, QLineEdit, QWidget, QStyleOptionViewItem
 )
 from PyQt6.QtCore import Qt, QModelIndex, QEvent
+from fmeda_tool.ui.widgets.deviation_selector import DeviationSelector
+from fmeda_tool.ui.widgets.diagnostic_measure_selector import DiagnosticMeasureSelector
 from typing import Optional, List, Dict, Any, Callable
 
 
@@ -24,10 +26,6 @@ class FmedaComboBoxDelegate(QStyledItemDelegate):
         self.items_callback = items_callback
 
     def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: QModelIndex) -> QWidget:
-        combo = QComboBox(parent)
-        combo.setFrame(False)
-        combo.setStyleSheet("QComboBox { background-color: white; padding: 2px 4px; border: 1px solid #0d6efd; }")
-        
         # Populate options dynamically via callback or model data
         options = []
         if self.items_callback:
@@ -37,6 +35,18 @@ class FmedaComboBoxDelegate(QStyledItemDelegate):
             if isinstance(raw_options, list):
                 options = raw_options
 
+        if index.column() == 9:
+            return DeviationSelector(options, parent)
+        if index.column() == 14:
+            editor = DiagnosticMeasureSelector(options, parent)
+            editor.completer().activated[QModelIndex].connect(
+                lambda match: self._commit_diagnostic_selection(editor)
+            )
+            return editor
+
+        combo = QComboBox(parent)
+        combo.setFrame(False)
+        combo.setStyleSheet("QComboBox { background-color: white; padding: 2px 4px; border: 1px solid #0d6efd; }")
         for opt in options:
             if isinstance(opt, dict):
                 label = opt.get("label", "")
@@ -48,6 +58,10 @@ class FmedaComboBoxDelegate(QStyledItemDelegate):
                 combo.addItem(str(opt), opt)
 
         return combo
+
+    def _commit_diagnostic_selection(self, editor):
+        self.commitData.emit(editor)
+        self.closeEditor.emit(editor)
 
     def setEditorData(self, editor: QWidget, index: QModelIndex) -> None:
         if not isinstance(editor, QComboBox):
@@ -70,9 +84,10 @@ class FmedaComboBoxDelegate(QStyledItemDelegate):
     def setModelData(self, editor: QWidget, model, index: QModelIndex) -> None:
         if not isinstance(editor, QComboBox):
             return
+        if editor.isEditable() and editor.currentText() != editor.itemText(editor.currentIndex()):
+            return  # Typed search text must never become a catalog ID.
         selected_data = editor.currentData()
-        selected_text = editor.currentText()
-        model.setData(index, selected_data if selected_data is not None else selected_text, Qt.ItemDataRole.EditRole)
+        model.setData(index, selected_data, Qt.ItemDataRole.EditRole)
 
     def updateEditorGeometry(self, editor: QWidget, option: QStyleOptionViewItem, index: QModelIndex) -> None:
         editor.setGeometry(option.rect)

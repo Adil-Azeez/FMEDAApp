@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from fmeda_tool.models import Project, Unit, Component, FailureModeAssignment
 from fmeda_tool.services.calculation_service import CalculationService
 from fmeda_tool.services.validation_service import ValidationService
+from fmeda_tool.services.catalog_service import linked_mitigations, valid_mitigation, deviation_search_text
 
 
 COLUMN_HEADERS = [
@@ -20,7 +21,7 @@ COLUMN_HEADERS = [
     "Failure Mode", "Failure-Mode %", "Base Failure Rate (FIT)",
     "Failure Effect / Deviation", "Diagnostic Function", "Failure Classification",
     "Dangerous %", "Safe %",
-    "Diagnostic Measure ID", "Detection % (DC)", "DC Test Ref", "Mitigation",
+    "Diagnostic Measure ID", "Detection % (DC)", "Mitigation",
     "Comments / Justification", "Review Status",
     "Proof Test A", "Proof Test B", "Proof Test C", "No Part / No Effect",
     "lambda (FIT)", "lambda_safe (FIT)", "lambda_dangerous (FIT)",
@@ -51,7 +52,7 @@ class FmedaRowEntry:
 
 class FmedaTableModel(QAbstractTableModel):
     """
-    Model backing the FMEDA spreadsheet with 37 simplified columns,
+    Model backing the FMEDA spreadsheet with 36 simplified columns,
     subtle entry-origin styling, and Locked View Mode vs Edit Mode control.
     """
     data_modified = pyqtSignal()
@@ -176,7 +177,7 @@ class FmedaTableModel(QAbstractTableModel):
             dp = 0.0
 
         entry.row_metrics = CalculationService.calculate_row_detailed(local_fit, classif, dp, det)
-        status, msgs = ValidationService.validate_row(assignment, comp)
+        status, msgs = ValidationService.validate_row(assignment, comp, self.project)
         entry.validation_status = status
         entry.validation_messages = msgs
 
@@ -223,10 +224,10 @@ class FmedaTableModel(QAbstractTableModel):
             return base_flags
 
         # In Edit Mode, editable engineering columns return ItemIsEditable
-        editable_cols = {2, 3, 4, 7, 9, 10, 11, 12, 13, 14, 15, 17, 18, 19, 20, 21, 22}
+        editable_cols = {2, 3, 4, 7, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21}
         if col in editable_cols:
             return base_flags | Qt.ItemFlag.ItemIsEditable
-        elif col == 23:  # DON'T CARE / No Part checkbox
+        elif col == 22:  # DON'T CARE / No Part checkbox
             return base_flags | Qt.ItemFlag.ItemIsUserCheckable
 
         return base_flags
@@ -264,11 +265,11 @@ class FmedaTableModel(QAbstractTableModel):
                     return QBrush(QColor("#fff3cd"))
 
             # Calculated columns: very light gray
-            if col >= 24:
+            if col >= 23:
                 return QBrush(QColor("#f8f9fa"))
 
             # Manual engineering inputs: subtle warm cream/yellow
-            if col in (2, 3, 4, 9, 10, 11, 12, 13, 14, 15, 17, 18, 19, 20, 21, 22, 23):
+            if col in (2, 3, 4, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22):
                 return QBrush(QColor("#fffdf0"))
 
             # Library / BOM supplied components
@@ -282,10 +283,16 @@ class FmedaTableModel(QAbstractTableModel):
 
         # 2. Tooltip Role
         if role == Qt.ItemDataRole.ToolTipRole:
+            if col == 14:
+                dm = next((m for m in self.project.diagnostic_measures if m.id == assignment.diagnostic_measure_id), None)
+                if dm:
+                    return f"{dm.display_label}\n{dm.description}\nVerification Method: {dm.verification_method or ''}\nExecution Timing: {dm.execution_timing or ''}"
+            if col == 16 and not valid_mitigation(self.project, assignment.deviation_id, assignment.mitigation_id):
+                return "Invalid deviation/mitigation combination: mitigation is not linked to the selected deviation."
             origin_info = "Origin: Library"
-            if col >= 24:
+            if col >= 23:
                 origin_info = "Origin: Calculated"
-            elif col in (2, 3, 4, 9, 10, 11, 12, 13, 14, 15, 17, 18, 19, 20, 21, 22, 23):
+            elif col in (2, 3, 4, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22):
                 origin_info = "Origin: Manual Engineering"
             elif any(b.designator == comp.position for b in getattr(self.unit, "bom_components", []) or []):
                 origin_info = "Origin: BOM Import"
@@ -297,13 +304,13 @@ class FmedaTableModel(QAbstractTableModel):
 
         # 3. Text Alignment Role
         if role == Qt.ItemDataRole.TextAlignmentRole:
-            center_cols = {0, 1, 5, 7, 8, 11, 12, 13, 15, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36}
+            center_cols = {0, 1, 5, 7, 8, 11, 12, 13, 15, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35}
             if col in center_cols:
                 return Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter
             return Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
 
-        # 4. CheckState Role (Col 23 - No Part / No Effect)
-        if role == Qt.ItemDataRole.CheckStateRole and col == 23:
+        # 4. CheckState Role (Col 22 - No Part / No Effect)
+        if role == Qt.ItemDataRole.CheckStateRole and col == 22:
             return Qt.CheckState.Checked if getattr(assignment, "dont_care", False) else Qt.CheckState.Unchecked
 
         # 5. DisplayRole and EditRole
@@ -312,16 +319,16 @@ class FmedaTableModel(QAbstractTableModel):
 
         # 6. Dropdown Options Role for ComboBoxDelegate
         if role == Qt.ItemDataRole.UserRole + 1:
-            return self._get_dropdown_options(col)
+            return self._get_dropdown_options(col, assignment)
 
         return None
 
-    def _get_dropdown_options(self, col: int) -> List[Dict[str, Any]]:
+    def _get_dropdown_options(self, col: int, assignment=None) -> List[Dict[str, Any]]:
         """Returns option list for delegate combo boxes."""
         if col == 9:  # Deviation
             opts = [{"label": "-- None --", "data": None}]
             for dev in self.project.deviations:
-                opts.append({"label": dev.name, "data": dev.id})
+                opts.append({"label": dev.name, "data": dev.id, "search": deviation_search_text(dev)})
             return opts
         elif col == 10:  # Diagnostic Function: no implicit default
             return [{"label": "", "data": ""}, {"label": "Yes", "data": "Yes"}, {"label": "No", "data": "No"}]
@@ -334,14 +341,17 @@ class FmedaTableModel(QAbstractTableModel):
         elif col == 14:  # Diagnostic Measure
             opts = [{"label": "-- None --", "data": None}]
             for dm in self.project.diagnostic_measures:
-                opts.append({"label": dm.description, "data": dm.id})
+                opts.append({"label": dm.display_label, "data": dm.id,
+                             "search": "\n".join(getattr(dm, field) or "" for field in
+                                                 ("id", "name", "description", "verification_method",
+                                                  "execution_timing", "notes"))})
             return opts
-        elif col == 17:  # Mitigation
+        elif col == 16:  # Mitigation
             opts = [{"label": "-- None --", "data": None}]
-            for mit in self.project.mitigations:
+            for mit in linked_mitigations(self.project, assignment.deviation_id if assignment else None):
                 opts.append({"label": mit.name or mit.id, "data": mit.id})
             return opts
-        elif col == 19:  # Review Status
+        elif col == 18:  # Review Status
             return [
                 {"label": "Draft", "data": "draft"},
                 {"label": "Under Review", "data": "under_review"},
@@ -409,65 +419,64 @@ class FmedaTableModel(QAbstractTableModel):
                 return dm_id
             if dm_id:
                 dm = next((m for m in self.project.diagnostic_measures if m.id == dm_id), None)
-                return dm.description if dm else dm_id
+                return dm.display_label if dm else dm_id
             return "-- None --"
         elif col == 15:
             det = assignment.detection_percentage if assignment.detection_percentage is not None else 0.0
             return det if role == Qt.ItemDataRole.EditRole else f"{det:.1f}%"
         elif col == 16:
-            return ""
-        elif col == 17:
             mit_id = assignment.mitigation_id
             if role == Qt.ItemDataRole.EditRole:
                 return mit_id
             if mit_id:
                 mit = next((m for m in self.project.mitigations if m.id == mit_id), None)
-                return mit.name or mit.id if mit else mit_id
+                label = (mit.name or mit.id) if mit else mit_id
+                return label if valid_mitigation(self.project, assignment.deviation_id, mit_id) else f"⚠ Invalid: {label}"
             return "-- None --"
-        elif col == 18:
+        elif col == 17:
             return assignment.notes or ""
-        elif col == 19:
+        elif col == 18:
             st = getattr(assignment, "review_status", "draft") or "draft"
             if role == Qt.ItemDataRole.EditRole:
                 return st.lower()
             return st.title()
-        elif col == 20:
+        elif col == 19:
             val = getattr(assignment, "proof_test_a", 0.0) or 0.0
             return val if role == Qt.ItemDataRole.EditRole else f"{val:.1f}%"
-        elif col == 21:
+        elif col == 20:
             val = getattr(assignment, "proof_test_b", 0.0) or 0.0
             return val if role == Qt.ItemDataRole.EditRole else f"{val:.1f}%"
-        elif col == 22:
+        elif col == 21:
             val = getattr(assignment, "proof_test_c", 0.0) or 0.0
             return val if role == Qt.ItemDataRole.EditRole else f"{val:.1f}%"
-        elif col == 23:
+        elif col == 22:
             return ""
-        elif col == 24:
+        elif col == 23:
             return f"{metrics.get('lambda', 0.0):.4f}"
-        elif col == 25:
+        elif col == 24:
             return f"{metrics.get('lambda_safe', 0.0):.4f}"
-        elif col == 26:
+        elif col == 25:
             return f"{metrics.get('lambda_dangerous', 0.0):.4f}"
-        elif col == 27:
+        elif col == 26:
             return f"{metrics.get('lambda_sd', 0.0):.4f}"
-        elif col == 28:
+        elif col == 27:
             return f"{metrics.get('lambda_su', 0.0):.4f}"
-        elif col == 29:
+        elif col == 28:
             return f"{metrics.get('lambda_dd', 0.0):.4f}"
-        elif col == 30:
+        elif col == 29:
             return f"{metrics.get('lambda_du', 0.0):.4f}"
-        elif col == 31:
+        elif col == 30:
             return f"{metrics.get('lambda_no_part', 0.0):.4f}"
-        elif col == 32:
+        elif col == 31:
             return f"{metrics.get('lambda_no_effect', 0.0):.4f}"
-        elif col == 33:
+        elif col == 32:
             return f"{metrics.get('sff', 0.0):.1f}%"
-        elif col == 34:
+        elif col == 33:
             return f"{metrics.get('dc', 0.0):.1f}%"
-        elif col == 35:
+        elif col == 34:
             mtbf = metrics.get('mtbf', 0.0)
             return f"{mtbf:.1e}" if mtbf > 0 else "N/A"
-        elif col == 36:
+        elif col == 35:
             mttfd = metrics.get('mttfd', 0.0)
             return f"{mttfd:.1f}" if mttfd > 0 else "N/A"
         return None
@@ -488,8 +497,8 @@ class FmedaTableModel(QAbstractTableModel):
         comp = entry.component
         assignment = entry.assignment
 
-        # Handle CheckStateRole for Col 23 (DON'T CARE)
-        if role == Qt.ItemDataRole.CheckStateRole and col == 23:
+        # Handle CheckStateRole for Col 22 (DON'T CARE)
+        if role == Qt.ItemDataRole.CheckStateRole and col == 22:
             is_checked = (value == Qt.CheckState.Checked or value == Qt.CheckState.Checked.value or bool(value))
             assignment.dont_care = is_checked
             self._compute_entry_metrics(entry)
@@ -531,7 +540,14 @@ class FmedaTableModel(QAbstractTableModel):
 
         # Deviation (col 9)
         if col == 9:
-            assignment.deviation_id = value if value else None
+            value = value or None
+            if value and not any(d.id == value for d in self.project.deviations):
+                return False
+            if assignment.deviation_id == value:
+                return False
+            assignment.deviation_id = value
+            if not valid_mitigation(self.project, value, assignment.mitigation_id):
+                assignment.mitigation_id = None
             self._compute_entry_metrics(entry)
             self.dataChanged.emit(self.index(row, 0), self.index(row, len(COLUMN_HEADERS) - 1))
             self.data_modified.emit()
@@ -546,7 +562,7 @@ class FmedaTableModel(QAbstractTableModel):
                 return False
             assignment.diagnostic_function = value
             # Refresh validation only; this independent choice changes no other assignment field.
-            entry.validation_status, entry.validation_messages = ValidationService.validate_row(assignment, comp)
+            entry.validation_status, entry.validation_messages = ValidationService.validate_row(assignment, comp, self.project)
             self.dataChanged.emit(self.index(row, 0), self.index(row, len(COLUMN_HEADERS) - 1))
             self.data_modified.emit()
             return True
@@ -600,10 +616,14 @@ class FmedaTableModel(QAbstractTableModel):
         # Diagnostic Measure (col 14)
         if col == 14:
             dm_id = value if value else None
+            if dm_id and not any(m.id == dm_id for m in self.project.diagnostic_measures):
+                return False
+            if assignment.diagnostic_measure_id == dm_id:
+                return False
             assignment.diagnostic_measure_id = dm_id
             if dm_id:
                 dm = next((m for m in self.project.diagnostic_measures if m.id == dm_id), None)
-                if dm:
+                if dm and dm.dc is not None:
                     assignment.detection_percentage = dm.dc
             self._compute_entry_metrics(entry)
             self.dataChanged.emit(self.index(row, 0), self.index(row, len(COLUMN_HEADERS) - 1))
@@ -622,37 +642,39 @@ class FmedaTableModel(QAbstractTableModel):
             except (ValueError, TypeError):
                 return False
 
-        # Mitigation (col 17)
-        if col == 17:
+        # Mitigation (col 16)
+        if col == 16:
+            if not valid_mitigation(self.project, assignment.deviation_id, value):
+                return False
             assignment.mitigation_id = value if value else None
             self._compute_entry_metrics(entry)
             self.dataChanged.emit(self.index(row, 0), self.index(row, len(COLUMN_HEADERS) - 1))
             self.data_modified.emit()
             return True
 
-        # Notes / Comments (col 18)
-        if col == 18:
+        # Notes / Comments (col 17)
+        if col == 17:
             assignment.notes = str(value) if value else None
+            self.dataChanged.emit(self.index(row, 17), self.index(row, 17))
+            self.data_modified.emit()
+            return True
+
+        # Review Status (col 18)
+        if col == 18:
+            assignment.review_status = str(value).lower()
             self.dataChanged.emit(self.index(row, 18), self.index(row, 18))
             self.data_modified.emit()
             return True
 
-        # Review Status (col 19)
-        if col == 19:
-            assignment.review_status = str(value).lower()
-            self.dataChanged.emit(self.index(row, 19), self.index(row, 19))
-            self.data_modified.emit()
-            return True
-
-        # Proof Test A, B, C (col 20, 21, 22)
-        if col in (20, 21, 22):
+        # Proof Test A, B, C (col 19, 20, 21)
+        if col in (19, 20, 21):
             try:
                 pt_val = float(value)
-                if col == 20:
+                if col == 19:
                     assignment.proof_test_a = pt_val
-                elif col == 21:
+                elif col == 20:
                     assignment.proof_test_b = pt_val
-                elif col == 22:
+                elif col == 21:
                     assignment.proof_test_c = pt_val
                 self.dataChanged.emit(self.index(row, col), self.index(row, col))
                 self.data_modified.emit()

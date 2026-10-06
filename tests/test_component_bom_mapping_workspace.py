@@ -394,7 +394,7 @@ class TestComponentBOMMappingWorkspace(unittest.TestCase):
             dialog._commit_mappings()
             
             model = FmedaTableModel(self.unit, self.project)
-            self.assertEqual(model.columnCount(), 37)
+            self.assertEqual(model.columnCount(), 36)
             self.assertEqual(model.headerData(5, Qt.Orientation.Horizontal), "Display Name / Component Type")
             # Row 0 col 5 value
             cell_val = model.data(model.index(0, 5), Qt.ItemDataRole.DisplayRole)

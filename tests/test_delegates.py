@@ -161,7 +161,7 @@ def test_zero_permanent_cell_widgets(qapp):
 
     # Table has cells rendered
     assert model.rowCount() == 1
-    assert model.columnCount() == 37
+    assert model.columnCount() == 36
 
     # In QTableView with delegates, cellWidget is None for all cells!
     # No permanent widgets are ever created or retained

@@ -38,6 +38,7 @@ class Deviation(BaseModel):
     failure_mode: str = Field(description="Failure mode description")
     cause: Optional[str] = Field(default=None, description="Root cause of the deviation")
     effect: Optional[str] = Field(default=None, description="Effect of the deviation")
+    keywords: str = Field(default="", description="Search keywords")
     
     # FMEDA metrics
     failure_rate: Optional[float] = Field(default=None, description="Failure rate (FIT)")

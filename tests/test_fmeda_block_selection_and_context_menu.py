@@ -492,6 +492,9 @@ def test_bulk_assign_diagnostic_measure_with_summary(qapp, monkeypatch):
 
 def test_bulk_assign_mitigation_with_summary(qapp, monkeypatch):
     project = create_test_project_with_components()
+    project.deviations[0].mitigation_ids = ["mit_001"]
+    for assignment in project.units[0].components[1].failure_mode_assignments:
+        assignment.deviation_id = project.deviations[0].id
     window = MainWindow()
     window.current_project = project
     window.unit_editor_view.load_project(project)

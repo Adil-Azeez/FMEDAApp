@@ -1,7 +1,7 @@
 
 
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator, field_validator
 from datetime import datetime
 
 
@@ -10,12 +10,38 @@ class DiagnosticMeasure(BaseModel):
     
     # Basic identification
     id: str = Field(description="Unique diagnostic measure identifier")
-    dc: float = Field(
+    name: str = Field(description="Catalog name")
+    dc: Optional[float] = Field(
+        default=None,
         description="Diagnostic Coverage percentage (0-100)",
         ge=0.0,
         le=100.0
     )
     description: str = Field(description="Description of the diagnostic measure")
+    failure_reaction: Optional[str] = None
+    execution_timing: Optional[str] = None
+    verification_method: Optional[str] = None
+    implementation_type: Optional[str] = None
+    responsible: Optional[str] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def load_legacy_name(cls, values):
+        if isinstance(values, dict) and "name" not in values:
+            values = dict(values, name=values.get("description", ""))
+        return values
+
+    @field_validator("id", "name", "description")
+    @classmethod
+    def require_text(cls, value):
+        if not value.strip():
+            raise ValueError("This field is required.")
+        return value.strip()
+
+    @property
+    def display_label(self):
+        dc = f" (DC: {self.dc:.1f}%)" if self.dc is not None else ""
+        return f"{self.id} — {self.name}{dc}"
     
     # Optional references
     risk_id: Optional[str] = Field(

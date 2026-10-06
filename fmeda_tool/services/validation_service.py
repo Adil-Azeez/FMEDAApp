@@ -1,5 +1,6 @@
 from typing import List, Dict, Tuple, Any, Optional
 import re
+from fmeda_tool.services.catalog_service import valid_mitigation
 from fmeda_tool.models import Project, Unit, Component, FailureModeAssignment
 
 
@@ -7,7 +8,7 @@ class ValidationService:
     """Service to validate FMEDA rows and project configurations, returning status codes and messages"""
     
     @staticmethod
-    def validate_row(assignment: FailureModeAssignment, component: Component) -> Tuple[str, List[str]]:
+    def validate_row(assignment: FailureModeAssignment, component: Component, project: Optional[Project] = None) -> Tuple[str, List[str]]:
         """
         Validates a single failure mode row (assignment).
         
@@ -18,6 +19,9 @@ class ValidationService:
         errors = []
         warnings = []
         
+        if project is not None and not valid_mitigation(project, assignment.deviation_id, assignment.mitigation_id):
+            errors.append("Invalid deviation/mitigation combination: mitigation is not linked to the selected deviation.")
+
         classification = getattr(assignment, "classification", "not_evaluated")
         
         if assignment.diagnostic_function not in ("Yes", "No"):
@@ -199,7 +203,7 @@ class ValidationService:
                                        "unit_id": unit.id, "row_index": row_index,
                                        "location": f"{unit.name} (Row {row_index + 1})"})
                     if assignment:
-                        status, msgs = ValidationService.validate_row(assignment, comp)
+                        status, msgs = ValidationService.validate_row(assignment, comp, project)
                         msgs = [m for m in msgs if m != "Diagnostic Function not evaluated"]
                         if status == "error":
                             for msg in msgs:

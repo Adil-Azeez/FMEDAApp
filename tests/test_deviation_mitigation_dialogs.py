@@ -37,7 +37,8 @@ def create_test_project() -> Project:
         deviation_type=DeviationType.DANGEROUS_DETECTED,
         severity=DeviationSeverity.HIGH,
         failure_mode="Short Circuit",
-        effect="Output stuck at rail"
+        effect="Output stuck at rail",
+        mitigation_ids=["mit_001"]
     )
     mit1 = Mitigation(
         id="mit_001",
@@ -297,7 +298,7 @@ def test_fmeda_table_dropdowns_refresh_on_deviation_and_mitigation_add(qapp, mon
     
     # Check initial dropdown items in deviation column (col 9) and mitigation column (col 17)
     dev_opts = tab.model.data(tab.model.index(0, 9), Qt.ItemDataRole.UserRole + 1)
-    mit_opts = tab.model.data(tab.model.index(0, 17), Qt.ItemDataRole.UserRole + 1)
+    mit_opts = tab.model.data(tab.model.index(0, 16), Qt.ItemDataRole.UserRole + 1)
     
     assert len(dev_opts) == 2  # "-- None --" + "Short Circuit Deviation"
     assert len(mit_opts) == 2  # "-- None --" + "Current Limiter"
@@ -337,7 +338,7 @@ def test_fmeda_table_dropdowns_refresh_on_deviation_and_mitigation_add(qapp, mon
     monkeypatch.setattr(MitigationManagerDialog, "exec", mock_mit_mgr_exec)
     tab._on_manage_mitigations_clicked()
     
-    # Dropdown options should now have 3 items
-    mit_opts_updated = tab.model.data(tab.model.index(0, 17), Qt.ItemDataRole.UserRole + 1)
-    assert len(mit_opts_updated) == 3
-    assert mit_opts_updated[2]["label"] == "New Optocoupler Isolation"
+    # A newly created, unrelated mitigation must remain hidden.
+    mit_opts_updated = tab.model.data(tab.model.index(0, 16), Qt.ItemDataRole.UserRole + 1)
+    assert len(mit_opts_updated) == 2
+    assert mit_opts_updated[1]["label"] == "Current Limiter"
