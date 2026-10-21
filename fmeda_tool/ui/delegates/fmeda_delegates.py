@@ -52,6 +52,8 @@ class FmedaComboBoxDelegate(QStyledItemDelegate):
                 label = opt.get("label", "")
                 data = opt.get("data", None)
                 combo.addItem(label, data)
+                if not opt.get("enabled", True):
+                    combo.model().item(combo.count() - 1).setEnabled(False)
             elif isinstance(opt, tuple) and len(opt) == 2:
                 combo.addItem(str(opt[0]), opt[1])
             else:

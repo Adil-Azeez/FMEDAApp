@@ -3,6 +3,18 @@
 from typing import Optional
 from pydantic import BaseModel, Field, model_validator
 
+CLASSIFICATIONS = {
+    "not_evaluated": "Not Evaluated",
+    "safe_failure": "Safe Failure",
+    "dangerous_failure": "Dangerous Failure",
+    "no_part_failure": "No Part Failure",
+    "no_effect_failure": "No Effect Failure",
+    "diagnostic_function_failure": "Diagnostic Function Failure",
+}
+LEGACY_CLASSIFICATION = "legacy_no_part_no_effect"
+CLASSIFICATION_LABELS = {**CLASSIFICATIONS, LEGACY_CLASSIFICATION:
+    "Legacy No Part / No Effect — Classification Review Required"}
+
 
 class FailureModeAssignment(BaseModel):
     """Assignment of a failure mode to deviations and diagnostic measures"""
@@ -44,6 +56,38 @@ class FailureModeAssignment(BaseModel):
         default="not_evaluated",
         description="Failure classification (safe, dangerous, etc.)"
     )
+    classification_version: int = 2
+    legacy_classification: Optional[str] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_classification(cls, values):
+        if isinstance(values, dict):
+            values = dict(values)
+            classification = str(values.get("classification") or "not_evaluated").strip()
+            aliases = {label.casefold(): key for key, label in CLASSIFICATIONS.items()}
+            aliases.update(safe="safe_failure", dangerous="dangerous_failure")
+            classification = aliases.get(classification.casefold(), classification)
+            if classification not in CLASSIFICATION_LABELS:
+                values.setdefault("legacy_classification", classification)
+                classification = "not_evaluated"
+            if values.get("dont_care") and values.get("classification_version", 1) == 1 and classification in ("not_evaluated", "safe_failure", "dangerous_failure"):
+                values.setdefault("legacy_classification", classification)
+                classification = LEGACY_CLASSIFICATION
+                values["classification_version"] = 1
+            values["classification"] = classification
+        return values
+
+    def set_classification(self, classification: str) -> None:
+        """Explicit engineering decision; the historical compatibility flag is retained."""
+        if classification not in CLASSIFICATIONS:
+            raise ValueError("Unknown failure classification.")
+        if self.classification == LEGACY_CLASSIFICATION and classification not in ("no_part_failure", "no_effect_failure"):
+            raise ValueError("Classification Review Required: select No Part Failure or No Effect Failure.")
+        self.classification = classification
+        self.classification_version = 2
+        if classification in ("safe_failure", "dangerous_failure"):
+            self.dangerous_failure_percentage = 100.0 if classification == "dangerous_failure" else 0.0
     diagnostic_function: Optional[str] = Field(
         default=None,
         description="Explicit diagnostic function evaluation: Yes, No, or blank"

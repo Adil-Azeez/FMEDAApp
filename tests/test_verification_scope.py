@@ -27,27 +27,15 @@ def qapp():
 
 
 def load_real_reference_projects():
-    """Loads real multi-group and single-group reference project files."""
-    proj_dir = Path("data/projects")
-    
-    file_both = proj_dir / "proj_87bb2a1d_Zertifizierung_des_JUMO_dTRANS_T06_SFTY_ADC_CPU_and_SFTY_AO_complete.json"
-    file_adc_cpu = proj_dir / "proj_87bb2a1d_SFTY_ADC_CPU_corrected_classification.json"
-    file_ao = proj_dir / "proj_87bb2a1d_SFTY_AO_complete.json"
-    
-    with open(file_both, "r", encoding="utf-8") as f:
-        proj_both = Project.model_validate(json.load(f))
-        
-    with open(file_adc_cpu, "r", encoding="utf-8") as f:
-        proj_adc_cpu = Project.model_validate(json.load(f))
-        
-    with open(file_ao, "r", encoding="utf-8") as f:
-        proj_ao = Project.model_validate(json.load(f))
-        
-    CalculationService.calculate_project(proj_both)
-    CalculationService.calculate_project(proj_adc_cpu)
-    CalculationService.calculate_project(proj_ao)
-        
-    return proj_both, proj_adc_cpu, proj_ao
+    """Use isolated synthetic assessments; never depend on user project files."""
+    project = create_two_group_synthetic_project()
+    first = project.model_copy(deep=True)
+    first.units = first.units[:1]
+    second = project.model_copy(deep=True)
+    second.units = second.units[1:]
+    for p in (project, first, second):
+        CalculationService.calculate_project(p)
+    return project, first, second
 
 
 def create_two_group_synthetic_project():
@@ -157,7 +145,10 @@ def test_calculate_scope_combined_not_averaged():
 def test_calculate_scope_dont_care_exclusion():
     """Test that dont_care failure modes are excluded from Sicherheitskanal in calculate_scope."""
     proj = create_two_group_synthetic_project()
-    proj.units[0].components[0].failure_mode_assignments[0].dont_care = True
+    a = proj.units[0].components[0].failure_mode_assignments[0]
+    a.dont_care = True
+    a.classification = "legacy_no_part_no_effect"
+    a.classification_version = 1
     
     res = CalculationService.calculate_scope([proj.units[0]], proj)
     
@@ -203,11 +194,10 @@ def test_page3_initial_scope_all_selected(qapp):
     assert "SFTY-ADC-CPU" in view.scope_indicator_label.text()
     assert "SFTY-AO" in view.scope_indicator_label.text()
     
-    assert view.card_val_sil.text() == "SIL 2"
-    assert view.card_val_target.text() == (proj_both.target_sil or "N/A")
-    assert view.card_val_sff.text() == f"{proj_both.sff_sicherheitskanal:.2f}%"
-    assert view.card_val_dc.text() == f"{proj_both.dc_sicherheitskanal:.2f}%"
-    assert view.card_val_mttfd.text() == f"{proj_both.mttfd_sicherheitskanal:.1f} years"
+    assert view.card_frame_sil.isHidden() and view.card_frame_sff.isHidden()
+    assert view.secondary_table.columnCount() == 2
+    assert [r["lambda_total"] for r in view.group_results] == [100, 200]
+    assert [r["sff"] for r in view.group_results] == [95, 50]
 
 
 def test_page3_only_adc_cpu_selected(qapp):
@@ -224,17 +214,15 @@ def test_page3_only_adc_cpu_selected(qapp):
     cb_ao.setChecked(False)
     
     assert view.selected_unit_ids == {uid_adc}
-    assert view.scope_indicator_label.text() == "Scope: SFTY-ADC-CPU"
+    assert view.scope_indicator_label.text() == "Independent groups: SFTY-ADC-CPU"
     
     assert view.card_val_sil.text() == "SIL 2"
     assert view.card_val_sff.text() == f"{proj_adc.sff_sicherheitskanal:.2f}%"
     assert view.card_val_dc.text() == f"{proj_adc.dc_sicherheitskanal:.2f}%"
     assert view.card_val_mttfd.text() == f"{proj_adc.mttfd_sicherheitskanal:.1f} years"
     
-    item_gg_fit = view.secondary_table.item(0, 1).text()
-    item_sk_fit = view.secondary_table.item(0, 2).text()
-    assert f"{proj_adc.lambda_total_gesamtgerat:.4f} FIT" in item_gg_fit
-    assert f"{proj_adc.lambda_total_sicherheitskanal:.4f} FIT" in item_sk_fit
+    assert view.secondary_table.columnCount() == 1
+    assert view.secondary_table.item(0, 0).text() == f"{proj_adc.lambda_total_gesamtgerat:.4f} FIT"
 
 
 def test_page3_only_ao_selected(qapp):
@@ -251,17 +239,15 @@ def test_page3_only_ao_selected(qapp):
     view.unit_checkboxes[uid_adc].setChecked(False)
     
     assert view.selected_unit_ids == {uid_ao}
-    assert view.scope_indicator_label.text() == "Scope: SFTY-AO"
+    assert view.scope_indicator_label.text() == "Independent groups: SFTY-AO"
     
-    assert view.card_val_sil.text() == "SIL 2"
+    assert view.card_val_sil.text() == "SIL 0"
     assert view.card_val_sff.text() == f"{proj_ao.sff_sicherheitskanal:.2f}%"
     assert view.card_val_dc.text() == f"{proj_ao.dc_sicherheitskanal:.2f}%"
     assert view.card_val_mttfd.text() == f"{proj_ao.mttfd_sicherheitskanal:.1f} years"
     
-    item_gg_fit = view.secondary_table.item(0, 1).text()
-    item_sk_fit = view.secondary_table.item(0, 2).text()
-    assert f"{proj_ao.lambda_total_gesamtgerat:.4f} FIT" in item_gg_fit
-    assert f"{proj_ao.lambda_total_sicherheitskanal:.4f} FIT" in item_sk_fit
+    assert view.secondary_table.columnCount() == 1
+    assert view.secondary_table.item(0, 0).text() == f"{proj_ao.lambda_total_gesamtgerat:.4f} FIT"
 
 
 def test_page3_select_all_button(qapp):
@@ -281,8 +267,9 @@ def test_page3_select_all_button(qapp):
     assert len(view.selected_unit_ids) == 2
     assert view.unit_checkboxes[uid_adc].isChecked()
     assert view.unit_checkboxes[uid_ao].isChecked()
-    assert view.card_val_sff.text() == f"{proj_both.sff_sicherheitskanal:.2f}%"
-    assert view.card_val_mttfd.text() == f"{proj_both.mttfd_sicherheitskanal:.1f} years"
+    assert view.card_frame_sff.isHidden()
+    assert view.secondary_table.columnCount() == 2
+    assert view.card_frame_mttfd.isHidden()
 
 
 def test_page3_clear_all_button_and_minimum_selection_guard(qapp, monkeypatch):
@@ -333,8 +320,9 @@ def test_page3_switching_repeatedly_between_selections(qapp):
         assert view.card_val_mttfd.text() == f"{proj_ao.mttfd_sicherheitskanal:.1f} years"
         
         view.unit_checkboxes[uid_adc].setChecked(True)
-        assert view.card_val_sff.text() == f"{proj_both.sff_sicherheitskanal:.2f}%"
-        assert view.card_val_mttfd.text() == f"{proj_both.mttfd_sicherheitskanal:.1f} years"
+        assert view.card_frame_sff.isHidden()
+        assert view.secondary_table.columnCount() == 2
+        assert view.card_frame_mttfd.isHidden()
 
 
 def test_page3_dynamic_achieved_sil_change(qapp):
@@ -347,7 +335,8 @@ def test_page3_dynamic_achieved_sil_change(qapp):
     uid_u1 = proj.units[0].id
     uid_u2 = proj.units[1].id
     
-    assert view.card_val_sil.text() == "SIL 1"
+    assert view.card_frame_sil.isHidden()
+    assert [r["achieved_sil"] for r in view.group_results] == ["SIL 2", "SIL 0"]
     
     view.unit_checkboxes[uid_u2].setChecked(False)
     assert view.card_val_sil.text() == "SIL 2"

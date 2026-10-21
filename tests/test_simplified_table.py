@@ -88,8 +88,8 @@ def test_column_count_and_headers_structure(qapp):
     unit = project.units[0]
     model = FmedaTableModel(unit, project)
 
-    assert model.columnCount() == 36
-    assert len(COLUMN_HEADERS) == 36
+    assert model.columnCount() == 35
+    assert len(COLUMN_HEADERS) == 35
 
     # Verify removed headers are NOT in COLUMN_HEADERS
     assert "Fitted Status" not in COLUMN_HEADERS
@@ -121,9 +121,9 @@ def test_column_count_and_headers_structure(qapp):
     assert COLUMN_HEADERS[19] == "Proof Test A"
     assert COLUMN_HEADERS[20] == "Proof Test B"
     assert COLUMN_HEADERS[21] == "Proof Test C"
-    assert COLUMN_HEADERS[22] == "No Part / No Effect"
-    assert COLUMN_HEADERS[23] == "lambda (FIT)"
-    assert COLUMN_HEADERS[35] == "MTTFd (y)"
+    assert "No Part / No Effect" not in COLUMN_HEADERS
+    assert COLUMN_HEADERS[22] == "lambda (FIT)"
+    assert COLUMN_HEADERS[34] == "MTTFd (y)"
 
 
 def test_preserved_model_fields_and_data_access(qapp):

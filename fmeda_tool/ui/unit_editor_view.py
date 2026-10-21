@@ -1,3 +1,4 @@
+from fmeda_tool.models.failure_mode_assignment import CLASSIFICATIONS
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTabWidget, QGraphicsView,
     QGraphicsScene, QPushButton, QLabel, QFrame, QMenu,
@@ -16,6 +17,7 @@ import uuid
 import time
 import json
 import copy
+from fmeda_tool.version import APP_DISPLAY_NAME
 from pathlib import Path
 
 from fmeda_tool.models import (
@@ -812,6 +814,7 @@ class ProjectOverviewTab(QScrollArea):
         add_info_row("Project Name:", project.name, 0, 0)
         add_info_row("Project Number:", project.project_number or "N/A", 0, 2)
         add_info_row("Version:", project.version, 1, 0)
+        add_info_row("Application:", APP_DISPLAY_NAME, 12, 2)
         add_info_row("Status:", project.status.value.replace("_", " ").title() if project.status else "Draft", 1, 2)
         add_info_row("Created By:", project.created_by or "N/A", 2, 0)
         add_info_row("Reviewer:", project.reviewer or "N/A", 2, 2)
@@ -1454,7 +1457,7 @@ class FunctionalGroupTab(QWidget):
         group_layout.addStretch()
         table_layout.addLayout(group_layout)
         
-        # FmedaTableView and FmedaTableModel (36 Columns)
+        # FmedaTableView and FmedaTableModel (35 Columns)
         self.table = FmedaTableView(parent_tab=self)
         self.model = FmedaTableModel(self.unit, self.project, auto_populate=False, parent=self)
         self.table.setModel(self.model)
@@ -1472,7 +1475,7 @@ class FunctionalGroupTab(QWidget):
         for col in (9, 10, 11, 14, 16, 18):
             self.table.setItemDelegateForColumn(col, self.combo_delegate)
             
-        for col in (7, 12, 13, 15, 19, 20, 21):
+        for col in (7, 15, 19, 20, 21):
             self.table.setItemDelegateForColumn(col, self.spin_delegate)
             
         for col in (2, 3, 4, 17):
@@ -1691,11 +1694,11 @@ class FunctionalGroupTab(QWidget):
 
 
         show_proof = self.cb_proof.isChecked()
-        for c in range(19, 23):
+        for c in range(19, 22):
             self.table.setColumnHidden(c, not show_proof)
 
         show_calc = self.cb_calc.isChecked()
-        for c in range(23, 36):
+        for c in range(22, 35):
             self.table.setColumnHidden(c, not show_calc)
 
     def show_component_context_menu(self, global_pos: QPoint):
@@ -1859,6 +1862,8 @@ class FunctionalGroupTab(QWidget):
                     diagnostic_measure_id=a.diagnostic_measure_id,
                     mitigation_id=a.mitigation_id,
                     classification=a.classification,
+                    classification_version=a.classification_version,
+                    legacy_classification=a.legacy_classification,
                     detection_percentage=a.detection_percentage,
                     dangerous_failure_percentage=a.dangerous_failure_percentage,
                     notes=a.notes,
@@ -2170,22 +2175,18 @@ class FunctionalGroupTab(QWidget):
             return False
 
         if selected_classif == "PROMPT":
-            class_items = [
-                ("Not Evaluated", "Default unclassified status", "not_evaluated"),
-                ("Safe Failure", "Sets dangerous failure % to 0.0%", "safe_failure"),
-                ("Dangerous Failure", "Sets dangerous failure % to 100.0%", "dangerous_failure")
-            ]
+            class_items = [(label, "Assign the full failure-mode rate", key) for key, label in CLASSIFICATIONS.items()]
             picker = BulkItemPickerDialog("Set Classification", "Classification", class_items, parent=self)
             if picker.exec() != QDialog.DialogCode.Accepted:
                 return False
             class_key, class_label = picker.get_selection()
         else:
             class_key = selected_classif
-            class_label = {
-                "not_evaluated": "Not Evaluated",
-                "safe_failure": "Safe Failure",
-                "dangerous_failure": "Dangerous Failure"
-            }.get(class_key, class_key)
+            class_label = CLASSIFICATIONS.get(class_key, class_key)
+
+        if class_key not in CLASSIFICATIONS or any(a.classification == "legacy_no_part_no_effect" for c in comps for a in c.failure_mode_assignments) and class_key not in ("no_part_failure", "no_effect_failure"):
+            QMessageBox.warning(self, "Classification Review Required", "Select No Part Failure or No Effect Failure for legacy rows.")
+            return False
 
         affected_rows = sum(len(c.failure_mode_assignments) for c in comps)
         des_list = [c.position for c in comps]
@@ -2202,11 +2203,7 @@ class FunctionalGroupTab(QWidget):
 
         for c in comps:
             for a in c.failure_mode_assignments:
-                a.classification = class_key
-                if class_key == "safe_failure":
-                    a.dangerous_failure_percentage = 0.0
-                elif class_key == "dangerous_failure":
-                    a.dangerous_failure_percentage = 100.0
+                a.set_classification(class_key)
 
         from fmeda_tool.services.calculation_service import CalculationService
         CalculationService.calculate_project(self.project)
@@ -2247,17 +2244,12 @@ class FunctionalGroupTab(QWidget):
 
     def _on_classif_changed(self, text: str, assignment: FailureModeAssignment, component: Component, row: int):
         """Helper for programmatic or test classification changes."""
-        class_map = {
-            "Not Evaluated": "not_evaluated",
-            "Safe Failure": "safe_failure",
-            "Dangerous Failure": "dangerous_failure"
-        }
-        assignment.classification = class_map.get(text, "not_evaluated")
-        if assignment.classification == "safe_failure":
-            assignment.dangerous_failure_percentage = 0.0
-        elif assignment.classification == "dangerous_failure":
-            assignment.dangerous_failure_percentage = 100.0
-            
+        class_map = {label: key for key, label in CLASSIFICATIONS.items()}
+        try:
+            assignment.set_classification(class_map.get(text, text))
+        except ValueError:
+            return
+
         if self.model:
             self.model.refresh_all_metrics()
         self._trigger_recalculation()

@@ -24,6 +24,11 @@ class ValidationService:
 
         classification = getattr(assignment, "classification", "not_evaluated")
         
+        if classification == "not_evaluated":
+            warnings.append("Failure Classification not evaluated")
+        elif classification == "legacy_no_part_no_effect":
+            warnings.append("Classification Review Required: select No Part Failure or No Effect Failure.")
+
         if assignment.diagnostic_function not in ("Yes", "No"):
             warnings.append("Diagnostic Function not evaluated")
 
@@ -138,18 +143,14 @@ class ValidationService:
         # 2. SIL Target Mismatch
         sil_levels = {"SIL 0": 0, "SIL 1": 1, "SIL 2": 2, "SIL 3": 3, "SIL 4": 4}
         target_val = sil_levels.get(project.target_sil, 0)
-        achieved_val = sil_levels.get(project.achieved_sil, 0)
-        if achieved_val < target_val:
-            alerts.append({
-                "severity": "Error",
-                "scope": "Global",
-                "item": "Target SIL Mismatch",
-                "message": f"Target SIL is {project.target_sil} but Achieved SIL is {project.achieved_sil}.",
-                "unit_id": None,
-                "row_index": None,
-                "location": None
-            })
-            
+        from fmeda_tool.services.calculation_service import CalculationService
+        for unit in project.units:
+            achieved = CalculationService.calculate_group_result(unit, project)["achieved_sil"]
+            if achieved != "N/A" and sil_levels.get(achieved, 0) < target_val:
+                alerts.append({"severity": "Error", "scope": "Functional Group", "item": "Target SIL Mismatch",
+                    "message": f"Target SIL is {project.target_sil} but {unit.name} achieved {achieved}.",
+                    "unit_id": unit.id, "row_index": None, "location": {"unit_id": unit.id}})
+
         # 3. Unit, component, and row checks
         for unit in project.units:
             if not unit.components and not getattr(unit, "bom_components", None):
@@ -203,8 +204,17 @@ class ValidationService:
                                        "unit_id": unit.id, "row_index": row_index,
                                        "location": f"{unit.name} (Row {row_index + 1})"})
                     if assignment:
+                        classification_warning = None
+                        if assignment.classification == "not_evaluated":
+                            classification_warning = "Failure Classification not evaluated"
+                        elif assignment.classification == "legacy_no_part_no_effect":
+                            classification_warning = "Classification Review Required: select No Part Failure or No Effect Failure."
+                        if classification_warning:
+                            alerts.append({"severity": "Warning", "scope": "Component", "item": comp.position,
+                                "message": classification_warning, "unit_id": unit.id, "row_index": row_index,
+                                "location": {"unit_id": unit.id, "row_index": row_index}})
                         status, msgs = ValidationService.validate_row(assignment, comp, project)
-                        msgs = [m for m in msgs if m != "Diagnostic Function not evaluated"]
+                        msgs = [m for m in msgs if m != "Diagnostic Function not evaluated" and m != classification_warning]
                         if status == "error":
                             for msg in msgs:
                                 alerts.append({

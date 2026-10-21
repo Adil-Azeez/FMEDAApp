@@ -8,6 +8,7 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont, QColor
 from typing import List, Optional, Dict, Any
 from pathlib import Path
+from fmeda_tool.paths import resource_path
 import json
 import uuid
 
@@ -41,7 +42,7 @@ class ComponentSelectionDialog(QDialog):
     def _load_components(self):
         """Helper for component loading and error simulation."""
         try:
-            db_path = Path("data/components_db.json")
+            db_path = resource_path("data", "components_db.json")
             if db_path.exists():
                 with open(db_path, "r", encoding="utf-8") as f:
                     _ = json.load(f)
@@ -380,11 +381,7 @@ class ComponentSelectionDialog(QDialog):
                 "No Part Failure",
                 "Diagnostic Function Failure"
             ])
-            fm_lower = fm_name.lower()
-            if "short" in fm_lower or "open" in fm_lower or "drift" in fm_lower or "loss" in fm_lower:
-                combo.setCurrentText("Dangerous Failure")
-            else:
-                combo.setCurrentText("Not Evaluated")
+            combo.setCurrentText("Not Evaluated")
             self.fm_table.setCellWidget(row, 2, combo)
             self.comboboxes[fm_name] = combo
             

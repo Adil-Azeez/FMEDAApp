@@ -81,7 +81,7 @@ class TestExportService(unittest.TestCase):
             
             # Verify column count in FMEDA sheet (37 columns)
             ws_fg = wb["Power Supply"]
-            self.assertEqual(ws_fg.max_column, 37)
+            self.assertEqual(ws_fg.max_column, 36)
             self.assertEqual(ws_fg.cell(row=1, column=1).value, "Component ID / Designator")
             
             # Verify values
@@ -112,7 +112,7 @@ class TestExportService(unittest.TestCase):
             
             ws_fmeda = wb["FMEDA Workspace"]
             # 1 extra column for "Functional Group" at the beginning -> 38 columns
-            self.assertEqual(ws_fmeda.max_column, 38)
+            self.assertEqual(ws_fmeda.max_column, 37)
             self.assertEqual(ws_fmeda.cell(row=1, column=1).value, "Functional Group")
             self.assertEqual(ws_fmeda.cell(row=2, column=1).value, "Power Supply")
             self.assertEqual(ws_fmeda.cell(row=2, column=2).value, "R101")

@@ -22,12 +22,14 @@ from fmeda_tool.ui.main_window import MainWindow
 # Ignore formatting/comments/docstrings; if calculation code changes, review the
 # corresponding reference entries against that code before updating these hashes.
 DOCUMENTED_IMPLEMENTATIONS = {
-    'calculate_row_detailed': 'aa01397f5244e337defd3c39139ac7a83dc4bb05f87ee22cdf834f552094d435',
-    'calculate_component': 'f1514623ae99cf9d10a4790176375a50f86a5838843876c00875fe333c746411',
+    'calculate_row_detailed': '1ab5f625ca7902c5d25558a43487e99ab14cc68a38d5d5dc9199e9d47ce7c1cb',
+    'calculate_assignment': '3a12716a05abcaca3541ede24cb0e2761767a69d13e61868e683ea3ebeed7817',
+    'calculate_component': '3e9936386d93cfc279b6e80024a09ccec215d872ca89bd38979a2c83fcadf173',
     'calculate_diagnostic_lambda': 'f0abd443436dbb1b2ba5aa3a8713abef1192651b489a280703eee907a225113e',
-    'calculate_unit': '7cfaa41f6123a26d4352f5ac132c0e6030455d3b177033e3fad68444bea26799',
-    'calculate_scope': 'f32fd651a1da1a32868d170e5fc7bdf26427c24a0c6b5bab92ff4a27358faf3d',
-    'calculate_unit_metrics': 'dfd571e2d2a21fcf49268e5c4b766aef3964e3ebd63d7da1ba10ddb09c23d9d5',
+    'calculate_unit': 'dbe9c7f05a3781e54ba4abcabff338daa5cf8d972d22b99134b587754150982e',
+    'calculate_scope': '098c4f9af6789c16b71ef90caf7d32814032eb815088bcfc7fa108c61fd07c46',
+    'calculate_unit_metrics': 'c7d349ed8e3c71b20f74ee19906a5408b5c32f2f258197edf2ece366b2df47a6',
+    'calculate_group_result': '75da8a8b9a45150859874dbfffac11d6b5e4c9843b1e8474a6ec9df93eff2651',
 }
 
 
@@ -101,10 +103,11 @@ def test_reference_contains_all_implemented_metrics_and_source_links(qtbot):
     qtbot.addWidget(page)
     text = page.browser.toPlainText()
     assert [section for section, _ in FORMULA_SECTIONS] == [
-        'Failure Rates', 'Safety Channel', 'Diagnostic Metrics', 'Safety Metrics', 'Reliability Metrics']
+        'Failure Rates', 'Classification Buckets', 'Safety Channel', 'Diagnostic Metrics', 'Safety Metrics', 'Reliability Metrics']
     expected = {'lambda_total', 'lambda_safe', 'lambda_dangerous', 'lambda_sd', 'lambda_su',
                 'lambda_dd', 'lambda_du', 'lambda_diag_gesamt', 'sff', 'dc', 'mttfd', 'pfd_avg',
-                'pfhd', 'mtbf', 'proof_coverage', 'sil', 'lambda_row', 'units'}
+                'pfhd', 'mtbf', 'proof_coverage', 'sil', 'lambda_row', 'units',
+                'lambda_no_part', 'lambda_no_effect', 'lambda_diag_failure', 'legacy_classification'}
     assert {f.key for _, formulas in FORMULA_SECTIONS for f in formulas} == expected
     for section, formulas in FORMULA_SECTIONS:
         assert section in text

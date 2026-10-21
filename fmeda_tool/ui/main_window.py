@@ -8,6 +8,8 @@ from typing import Optional, Any
 import json
 import time
 from pathlib import Path
+from fmeda_tool.paths import projects_directory
+from fmeda_tool.version import APP_DISPLAY_NAME
 
 from fmeda_tool.models import Project, DiagnosticMeasure, Component
 from fmeda_tool.ui.create_project_view import CreateProjectView
@@ -74,7 +76,7 @@ class MainWindow(QMainWindow):
     
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("FMEDA Tool")
+        self.setWindowTitle(APP_DISPLAY_NAME)
         
         # Get screen size and calculate appropriate window size (80% of screen)
         screen = QApplication.primaryScreen()
@@ -420,7 +422,7 @@ class MainWindow(QMainWindow):
         file_path, _ = QFileDialog.getOpenFileName(
             self,
             "Open Project",
-            "data/projects",
+            str(projects_directory()),
             "JSON Files (*.json);;All Files (*.*)"
         )
         if not file_path:
@@ -491,11 +493,7 @@ class MainWindow(QMainWindow):
             timer.finish()
             
             if was_migrated:
-                QMessageBox.information(
-                    self,
-                    "Project Schema Migrated",
-                    migration_msg
-                )
+                self.statusBar().showMessage(migration_msg.replace("\n", " "))
                 
             QMessageBox.information(
                 self,
@@ -537,7 +535,7 @@ class MainWindow(QMainWindow):
         file_path, _ = QFileDialog.getSaveFileName(
             self,
             "Save Project As",
-            f"data/projects/{self.current_project.id}_{self.current_project.name.replace(' ', '_')}.json",
+            str(projects_directory() / f"{self.current_project.id}_{self.current_project.name.replace(' ', '_')}.json"),
             "JSON Files (*.json);;All Files (*.*)"
         )
         if not file_path:
@@ -587,7 +585,8 @@ class MainWindow(QMainWindow):
         file_path, _ = QFileDialog.getSaveFileName(
             self,
             "Export FMEDA to Excel",
-            f"{self.current_project.name.replace(' ', '_')}_FMEDA.xlsx",
+            str((Path(self.current_project._saved_path).parent if self.current_project._saved_path else projects_directory()) /
+                f"{self.current_project.name.replace(' ', '_')}_FMEDA.xlsx"),
             "Excel Files (*.xlsx);;All Files (*.*)"
         )
         if not file_path:
@@ -636,7 +635,8 @@ class MainWindow(QMainWindow):
         file_path, _ = QFileDialog.getSaveFileName(
             self,
             "Export FMEDA to PDF Report",
-            f"{self.current_project.name.replace(' ', '_')}_FMEDA_Report.pdf",
+            str((Path(self.current_project._saved_path).parent if self.current_project._saved_path else projects_directory()) /
+                f"{self.current_project.name.replace(' ', '_')}_FMEDA_Report.pdf"),
             "PDF Files (*.pdf);;All Files (*.*)"
         )
         if not file_path:
@@ -775,7 +775,7 @@ class MainWindow(QMainWindow):
             return
         try:
             filename = f"{self.current_project.id}_{self.current_project.name.replace(' ', '_')}.json"
-            filepath = Path(self.current_project._saved_path) if self.current_project._saved_path else Path("data/projects") / filename
+            filepath = Path(self.current_project._saved_path) if self.current_project._saved_path else projects_directory() / filename
             
             from datetime import datetime
             self.current_project.updated_at = datetime.now()
@@ -882,8 +882,7 @@ class MainWindow(QMainWindow):
         QMessageBox.about(
             self,
             "About FMEDA Tool",
-            "<h2>FMEDA Tool</h2>"
-            "<p>Version 1.0.0</p>"
+            f"<h2>{APP_DISPLAY_NAME}</h2>"
             "<p>Failure Mode, Effects and Diagnostic Analysis Tool</p>"
             "<p>Copyright © 2026</p>"
         )

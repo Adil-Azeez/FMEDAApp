@@ -10,6 +10,9 @@ import os
 from pathlib import Path
 from typing import Optional, Tuple, Dict, Any
 from datetime import datetime
+import tempfile
+from contextlib import closing
+from fmeda_tool.paths import resource_root, resource_path, data_directory, is_frozen
 
 logger = logging.getLogger(__name__)
 
@@ -29,13 +32,8 @@ def get_custom_database_path() -> Optional[Path]:
 
 
 def get_project_root() -> Path:
-    """Resolves the project root directory containing main.py."""
-    current = Path(__file__).resolve().parent
-    for p in [current, *current.parents]:
-        if (p / "main.py").exists():
-            return p
-    # Fallback to 2 directories up from this file (fmeda_tool/db/ -> fmeda_tool/ -> root)
-    return Path(__file__).resolve().parents[2]
+    """Compatibility alias for the source/bundle resource root."""
+    return resource_root()
 
 
 def get_database_path() -> Path:
@@ -49,7 +47,7 @@ def get_database_path() -> Path:
         return _custom_database_path
     if "FMEDA_DB_PATH" in os.environ and os.environ["FMEDA_DB_PATH"]:
         return Path(os.environ["FMEDA_DB_PATH"])
-    return get_project_root() / "data" / "fmeda.sqlite"
+    return data_directory() / "fmeda.sqlite"
 
 
 def get_seed_json_path() -> Path:
@@ -66,7 +64,7 @@ def get_seed_json_path() -> Path:
 
 def get_schema_sql_path() -> Path:
     """Returns the schema.sql path."""
-    return Path(__file__).resolve().parent / "schema.sql"
+    return resource_path("fmeda_tool", "db", "schema.sql")
 
 
 def get_db_connection(db_path: Optional[Path] = None) -> sqlite3.Connection:
@@ -176,8 +174,30 @@ class DatabaseService:
         2. If not, initializes from the seed JSON.
         """
         target_path = db_path or get_database_path()
+        # A release ships a read-only SQLite snapshot. Install it once per user;
+        # subsequent releases must never overwrite an operational database.
+        if is_frozen() and not target_path.exists():
+            bundled = resource_path("data", "fmeda.sqlite")
+            if bundled.exists():
+                target_path.parent.mkdir(parents=True, exist_ok=True)
+                fd, temporary = tempfile.mkstemp(prefix=".library-", suffix=".sqlite", dir=target_path.parent)
+                os.close(fd)
+                try:
+                    with closing(sqlite3.connect(bundled.as_uri() + "?mode=ro", uri=True)) as source:
+                        with closing(sqlite3.connect(temporary)) as destination:
+                            source.backup(destination)
+                    # Windows rename is atomic and refuses to replace an existing file.
+                    try:
+                        os.rename(temporary, target_path)
+                    except FileExistsError:
+                        pass  # Another application instance completed first-run setup.
+                finally:
+                    Path(temporary).unlink(missing_ok=True)
         if is_database_initialized(target_path):
             return True, f"SQLite component database ready at {target_path}"
+
+        if is_frozen() and target_path.exists():
+            return False, f"Existing SQLite database could not be opened: {target_path}. Restore a valid backup; the file has been preserved."
         
         logger.info(f"Initializing SQLite database at {target_path} from seed JSON...")
         return DatabaseService.initialize_from_seed(db_path=target_path)

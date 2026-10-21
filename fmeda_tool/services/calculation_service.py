@@ -8,6 +8,26 @@ class CalculationService:
     
     # Transient results from normal calculation passes, never serialized as project data.
     _unit_results = {}
+    # Result presentation metadata shared by Page 3 and Excel; values come only from this service.
+    GROUP_METRICS = (
+        ("lambda_total", "λtotal (FIT)", "fit"),
+        ("lambda_sd", "λsd (FIT)", "fit"), ("lambda_su", "λsu (FIT)", "fit"),
+        ("lambda_dd", "λdd (FIT)", "fit"), ("lambda_du", "λdu (FIT)", "fit"),
+        ("lambda_no_part", "λnoPart (FIT)", "fit"), ("lambda_no_effect", "λnoEffect (FIT)", "fit"),
+        ("lambda_diag_gesamt", "λDiagGesamt (FIT)", "fit"),
+        ("lambda_diag_failure", "Diagnostic Function Failure (FIT)", "fit"),
+        ("lambda_unclassified", "Not Evaluated (FIT)", "fit"),
+        ("proof_test_a_contribution", "Proof-test A contribution (FIT)", "fit"),
+        ("proof_test_b_contribution", "Proof-test B contribution (FIT)", "fit"),
+        ("proof_test_c_contribution", "Proof-test C contribution (FIT)", "fit"),
+        ("sff", "SFF (%)", "pct"), ("dc", "DC (%)", "pct"),
+        ("mtbf", "MTBF (years)", "years"), ("mttfd", "MTTFd (years)", "years"),
+        ("proof_test_a_coverage", "PTCA (%)", "pct"),
+        ("proof_test_b_coverage", "PTCB (%)", "pct"),
+        ("proof_test_c_coverage", "PTCC (%)", "pct"),
+        ("pfd_avg", "PFDavg", "scientific"), ("pfhd", "PFHd (/h)", "scientific"),
+        ("achieved_sil", "Achieved SIL", "text"),
+    )
 
     @staticmethod
     def get_unit_result(unit: Unit):
@@ -19,10 +39,14 @@ class CalculationService:
         """
         Calculates detailed failure rates (FIT) for a single failure mode row.
         
-        All rates (lambda_safe, lambda_dangerous, lambda_sd, lambda_su, lambda_dd, lambda_du)
-        are derived strictly from %dang (dangerous_pct) and %safe (100 - dangerous_pct).
+        Classification selects the full engineering bucket. Detection splits safe or dangerous rates.
+        The legacy percentage path exists only to preserve stored assessments until review.
         """
-        dp = dangerous_pct if dangerous_pct is not None else 100.0
+        # The percentage split is retained only for explicitly migrated assessments.
+        if classification in ("_legacy_percentage", "legacy_no_part_no_effect"):
+            dp = dangerous_pct if dangerous_pct is not None else 100.0
+        else:
+            dp = 100.0 if classification in ("dangerous_failure", "dangerous") else 0.0
         sp = 100.0 - dp
         det = detection_pct if detection_pct is not None else 0.0
         
@@ -32,6 +56,8 @@ class CalculationService:
         
         ld = local_fit * d_frac
         ls = local_fit * s_frac
+        if classification not in ("safe_failure", "safe", "dangerous_failure", "dangerous", "_legacy_percentage", "legacy_no_part_no_effect"):
+            ld = ls = 0.0
         
         ldd = ld * det_frac
         ldu = ld * (1.0 - det_frac)
@@ -54,8 +80,10 @@ class CalculationService:
             "lambda_su": lsu,
             "lambda_dd": ldd,
             "lambda_du": ldu,
-            "lambda_no_part": 0.0,
-            "lambda_no_effect": 0.0,
+            "lambda_no_part": local_fit if classification == "no_part_failure" else 0.0,
+            "lambda_no_effect": local_fit if classification == "no_effect_failure" else 0.0,
+            "lambda_diag_failure": local_fit if classification == "diagnostic_function_failure" else 0.0,
+            "lambda_unclassified": local_fit if classification == "not_evaluated" else 0.0,
             "dc": row_dc,
             "sff": row_sff,
             "mtbf": row_mtbf,
@@ -65,122 +93,47 @@ class CalculationService:
     @staticmethod
     def calculate_row(failure_rate_fit: float, dangerous_pct: float, detection_pct: float) -> Dict[str, float]:
         """Legacy compatibility wrapper"""
-        return CalculationService.calculate_row_detailed(failure_rate_fit, "dangerous_failure", dangerous_pct, detection_pct)
+        return CalculationService.calculate_row_detailed(failure_rate_fit, "_legacy_percentage", dangerous_pct, detection_pct)
+
+    RATE_KEYS = ("lambda", "lambda_safe", "lambda_dangerous", "lambda_sd", "lambda_su",
+                 "lambda_dd", "lambda_du", "lambda_no_part", "lambda_no_effect",
+                 "lambda_diag_failure", "lambda_unclassified")
+
+    @staticmethod
+    def calculate_assignment(component, assignment):
+        local_fit = (component.failure_rate or 0.0) * component.failure_modes.get(assignment.failure_mode_name, 0.0) / 100.0
+        classification = assignment.classification
+        if assignment.classification_version == 1 and classification in ("safe_failure", "dangerous_failure", "not_evaluated"):
+            classification = "_legacy_percentage"
+        return CalculationService.calculate_row_detailed(local_fit, classification,
+            assignment.dangerous_failure_percentage, assignment.detection_percentage)
+
+    @staticmethod
+    def is_safety_row(assignment):
+        return assignment.classification in ("safe_failure", "dangerous_failure") or (
+            assignment.classification_version == 1 and assignment.classification == "not_evaluated")
 
     @staticmethod
     def calculate_component(component: Component) -> Dict[str, Any]:
-        """
-        Calculates failure rates for a single component, returning both
-        Gesamtgeraet and Sicherheitskanal scopes.
-        """
-        # Unmapped mapping templates do not contribute to FMEDA calculations
-        if component.position in ("Mapping Template", "Template") or getattr(component, "is_template", False):
-            return {
-                "total_failure_rate": 0.0,
-                "relevant_failure_rate": 0.0,
-                "safe_failure_rate": 0.0,
-                "dangerous_detected_rate": 0.0,
-                "dangerous_undetected_rate": 0.0,
-                "lambda_sd": 0.0,
-                "lambda_su": 0.0,
-                "lambda_no_part": 0.0,
-                "lambda_no_effect": 0.0,
-                "gesamtgerat": {
-                    "lambda": 0.0, "lambda_safe": 0.0, "lambda_dangerous": 0.0,
-                    "lambda_sd": 0.0, "lambda_su": 0.0, "lambda_dd": 0.0, "lambda_du": 0.0
-                },
-                "sicherheitskanal": {
-                    "lambda": 0.0, "lambda_safe": 0.0, "lambda_dangerous": 0.0,
-                    "lambda_sd": 0.0, "lambda_su": 0.0, "lambda_dd": 0.0, "lambda_du": 0.0
-                }
-            }
-            
-        comp_fit = component.failure_rate or 0.0
-        
-        # Gesamtgeraet sums
-        gg_fit = 0.0
-        gg_safe = 0.0
-        gg_dangerous = 0.0
-        gg_sd = 0.0
-        gg_su = 0.0
-        gg_dd = 0.0
-        gg_du = 0.0
-        
-        # Sicherheitskanal sums
-        sk_fit = 0.0
-        sk_safe = 0.0
-        sk_dangerous = 0.0
-        sk_sd = 0.0
-        sk_su = 0.0
-        sk_dd = 0.0
-        sk_du = 0.0
-        
-        for assignment in component.failure_mode_assignments:
-            fm_name = assignment.failure_mode_name
-            fm_pct = component.failure_modes.get(fm_name, 0.0)
-            local_fit = comp_fit * (fm_pct / 100.0)
-            
-            dp = assignment.dangerous_failure_percentage if assignment.dangerous_failure_percentage is not None else 100.0
-            det = assignment.detection_percentage if assignment.detection_percentage is not None else 0.0
-            dc_flag = getattr(assignment, "dont_care", False) or False
-            
-            # Row calculations
-            row_metrics = CalculationService.calculate_row_detailed(
-                local_fit, getattr(assignment, "classification", "not_evaluated"), dp, det
-            )
-            
-            # Gesamtgeraet
-            gg_fit += row_metrics["lambda"]
-            gg_safe += row_metrics["lambda_safe"]
-            gg_dangerous += row_metrics["lambda_dangerous"]
-            gg_sd += row_metrics["lambda_sd"]
-            gg_su += row_metrics["lambda_su"]
-            gg_dd += row_metrics["lambda_dd"]
-            gg_du += row_metrics["lambda_du"]
-            
-            # Sicherheitskanal (only if dont_care is False)
-            if not dc_flag:
-                sk_fit += row_metrics["lambda"]
-                sk_safe += row_metrics["lambda_safe"]
-                sk_dangerous += row_metrics["lambda_dangerous"]
-                sk_sd += row_metrics["lambda_sd"]
-                sk_su += row_metrics["lambda_su"]
-                sk_dd += row_metrics["lambda_dd"]
-                sk_du += row_metrics["lambda_du"]
-                
-        # Legacy dictionary elements for backward compatibility
-        legacy_dict = {
-            "total_failure_rate": comp_fit,
-            "relevant_failure_rate": gg_sd + gg_su + gg_dd + gg_du,
-            "safe_failure_rate": gg_safe,
-            "dangerous_detected_rate": gg_dd,
-            "dangerous_undetected_rate": gg_du,
-            "lambda_sd": gg_sd,
-            "lambda_su": gg_su,
-            "lambda_no_part": 0.0,
-            "lambda_no_effect": 0.0
-        }
-        
+        """Allocate each reviewed row to exactly one class; keep legacy exclusions."""
+        gg = dict.fromkeys(CalculationService.RATE_KEYS, 0.0)
+        sk = dict(gg)
+        template = component.position in ("Mapping Template", "Template") or getattr(component, "is_template", False)
+        if not template:
+            for assignment in component.failure_mode_assignments:
+                row = CalculationService.calculate_assignment(component, assignment)
+                for key in gg:
+                    gg[key] += row[key]
+                    if CalculationService.is_safety_row(assignment):
+                        sk[key] += row[key]
         return {
-            **legacy_dict,
-            "gesamtgerat": {
-                "lambda": gg_fit,
-                "lambda_safe": gg_safe,
-                "lambda_dangerous": gg_dangerous,
-                "lambda_sd": gg_sd,
-                "lambda_su": gg_su,
-                "lambda_dd": gg_dd,
-                "lambda_du": gg_du
-            },
-            "sicherheitskanal": {
-                "lambda": sk_fit,
-                "lambda_safe": sk_safe,
-                "lambda_dangerous": sk_dangerous,
-                "lambda_sd": sk_sd,
-                "lambda_su": sk_su,
-                "lambda_dd": sk_dd,
-                "lambda_du": sk_du
-            }
+            "total_failure_rate": 0.0 if template else (component.failure_rate or 0.0),
+            "relevant_failure_rate": gg["lambda_safe"] + gg["lambda_dangerous"],
+            "safe_failure_rate": gg["lambda_safe"],
+            "dangerous_detected_rate": gg["lambda_dd"],
+            "dangerous_undetected_rate": gg["lambda_du"],
+            **{key: gg[key] for key in ("lambda_sd", "lambda_su", "lambda_no_part", "lambda_no_effect", "lambda_diag_failure", "lambda_unclassified")},
+            "gesamtgerat": gg, "sicherheitskanal": sk,
         }
 
     @staticmethod
@@ -214,8 +167,11 @@ class CalculationService:
         sk_dd = 0.0
         sk_du = 0.0
         
+        extra_rates = dict.fromkeys(("lambda_no_part", "lambda_no_effect", "lambda_diag_failure", "lambda_unclassified"), 0.0)
         for component in unit.components:
             comp_metrics = CalculationService.calculate_component(component)
+            for metric in extra_rates:
+                extra_rates[metric] += comp_metrics[metric]
             
             # Gesamtgeraet
             gg_fit += comp_metrics["gesamtgerat"]["lambda"]
@@ -236,7 +192,7 @@ class CalculationService:
             sk_du += comp_metrics["sicherheitskanal"]["lambda_du"]
             
         # SFF & DC Gesamtgeraet
-        gg_sff = ((gg_safe + gg_dd) / gg_fit * 100.0) if gg_fit > 0.0 else 0.0
+        gg_sff = ((gg_safe + gg_dd) / (gg_safe + gg_dangerous) * 100.0) if gg_safe + gg_dangerous > 0.0 else 0.0
         gg_dc = (gg_dd / gg_dangerous * 100.0) if gg_dangerous > 0.0 else 0.0
         
         # SFF & DC Sicherheitskanal
@@ -294,6 +250,11 @@ class CalculationService:
             }
         }
 
+        for metric in ("lambda_no_part", "lambda_no_effect", "lambda_diag_failure", "lambda_unclassified"):
+            result[metric] = extra_rates[metric]
+            result["gesamtgerat"][metric] = result[metric]
+            result["sicherheitskanal"][metric] = 0.0
+
         key = id(unit)
         CalculationService._unit_results[key] = (
             weakref.ref(unit, lambda _: CalculationService._unit_results.pop(key, None)), result)
@@ -330,9 +291,12 @@ class CalculationService:
         sk_comp_count = 0
         sk_row_count = 0
         
+        extra_rates = dict.fromkeys(("lambda_no_part", "lambda_no_effect", "lambda_diag_failure", "lambda_unclassified"), 0.0)
         for unit in units:
             unit_metrics = CalculationService.calculate_unit(unit)
             lambda_diag_gesamt += unit_metrics["lambda_diag_gesamt"]
+            for metric in extra_rates:
+                extra_rates[metric] += unit_metrics[metric]
             
             # Gesamtgerät includes all components in selected units
             gg_fit += unit_metrics["gesamtgerat"]["lambda"]
@@ -364,14 +328,14 @@ class CalculationService:
                         continue
                     has_sk_row = False
                     for a in c.failure_mode_assignments:
-                        if not getattr(a, "dont_care", False):
+                        if CalculationService.is_safety_row(a):
                             sk_row_count += 1
                             has_sk_row = True
                     if has_sk_row:
                         sk_comp_count += 1
                         
         # SFF & DC Gesamtgerät
-        gg_sff = ((gg_safe + gg_dd) / gg_fit * 100.0) if gg_fit > 0.0 else None
+        gg_sff = ((gg_safe + gg_dd) / (gg_safe + gg_dangerous) * 100.0) if gg_safe + gg_dangerous > 0.0 else None
         gg_dc = (gg_dd / gg_dangerous * 100.0) if gg_dangerous > 0.0 else None
         
         # SFF & DC Sicherheitskanal
@@ -421,7 +385,9 @@ class CalculationService:
             achieved_sil = "SIL 0"
             
         return {
+            **extra_rates,
             "gesamtgerat": {
+                **extra_rates,
                 "lambda": gg_fit,
                 "lambda_safe": gg_safe,
                 "lambda_dangerous": gg_dangerous,
@@ -530,8 +496,7 @@ class CalculationService:
                 local_fit = comp_fit * (fm_pct / 100.0)
                 dp = a.dangerous_failure_percentage if a.dangerous_failure_percentage is not None else 100.0
                 det = a.detection_percentage if a.detection_percentage is not None else 0.0
-                ld = local_fit * (dp / 100.0)
-                ldu = ld * (1.0 - det / 100.0)
+                ldu = CalculationService.calculate_assignment(c, a)["lambda_du"] if CalculationService.is_safety_row(a) or a.classification == "legacy_no_part_no_effect" else 0.0
                 
                 pt_a = getattr(a, "proof_test_a", 0.0) or 0.0
                 pt_b = getattr(a, "proof_test_b", 0.0) or 0.0
@@ -589,9 +554,36 @@ class CalculationService:
             "pfd_avg": pfd_avg,
             "pfd_max": pfd_max,
             "achieved_sil": achieved_sil,
+            "proof_test_a_contribution": sum_pt_a,
+            "proof_test_b_contribution": sum_pt_b,
+            "proof_test_c_contribution": sum_pt_c,
             # Proof tests
             "proof_test_a_coverage": pt_cov_a,
             "proof_test_b_coverage": pt_cov_b,
             "proof_test_c_coverage": pt_cov_c,
         }
 
+
+    @staticmethod
+    def calculate_group_result(unit: Unit, project: Optional[Project] = None) -> Dict[str, Any]:
+        """Independent assessment: never combine groups or change their inclusion settings."""
+        assessment = unit.model_copy(update={"included_in_safety_function": True})
+        metrics = CalculationService.calculate_unit_metrics(assessment, project)
+        rates = CalculationService.calculate_unit(assessment)
+        result = {
+            "unit_id": unit.id, "unit_name": unit.name,
+            "lambda_total": metrics["lambda_total_gesamtgerat"],
+            **{k: rates["sicherheitskanal"][k] for k in ("lambda_sd", "lambda_su", "lambda_dd", "lambda_du")},
+            **{k: rates[k] for k in ("lambda_no_part", "lambda_no_effect", "lambda_diag_failure", "lambda_unclassified")},
+            "lambda_diag_gesamt": metrics["lambda_diag_gesamt"],
+            "sff": metrics["sff_sicherheitskanal"], "dc": metrics["dc_sicherheitskanal"],
+            "mtbf": metrics["mtbf_years"], "mttfd": metrics["mttfd_sicherheitskanal"],
+            "pfd_avg": metrics["pfd_avg"], "pfhd": metrics["pfd_max"],
+            "achieved_sil": metrics["achieved_sil"],
+            **{k: metrics[k] for k in metrics if k.startswith("proof_test_")},
+        }
+        if not any(CalculationService.is_safety_row(a) for c in unit.components
+                   if c.position not in ("Template", "Mapping Template") and not getattr(c, "is_template", False)
+                   for a in c.failure_mode_assignments):
+            result.update(sff=None, dc=None, mttfd=None, pfd_avg=None, pfhd=None, achieved_sil="N/A")
+        return result

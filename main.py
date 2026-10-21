@@ -1,14 +1,28 @@
 
 import sys
-from PyQt6.QtWidgets import QApplication
-from PyQt6.QtCore import Qt
-from fmeda_tool.ui import MainWindow, MainMenu
+from fmeda_tool.paths import logs_directory, resource_path, projects_directory
+from fmeda_tool.version import APP_NAME, APP_VERSION, APP_DISPLAY_NAME
 
 
 def main():
     """Main application entry point"""
+    if len(sys.argv) == 3 and sys.argv[1] == "--deployment-check":
+        from fmeda_tool.deployment_check import run
+        return run(sys.argv[2])
+    # PyInstaller --windowed has no stdout/stderr. Configure before UI imports,
+    # which also initialize performance logging.
+    log_dir = logs_directory()
+    log_dir.mkdir(parents=True, exist_ok=True)
+    if sys.stdout is None:
+        sys.stdout = open(log_dir / "application.log", "a", encoding="utf-8", buffering=1)
+    if sys.stderr is None:
+        sys.stderr = sys.stdout
+    from PyQt6.QtWidgets import QApplication, QMessageBox
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtGui import QIcon
+    from fmeda_tool.ui import MainWindow, MainMenu
     print("="*70)
-    print("FMEDA Tool - Failure Mode, Effects and Diagnostic Analysis")
+    print(APP_DISPLAY_NAME + " - Failure Mode, Effects and Diagnostic Analysis")
     print("="*70)
     print("\nApplication starting...")
     
@@ -25,7 +39,7 @@ def main():
         
         try:
             from pathlib import Path
-            log_dir = Path("logs")
+            log_dir = logs_directory()
             log_dir.mkdir(exist_ok=True)
             log_file = log_dir / "error.log"
             with open(log_file, "a", encoding="utf-8") as f:
@@ -60,14 +74,25 @@ def main():
     
     # Enable high DPI scaling
     QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
+
+    app = QApplication(sys.argv)
+    app.setApplicationName(APP_NAME)
+    app.setApplicationVersion(APP_VERSION)
+    app.setWindowIcon(QIcon(str(resource_path("assets", "FMEDA.ico"))))
     
     # Ensure SQLite component database is initialized
     from fmeda_tool.db import DatabaseService
-    ready, db_msg = DatabaseService.ensure_database_ready()
+    try:
+        ready, db_msg = DatabaseService.ensure_database_ready()
+    except Exception as error:
+        ready, db_msg = False, str(error)
     print(f"Database status: {db_msg}")
+    if not ready:
+        QMessageBox.critical(None, "Database Initialization Failed", db_msg)
+        return 1
+    projects_directory().mkdir(parents=True, exist_ok=True)
     
     # Create Qt application
-    app = QApplication(sys.argv)
     
 
     
@@ -93,8 +118,8 @@ def main():
     print("\nGUI is now ready. Use the menu bar for navigation.")
     
     # Start event loop
-    sys.exit(app.exec())
+    return app.exec()
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

@@ -196,11 +196,11 @@ def test_summary_reads_existing_results_without_calculation(qapp):
     tab.enable_editing()
     tab.model.setData(tab.model.index(0, 10), "No")
     assert "λDiagGesamt: 0.2800 FIT" in tab.diagnostic_summary.text()
-    tab.model.setData(tab.model.index(0, 12), 50)
-    assert "λsafe: 0.0600 FIT" in tab.diagnostic_summary.text()
-    assert "λdangerous: 0.3400 FIT" in tab.diagnostic_summary.text()
+    tab.model.setData(tab.model.index(0, 11), "no_part_failure")
+    assert "λsafe: 0.0000 FIT" in tab.diagnostic_summary.text()
+    assert "λdangerous: 0.2800 FIT" in tab.diagnostic_summary.text()
     tab.confirm_changes()
-    assert "λsafe: 0.0600 FIT" in tab.diagnostic_summary.text()
+    assert "λsafe: 0.0000 FIT" in tab.diagnostic_summary.text()
     view.unit_tabs.setCurrentIndex(2)
     other = view.unit_tabs.widget(2)
     assert other.diagnostic_summary.text().count("0.0000 FIT") == 4
@@ -230,8 +230,8 @@ def test_page_three_labels_only(qapp):
     before = Calc.calculate_project(p)
     view = VerificationView()
     view.load_project(p)
-    labels = [view.secondary_table.item(r, 0).text() for r in range(view.secondary_table.rowCount())]
-    assert "PFDavg" in labels and "PFHd" in labels
+    labels = [view.secondary_table.verticalHeaderItem(r).text() for r in range(view.secondary_table.rowCount())]
+    assert "PFDavg" in labels and "PFHd (/h)" in labels
     assert "Average PFD (PFDavg)" not in labels and "Maximum PFD (PFHd)" not in labels
     assert Calc.calculate_project(p) == before
 
@@ -269,7 +269,7 @@ def test_legacy_lazy_assignments_are_included_in_summary(qapp):
     Calc.calculate_project(p)
     view, tab = editor(p)
     assert "λtotal: 0.4000 FIT" in tab.diagnostic_summary.text()
-    assert "λdangerous: 0.4000 FIT" in tab.diagnostic_summary.text()
+    assert "λdangerous: 0.0000 FIT" in tab.diagnostic_summary.text()
     assert "λDiagGesamt: 0.0000 FIT" in tab.diagnostic_summary.text()
 
 

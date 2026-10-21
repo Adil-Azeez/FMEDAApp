@@ -87,7 +87,7 @@ def test_combo_box_delegate_lifecycle(qapp):
     # 1. Create temporary editor
     editor = delegate.createEditor(None, opt, idx)
     assert isinstance(editor, QComboBox)
-    assert editor.count() == 3  # Not Evaluated, Safe Failure, Dangerous Failure
+    assert editor.count() == 6  # All current classifications
 
     # 2. Set editor data
     delegate.setEditorData(editor, idx)
@@ -108,7 +108,7 @@ def test_spin_box_delegate_lifecycle(qapp):
     model.set_edit_mode(True)
     delegate = FmedaSpinBoxDelegate(min_val=0.0, max_val=100.0, step=1.0, decimals=2, suffix="%")
 
-    idx = model.index(0, 12)  # Dangerous % column (col 12)
+    idx = model.index(0, 15)  # Detection remains editable
     opt = QStyleOptionViewItem()
 
     # 1. Create editor
@@ -117,7 +117,7 @@ def test_spin_box_delegate_lifecycle(qapp):
 
     # 2. Set editor data
     delegate.setEditorData(editor, idx)
-    assert editor.value() == 100.0
+    assert editor.value() == 0.0
 
     # 3. Modify value and commit
     editor.setValue(75.5)
@@ -161,7 +161,7 @@ def test_zero_permanent_cell_widgets(qapp):
 
     # Table has cells rendered
     assert model.rowCount() == 1
-    assert model.columnCount() == 36
+    assert model.columnCount() == 35
 
     # In QTableView with delegates, cellWidget is None for all cells!
     # No permanent widgets are ever created or retained

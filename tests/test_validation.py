@@ -99,10 +99,18 @@ class TestValidationEngine(unittest.TestCase):
             target_sil="SIL 3",
             achieved_sil="SIL 2"  # Achieved < Target
         )
+        project.units = [Unit(id="u", name="Independent group", description="Test",
+            components=[Component(id="c", name="Resistor", type="Resistor", position="R1",
+                failure_rate=100, failure_modes={"Open": 100},
+                failure_mode_assignments=[FailureModeAssignment(
+                    failure_mode_name="Open", failure_rate_percentage=100,
+                    classification="dangerous_failure", detection_percentage=95)])])]
         alerts = ValidationService.validate_project(project)
         sil_alerts = [a for a in alerts if "Target SIL is SIL 3" in a["message"]]
         self.assertEqual(len(sil_alerts), 1)
         self.assertEqual(sil_alerts[0]["severity"], "Error")
+        self.assertEqual(sil_alerts[0]["unit_id"], "u")
+        self.assertEqual(sil_alerts[0]["scope"], "Functional Group")
 
 
 if __name__ == "__main__":

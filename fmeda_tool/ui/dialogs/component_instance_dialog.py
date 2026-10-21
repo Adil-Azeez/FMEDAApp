@@ -1,3 +1,4 @@
+from fmeda_tool.models.failure_mode_assignment import CLASSIFICATIONS, CLASSIFICATION_LABELS
 from fmeda_tool.services.catalog_service import linked_mitigations, valid_mitigation, deviation_search_text
 from fmeda_tool.ui.widgets.deviation_selector import DeviationSelector
 
@@ -111,7 +112,7 @@ class ComponentInstanceDialog(QDialog):
         
         # Table
         self.table = QTableWidget()
-        self.table.setColumnCount(16)
+        self.table.setColumnCount(15)
         self.table.setHorizontalHeaderLabels([
             "Failure Mode",
             "Rate %",
@@ -120,7 +121,7 @@ class ComponentInstanceDialog(QDialog):
             "Detection %",
             "Dangerous %",
             "Classification", "Review Status", "Proof-test A %", "Proof-test B %",
-            "Proof-test C %", "Diagnostic Function", "Mitigation", "No Part / No Effect",
+            "Proof-test C %", "Diagnostic Function", "Mitigation",
             "Notes", "DC Test Reference"
         ])
         
@@ -218,7 +219,7 @@ class ComponentInstanceDialog(QDialog):
         "deviation_id", "diagnostic_measure_id", "detection_percentage",
         "dangerous_failure_percentage", "classification", "review_status",
         "proof_test_a", "proof_test_b", "proof_test_c", "diagnostic_function",
-        "mitigation_id", "dont_care", "notes", "dc_test_ref",
+        "mitigation_id", "notes", "dc_test_ref",
     )
 
     def _load_data(self):
@@ -267,7 +268,7 @@ class ComponentInstanceDialog(QDialog):
         if field == "mitigation_id":
             return [("-- None --", None)] + [(m.name or m.id, m.id) for m in linked_mitigations(self.project, deviation_id)]
         if field == "classification":
-            return [("Not Evaluated", "not_evaluated"), ("Safe Failure", "safe_failure"), ("Dangerous Failure", "dangerous_failure")]
+            return [(label, key) for key, label in CLASSIFICATIONS.items()]
         if field == "review_status":
             return [("Draft", "draft"), ("Under Review", "under_review"), ("Approved", "approved")]
         if field == "diagnostic_function":
@@ -301,14 +302,11 @@ class ComponentInstanceDialog(QDialog):
                         widget.addItem(label, data)
                 index = widget.findData(value)
                 if index < 0:
-                    widget.addItem(("⚠ Invalid: " if field == "mitigation_id" else "") + str(value or ""), value)
+                    widget.addItem(("⚠ Invalid: " if field == "mitigation_id" else "") + CLASSIFICATION_LABELS.get(value, str(value or "")), value)
                     if field == "mitigation_id":
                         widget.model().item(widget.count() - 1).setEnabled(False)
                     index = widget.count() - 1
                 widget.setCurrentIndex(index)
-            elif field == "dont_care":
-                widget = QCheckBox()
-                widget.setChecked(bool(value))
             elif field in ("notes", "dc_test_ref"):
                 widget = QLineEdit(value or "")
             else:
@@ -317,6 +315,8 @@ class ComponentInstanceDialog(QDialog):
                 widget.setDecimals(6)
                 widget.setValue(value or 0.0)
                 widget.setSuffix("%")
+            if field == "dangerous_failure_percentage":
+                widget.setEnabled(False)
             widget.setProperty("originalValue", self._widget_value(widget))
             self.table.setCellWidget(row, col, widget)
         dev_widget = self._engineering_widget(row, "deviation_id")
@@ -433,6 +433,11 @@ class ComponentInstanceDialog(QDialog):
                 if ((data["deviation_id"], data["mitigation_id"]) != (original.deviation_id, original.mitigation_id)
                         and not valid_mitigation(self.project, data["deviation_id"], data["mitigation_id"])):
                     raise ValueError("Mitigation must be linked to the selected deviation.")
+                if data["classification"] != original.classification:
+                    updated = original.model_copy(deep=True)
+                    updated.set_classification(data["classification"])
+                    data.update(classification=updated.classification, classification_version=updated.classification_version,
+                                dangerous_failure_percentage=updated.dangerous_failure_percentage)
                 assignments.append(FailureModeAssignment.model_validate(data))
             changed = modes != self.component.failure_modes
             snapshot = None

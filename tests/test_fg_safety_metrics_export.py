@@ -313,76 +313,25 @@ class TestFunctionalGroupSafetyMetricsExport(unittest.TestCase):
             
             # Check headers row (title_row + 2)
             header_row = title_row + 2
-            expected_headers = [
-                "Functional Group",
-                "Safety Function",
-                "Total Failure Rate λtotal",
-                "Safe Failure Rate λsafe",
-                "Dangerous Failure Rate λdangerous",
-                "Safe Detected λsd",
-                "Safe Undetected λsu",
-                "Dangerous Detected λdd",
-                "Dangerous Undetected λdu",
-                "Safety-Channel λsd",
-                "Safety-Channel λsu",
-                "Safety-Channel λdd",
-                "Safety-Channel λdu",
-                "Proof-Test A Coverage",
-                "Proof-Test B Coverage",
-                "Proof-Test C Coverage",
-                "SFF Gesamtgerät",
-                "SFF Sicherheitskanal",
-                "DC Sicherheitskanal",
-                "MTBF (years)",
-                "MTTFd Sicherheitskanal (years)",
-                "PFDavg",
-                "PFH",
-                "Achieved SIL"
-            ]
-            
-            for col_idx, expected_h in enumerate(expected_headers, 1):
-                actual_h = ws.cell(row=header_row, column=col_idx).value
-                self.assertEqual(actual_h, expected_h, f"Column {col_idx} header mismatch: {actual_h} vs {expected_h}")
-                
-            # Row 1 of data: SFTY-ADC-CPU
-            row_adc = header_row + 1
-            self.assertEqual(ws.cell(row=row_adc, column=1).value, "SFTY-ADC-CPU")
-            self.assertEqual(ws.cell(row=row_adc, column=2).value, "Yes")
-            self.assertEqual(ws.cell(row=row_adc, column=3).value, "100.0000")  # Total FIT
-            self.assertEqual(ws.cell(row=row_adc, column=17).value, "94.00%")  # SFF GG
-            self.assertEqual(ws.cell(row=row_adc, column=18).value, "94.00%")  # SFF SK
-            self.assertEqual(ws.cell(row=row_adc, column=19).value, "90.00%")  # DC SK
-            self.assertEqual(ws.cell(row=row_adc, column=24).value, "SIL 2")   # SIL
-            
-            # Row 2 of data: SFTY-AO
-            row_ao = header_row + 2
-            self.assertEqual(ws.cell(row=row_ao, column=1).value, "SFTY-AO")
-            self.assertEqual(ws.cell(row=row_ao, column=2).value, "Yes")
-            self.assertEqual(ws.cell(row=row_ao, column=3).value, "50.0000")   # Total FIT GG
-            self.assertEqual(ws.cell(row=row_ao, column=12).value, "20.0000")  # SK λdd (excluding Don't Care)
-            self.assertEqual(ws.cell(row=row_ao, column=13).value, "5.0000")   # SK λdu (excluding Don't Care)
-            self.assertEqual(ws.cell(row=row_ao, column=18).value, "80.00%")  # SFF SK
-            self.assertEqual(ws.cell(row=row_ao, column=19).value, "80.00%")  # DC SK
-            self.assertEqual(ws.cell(row=row_ao, column=24).value, "SIL 1")   # SIL
-            
-            # Row 3 of data: AUX-POWER (Non-safety)
-            row_aux = header_row + 3
-            self.assertEqual(ws.cell(row=row_aux, column=1).value, "AUX-POWER")
-            self.assertEqual(ws.cell(row=row_aux, column=2).value, "No")
-            self.assertEqual(ws.cell(row=row_aux, column=3).value, "30.0000")  # Total FIT GG
-            self.assertEqual(ws.cell(row=row_aux, column=10).value, "N/A")     # Safety-Channel λsd is N/A
-            self.assertEqual(ws.cell(row=row_aux, column=18).value, "N/A")     # SFF SK is N/A
-            self.assertEqual(ws.cell(row=row_aux, column=19).value, "N/A")     # DC SK is N/A
-            self.assertEqual(ws.cell(row=row_aux, column=24).value, "N/A")     # SIL is N/A
-            
-            # Verify Project Overview summary table is also retained
-            found_proj_summary = False
-            for r in range(1, title_row):
-                v = ws.cell(row=r, column=1).value
-                if v and "Calculated Safety Metrics Summary" in str(v):
-                    found_proj_summary = True
-                    break
-            self.assertTrue(found_proj_summary, "Project summary table was retained above functional groups")
+            expected_headers = ["Functional Group"] + [label for _, label, _ in CalculationService.GROUP_METRICS]
+            self.assertEqual([ws.cell(header_row, c).value for c in range(1, len(expected_headers) + 1)], expected_headers)
+            for offset, unit in enumerate(self.project.units, 1):
+                result = CalculationService.calculate_group_result(unit, self.project)
+                self.assertEqual(ws.cell(header_row + offset, 1).value, unit.name)
+                for col, (key, _, style) in enumerate(CalculationService.GROUP_METRICS, 2):
+                    expected = result[key]
+                    if expected is None:
+                        expected = "N/A"
+                    elif style == "pct":
+                        expected /= 100
+                    actual = ws.cell(header_row + offset, col).value
+                    if isinstance(expected, float):
+                        self.assertAlmostEqual(actual, expected)
+                    else:
+                        self.assertEqual(actual, expected)
+            self.assertFalse(any(c.value == "Calculated Safety Metrics Summary" for row in ws for c in row))
+            self.assertEqual(ws.max_row, header_row + len(self.project.units))
+            wb.close()
 
 
 if __name__ == "__main__":

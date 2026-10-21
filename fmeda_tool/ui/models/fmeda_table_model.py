@@ -10,6 +10,7 @@ from typing import Optional, List, Dict, Any, Tuple
 from dataclasses import dataclass, field
 
 from fmeda_tool.models import Project, Unit, Component, FailureModeAssignment
+from fmeda_tool.models.failure_mode_assignment import CLASSIFICATIONS, CLASSIFICATION_LABELS
 from fmeda_tool.services.calculation_service import CalculationService
 from fmeda_tool.services.validation_service import ValidationService
 from fmeda_tool.services.catalog_service import linked_mitigations, valid_mitigation, deviation_search_text
@@ -23,17 +24,13 @@ COLUMN_HEADERS = [
     "Dangerous %", "Safe %",
     "Diagnostic Measure ID", "Detection % (DC)", "Mitigation",
     "Comments / Justification", "Review Status",
-    "Proof Test A", "Proof Test B", "Proof Test C", "No Part / No Effect",
+    "Proof Test A", "Proof Test B", "Proof Test C",
     "lambda (FIT)", "lambda_safe (FIT)", "lambda_dangerous (FIT)",
     "lambda_sd (FIT)", "lambda_su (FIT)", "lambda_dd (FIT)", "lambda_du (FIT)",
     "lambda_no_part (FIT)", "lambda_no_effect (FIT)", "SFF %", "DC %", "MTBF (h)", "MTTFd (y)"
 ]
 
-CLASSIFICATION_DISPLAY_MAP = {
-    "not_evaluated": "Not Evaluated",
-    "safe_failure": "Safe Failure",
-    "dangerous_failure": "Dangerous Failure"
-}
+CLASSIFICATION_DISPLAY_MAP = CLASSIFICATION_LABELS
 
 CLASSIFICATION_DATA_MAP = {v: k for k, v in CLASSIFICATION_DISPLAY_MAP.items()}
 
@@ -52,7 +49,7 @@ class FmedaRowEntry:
 
 class FmedaTableModel(QAbstractTableModel):
     """
-    Model backing the FMEDA spreadsheet with 36 simplified columns,
+    Model backing the FMEDA spreadsheet with 35 simplified columns,
     subtle entry-origin styling, and Locked View Mode vs Edit Mode control.
     """
     data_modified = pyqtSignal()
@@ -86,8 +83,7 @@ class FmedaTableModel(QAbstractTableModel):
                 # values remain searchable alongside their displayed names and numbers.
                 values.extend(entry.assignment.model_dump().values())
                 values.extend((comp.name, comp.type, comp.value, comp.part_number,
-                               (comp.snapshot or {}).get("description"),
-                               "No Part / No Effect" if entry.assignment.dont_care else ""))
+                               (comp.snapshot or {}).get("description")))
                 self._search_texts[row] = "\n".join(str(v).casefold() for v in values if v is not None)
             if query in self._search_texts[row]:
                 matches.append(row)
@@ -163,20 +159,7 @@ class FmedaTableModel(QAbstractTableModel):
 
         comp = entry.component
         assignment = entry.assignment
-        fm_percentage = comp.failure_modes.get(entry.fm_name, entry.fm_percentage)
-        local_fit = (comp.failure_rate or 0.0) * (fm_percentage / 100.0)
-        classif = getattr(assignment, "classification", "not_evaluated")
-        dp = assignment.dangerous_failure_percentage if assignment.dangerous_failure_percentage is not None else 100.0
-        det = assignment.detection_percentage if assignment.detection_percentage is not None else 0.0
-
-        if classif in ["no_part_failure", "no_effect_failure", "diagnostic_function_failure"]:
-            assignment.dont_care = True
-            assignment.dangerous_failure_percentage = 0.0
-            assignment.classification = "safe_failure"
-            classif = "safe_failure"
-            dp = 0.0
-
-        entry.row_metrics = CalculationService.calculate_row_detailed(local_fit, classif, dp, det)
+        entry.row_metrics = CalculationService.calculate_assignment(comp, assignment)
         status, msgs = ValidationService.validate_row(assignment, comp, self.project)
         entry.validation_status = status
         entry.validation_messages = msgs
@@ -224,11 +207,9 @@ class FmedaTableModel(QAbstractTableModel):
             return base_flags
 
         # In Edit Mode, editable engineering columns return ItemIsEditable
-        editable_cols = {2, 3, 4, 7, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21}
+        editable_cols = {2, 3, 4, 7, 9, 10, 11, 14, 15, 16, 17, 18, 19, 20, 21}
         if col in editable_cols:
             return base_flags | Qt.ItemFlag.ItemIsEditable
-        elif col == 22:  # DON'T CARE / No Part checkbox
-            return base_flags | Qt.ItemFlag.ItemIsUserCheckable
 
         return base_flags
 
@@ -265,11 +246,11 @@ class FmedaTableModel(QAbstractTableModel):
                     return QBrush(QColor("#fff3cd"))
 
             # Calculated columns: very light gray
-            if col >= 23:
+            if col >= 22:
                 return QBrush(QColor("#f8f9fa"))
 
             # Manual engineering inputs: subtle warm cream/yellow
-            if col in (2, 3, 4, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22):
+            if col in (2, 3, 4, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21):
                 return QBrush(QColor("#fffdf0"))
 
             # Library / BOM supplied components
@@ -283,6 +264,8 @@ class FmedaTableModel(QAbstractTableModel):
 
         # 2. Tooltip Role
         if role == Qt.ItemDataRole.ToolTipRole:
+            if col in (11, 12, 13):
+                return CLASSIFICATION_LABELS.get(assignment.classification, "Not Evaluated") + "\nClassification allocates the full failure-mode rate. Legacy percentage values are retained until review."
             if col == 14:
                 dm = next((m for m in self.project.diagnostic_measures if m.id == assignment.diagnostic_measure_id), None)
                 if dm:
@@ -290,9 +273,9 @@ class FmedaTableModel(QAbstractTableModel):
             if col == 16 and not valid_mitigation(self.project, assignment.deviation_id, assignment.mitigation_id):
                 return "Invalid deviation/mitigation combination: mitigation is not linked to the selected deviation."
             origin_info = "Origin: Library"
-            if col >= 23:
+            if col >= 22:
                 origin_info = "Origin: Calculated"
-            elif col in (2, 3, 4, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22):
+            elif col in (2, 3, 4, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21):
                 origin_info = "Origin: Manual Engineering"
             elif any(b.designator == comp.position for b in getattr(self.unit, "bom_components", []) or []):
                 origin_info = "Origin: BOM Import"
@@ -308,10 +291,6 @@ class FmedaTableModel(QAbstractTableModel):
             if col in center_cols:
                 return Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter
             return Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
-
-        # 4. CheckState Role (Col 22 - No Part / No Effect)
-        if role == Qt.ItemDataRole.CheckStateRole and col == 22:
-            return Qt.CheckState.Checked if getattr(assignment, "dont_care", False) else Qt.CheckState.Unchecked
 
         # 5. DisplayRole and EditRole
         if role in (Qt.ItemDataRole.DisplayRole, Qt.ItemDataRole.EditRole):
@@ -333,11 +312,14 @@ class FmedaTableModel(QAbstractTableModel):
         elif col == 10:  # Diagnostic Function: no implicit default
             return [{"label": "", "data": ""}, {"label": "Yes", "data": "Yes"}, {"label": "No", "data": "No"}]
         elif col == 11:  # Classification
-            return [
-                {"label": "Not Evaluated", "data": "not_evaluated"},
-                {"label": "Safe Failure", "data": "safe_failure"},
-                {"label": "Dangerous Failure", "data": "dangerous_failure"}
-            ]
+            legacy = assignment is not None and assignment.classification == "legacy_no_part_no_effect"
+            options = [{"label": label, "data": key,
+                        "enabled": not legacy or key in ("no_part_failure", "no_effect_failure")}
+                       for key, label in CLASSIFICATIONS.items()]
+            if legacy:
+                options.insert(0, {"label": CLASSIFICATION_LABELS[assignment.classification],
+                                   "data": assignment.classification, "enabled": False})
+            return options
         elif col == 14:  # Diagnostic Measure
             opts = [{"label": "-- None --", "data": None}]
             for dm in self.project.diagnostic_measures:
@@ -407,11 +389,12 @@ class FmedaTableModel(QAbstractTableModel):
                 return classif
             return CLASSIFICATION_DISPLAY_MAP.get(classif, "Not Evaluated")
         elif col == 12:
-            dp = assignment.dangerous_failure_percentage if assignment.dangerous_failure_percentage is not None else 100.0
+            dp = assignment.dangerous_failure_percentage if assignment.classification_version == 1 else (100.0 if assignment.classification == "dangerous_failure" else 0.0)
+            dp = dp if dp is not None else 100.0
             return dp if role == Qt.ItemDataRole.EditRole else f"{dp:.1f}%"
         elif col == 13:
             dp = assignment.dangerous_failure_percentage if assignment.dangerous_failure_percentage is not None else 100.0
-            safe_pct = 100.0 - dp
+            safe_pct = 100.0 - dp if assignment.classification_version == 1 else (100.0 if assignment.classification == "safe_failure" else 0.0)
             return safe_pct if role == Qt.ItemDataRole.EditRole else f"{safe_pct:.1f}%"
         elif col == 14:
             dm_id = assignment.diagnostic_measure_id
@@ -450,33 +433,31 @@ class FmedaTableModel(QAbstractTableModel):
             val = getattr(assignment, "proof_test_c", 0.0) or 0.0
             return val if role == Qt.ItemDataRole.EditRole else f"{val:.1f}%"
         elif col == 22:
-            return ""
-        elif col == 23:
             return f"{metrics.get('lambda', 0.0):.4f}"
-        elif col == 24:
+        elif col == 23:
             return f"{metrics.get('lambda_safe', 0.0):.4f}"
-        elif col == 25:
+        elif col == 24:
             return f"{metrics.get('lambda_dangerous', 0.0):.4f}"
-        elif col == 26:
+        elif col == 25:
             return f"{metrics.get('lambda_sd', 0.0):.4f}"
-        elif col == 27:
+        elif col == 26:
             return f"{metrics.get('lambda_su', 0.0):.4f}"
-        elif col == 28:
+        elif col == 27:
             return f"{metrics.get('lambda_dd', 0.0):.4f}"
-        elif col == 29:
+        elif col == 28:
             return f"{metrics.get('lambda_du', 0.0):.4f}"
-        elif col == 30:
+        elif col == 29:
             return f"{metrics.get('lambda_no_part', 0.0):.4f}"
-        elif col == 31:
+        elif col == 30:
             return f"{metrics.get('lambda_no_effect', 0.0):.4f}"
-        elif col == 32:
+        elif col == 31:
             return f"{metrics.get('sff', 0.0):.1f}%"
-        elif col == 33:
+        elif col == 32:
             return f"{metrics.get('dc', 0.0):.1f}%"
-        elif col == 34:
+        elif col == 33:
             mtbf = metrics.get('mtbf', 0.0)
             return f"{mtbf:.1e}" if mtbf > 0 else "N/A"
-        elif col == 35:
+        elif col == 34:
             mttfd = metrics.get('mttfd', 0.0)
             return f"{mttfd:.1f}" if mttfd > 0 else "N/A"
         return None
@@ -496,15 +477,6 @@ class FmedaTableModel(QAbstractTableModel):
 
         comp = entry.component
         assignment = entry.assignment
-
-        # Handle CheckStateRole for Col 22 (DON'T CARE)
-        if role == Qt.ItemDataRole.CheckStateRole and col == 22:
-            is_checked = (value == Qt.CheckState.Checked or value == Qt.CheckState.Checked.value or bool(value))
-            assignment.dont_care = is_checked
-            self._compute_entry_metrics(entry)
-            self.dataChanged.emit(self.index(row, 0), self.index(row, len(COLUMN_HEADERS) - 1))
-            self.data_modified.emit()
-            return True
 
         if role != Qt.ItemDataRole.EditRole:
             return False
@@ -570,48 +542,17 @@ class FmedaTableModel(QAbstractTableModel):
         # Classification (col 11)
         if col == 11:
             class_key = CLASSIFICATION_DATA_MAP.get(value, value)
-            assignment.classification = class_key
-            if class_key == "safe_failure":
-                assignment.dangerous_failure_percentage = 0.0
-            elif class_key == "dangerous_failure":
-                assignment.dangerous_failure_percentage = 100.0
+            try:
+                assignment.set_classification(class_key)
+            except ValueError:
+                return False
             self._compute_entry_metrics(entry)
             self.dataChanged.emit(self.index(row, 0), self.index(row, len(COLUMN_HEADERS) - 1))
             self.data_modified.emit()
             return True
 
-        # Dangerous % (col 12)
-        if col == 12:
-            try:
-                dp = float(value)
-                assignment.dangerous_failure_percentage = dp
-                if dp == 0.0:
-                    assignment.classification = "safe_failure"
-                else:
-                    assignment.classification = "dangerous_failure"
-                self._compute_entry_metrics(entry)
-                self.dataChanged.emit(self.index(row, 0), self.index(row, len(COLUMN_HEADERS) - 1))
-                self.data_modified.emit()
-                return True
-            except (ValueError, TypeError):
-                return False
-
-        # Safe % (col 13)
-        if col == 13:
-            try:
-                safe_pct = float(value)
-                dp = 100.0 - safe_pct
-                assignment.dangerous_failure_percentage = dp
-                if dp == 0.0:
-                    assignment.classification = "safe_failure"
-                else:
-                    assignment.classification = "dangerous_failure"
-                self._compute_entry_metrics(entry)
-                self.dataChanged.emit(self.index(row, 0), self.index(row, len(COLUMN_HEADERS) - 1))
-                self.data_modified.emit()
-                return True
-            except (ValueError, TypeError):
-                return False
+        if col in (12, 13):
+            return False  # Classification defines the full safe/dangerous bucket.
 
         # Diagnostic Measure (col 14)
         if col == 14:

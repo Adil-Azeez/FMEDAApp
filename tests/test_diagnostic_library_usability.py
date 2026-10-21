@@ -129,7 +129,7 @@ def test_legacy_reference_roundtrip_and_column_removal(qtbot, tmp_path):
     reopened, _, _ = ProjectService.load_and_migrate_project(str(path))
     model = FmedaTableModel(reopened.units[0], reopened)
     metrics = dict(model.rows[0].row_metrics)
-    assert model.columnCount() == 36
+    assert model.columnCount() == 35
     assert "DC Test Ref" not in COLUMN_HEADERS
     assert model.rows[0].assignment.dc_test_ref == "Historical evidence"
     assert "Historical evidence" in reopened.model_dump_json(by_alias=True)

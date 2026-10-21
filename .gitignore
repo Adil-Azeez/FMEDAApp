@@ -5,3 +5,7 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 logs/
+.build-venv/
+build/
+dist/
+installer/

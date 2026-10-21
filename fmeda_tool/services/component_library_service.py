@@ -9,6 +9,7 @@ import logging
 from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime
 from pathlib import Path
+from fmeda_tool.paths import projects_directory
 
 from fmeda_tool.db.database import get_db_connection, ensure_database_ready
 
@@ -772,7 +773,7 @@ class ComponentLibraryService:
                             })
                             
         # 2. Check saved projects on disk
-        target_dir = projects_dir if projects_dir is not None else Path("data/projects")
+        target_dir = projects_dir if projects_dir is not None else projects_directory()
         if target_dir.exists() and target_dir.is_dir():
             for p_file in target_dir.glob("*.json"):
                 try:

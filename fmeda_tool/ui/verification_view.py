@@ -203,10 +203,10 @@ class VerificationView(QWidget):
         # Scope Header Label (Above Summary Cards)
         scope_card_header = QHBoxLayout()
         self.scope_indicator_label = QLabel("Scope: All Functional Groups")
+        self.scope_indicator_label.setWordWrap(True)
         self.scope_indicator_label.setFont(QFont("Arial", 11, QFont.Weight.Bold))
         self.scope_indicator_label.setStyleSheet("color: #0d6efd; padding-bottom: 2px;")
-        scope_card_header.addWidget(self.scope_indicator_label)
-        scope_card_header.addStretch()
+        scope_card_header.addWidget(self.scope_indicator_label, 1)
         self.layout.addLayout(scope_card_header)
         
         # Grid section for target SIL vs achieved metrics (Highlighted Cards)
@@ -241,7 +241,7 @@ class VerificationView(QWidget):
         
         # Secondary Summary Table Section with Scope Selector
         scope_header_lay = QHBoxLayout()
-        table_lbl = QLabel("Detailed Scope Comparison Summary")
+        table_lbl = QLabel("Independent Functional-Group Results")
         table_lbl.setFont(QFont("Arial", 12, QFont.Weight.Bold))
         scope_header_lay.addWidget(table_lbl)
         scope_header_lay.addStretch()
@@ -269,15 +269,26 @@ class VerificationView(QWidget):
         scope_top.addWidget(self.clear_all_btn)
         self.scope_layout.addLayout(scope_top)
         
-        self.scope_checkboxes_layout = QHBoxLayout()
-        self.scope_layout.addLayout(self.scope_checkboxes_layout)
+        selector_scroll = QScrollArea()
+        selector_scroll.setWidgetResizable(True)
+        selector_scroll.setFixedHeight(75)
+        selector_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        selector_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        selector_content = QWidget()
+        self.scope_checkboxes_layout = QHBoxLayout(selector_content)
+        self.scope_checkboxes_layout.setContentsMargins(0, 0, 0, 0)
+        selector_scroll.setWidget(selector_content)
+        self.scope_layout.addWidget(selector_scroll)
         self.layout.addWidget(self.scope_box)
         
         self.secondary_table = QTableWidget()
-        self.secondary_table.setColumnCount(3)
-        self.secondary_table.setHorizontalHeaderLabels(["Parameter", "Gesamtgerät (Overall Device)", "Sicherheitskanal (Safety Channel)"])
-        self.secondary_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        self.secondary_table.setFixedHeight(280)
+        self.secondary_table.setColumnCount(0)
+        self.secondary_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        self.secondary_table.horizontalHeader().setDefaultSectionSize(180)
+        self.secondary_table.horizontalHeader().setMinimumSectionSize(140)
+        self.secondary_table.setHorizontalScrollMode(QTableWidget.ScrollMode.ScrollPerPixel)
+        self.secondary_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.secondary_table.setMinimumHeight(520)
         self.secondary_table.setAlternatingRowColors(True)
         self.layout.addWidget(self.secondary_table)
         
@@ -438,119 +449,58 @@ class VerificationView(QWidget):
         self._update_scope_results()
 
     def _update_scope_results(self):
-        """
-        Recalculates and refreshes the scope indicator, five summary cards,
-        and Detailed Scope Comparison table from the common selected functional groups.
-        """
-        if not self.project:
-            self.scope_indicator_label.setText("Scope: None")
-            self.card_val_sil.setText("N/A")
-            self.card_val_target.setText("N/A")
-            self.card_val_sff.setText("N/A")
-            self.card_val_dc.setText("N/A")
-            self.card_val_mttfd.setText("N/A")
-            self._populate_secondary_table_from_scope(None)
-            return
+        units = [u for u in self.project.units if u.id in self.selected_unit_ids] if self.project else []
+        self.scope_indicator_label.setText("Independent groups: " + (", ".join(u.name for u in units) or "None"))
+        self.group_results = [CalculationService.calculate_group_result(u, self.project) for u in units]
+        for frame in (self.card_frame_sil, self.card_frame_target, self.card_frame_sff,
+                      self.card_frame_dc, self.card_frame_mttfd):
+            frame.setVisible(len(units) == 1)
+        result = self.group_results[0] if len(units) == 1 else {}
+        self.card_val_sil.setText(str(result.get("achieved_sil", "N/A")))
+        self.card_val_target.setText(self.project.target_sil or "N/A" if self.project else "N/A")
+        self.card_val_sff.setText(self._format_metric(result.get("sff"), "pct"))
+        self.card_val_dc.setText(self._format_metric(result.get("dc"), "pct"))
+        self.card_val_mttfd.setText(self._format_metric(result.get("mttfd"), "years"))
+        table = self.secondary_table
+        previous_widths = {table.horizontalHeaderItem(c).data(Qt.ItemDataRole.UserRole): table.columnWidth(c)
+                           for c in range(table.columnCount()) if table.horizontalHeaderItem(c)}
+        table.clear()
+        table.setRowCount(len(CalculationService.GROUP_METRICS))
+        table.setColumnCount(len(units))
+        table.setVerticalHeaderLabels([label for _, label, _ in CalculationService.GROUP_METRICS])
+        for col, (unit, result) in enumerate(zip(units, self.group_results)):
+            header = QTableWidgetItem(unit.name)
+            header.setData(Qt.ItemDataRole.UserRole, unit.id)
+            header.setToolTip(unit.name)
+            table.setHorizontalHeaderItem(col, header)
+            table.setColumnWidth(col, previous_widths.get(unit.id, max(180, table.fontMetrics().horizontalAdvance(unit.name) + 30)))
+            for row, (key, label, style) in enumerate(CalculationService.GROUP_METRICS):
+                item = QTableWidgetItem(self._format_metric(result[key], style))
+                item.setData(Qt.ItemDataRole.UserRole, result[key])
+                item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+                table.setItem(row, col, item)
 
-        scoped_units = [u for u in self.project.units if u.id in self.selected_unit_ids]
-        
-        # Format scope string
-        if not scoped_units:
-            scope_str = "None"
-        elif len(scoped_units) == len(self.project.units) and len(scoped_units) > 1:
-            scope_str = " + ".join(u.name for u in scoped_units)
-        else:
-            scope_str = " + ".join(u.name for u in scoped_units)
-
-        self.scope_indicator_label.setText(f"Scope: {scope_str}")
-
-        scope_res = CalculationService.calculate_scope(scoped_units, self.project)
-        sk = scope_res["sicherheitskanal"]
-        
-        # 1. Achieved SIL
-        self.card_val_sil.setText(scope_res["achieved_sil"])
-        
-        # 2. Project Target SIL
-        target_sil_str = getattr(self.project, "target_sil", None) or "N/A"
-        self.card_val_target.setText(target_sil_str)
-        
-        # 3. SFF (Safety Channel)
-        sff_val = sk["sff"]
-        self.card_val_sff.setText(f"{sff_val:.2f}%" if sff_val is not None else "N/A")
-        
-        # 4. DC (Safety Channel)
-        dc_val = sk["dc"]
-        self.card_val_dc.setText(f"{dc_val:.2f}%" if dc_val is not None else "N/A")
-        
-        # 5. MTTFd (Safety Channel)
-        mttfd_val = sk["mttfd"]
-        self.card_val_mttfd.setText(f"{mttfd_val:.1f} years" if mttfd_val is not None and mttfd_val > 0 else "N/A")
-        
-        # Populate secondary table
-        self._populate_secondary_table_from_scope(scope_res)
+    @staticmethod
+    def _format_metric(value, style):
+        if value is None:
+            return "N/A"
+        if style == "text":
+            return str(value)
+        if style == "scientific":
+            return f"{value:.6e}"
+        if style == "pct":
+            return f"{value:.2f}%"
+        if style == "years":
+            return f"{value:.1f} years"
+        return f"{value:.4f} FIT"
 
     def _populate_secondary_table(self):
-        """Legacy helper for backward compatibility."""
         self._update_scope_results()
-
-    def _populate_secondary_table_from_scope(self, scope_res: Optional[Dict[str, Any]]):
-        """Populates the Detailed Scope Comparison table from the scoped calculation result."""
-        self.secondary_table.setRowCount(0)
-        if not self.project:
-            return
-            
-        if not scope_res:
-            scope_res = CalculationService.calculate_scope([], self.project)
-
-        def add_summary_row(lbl, val_gg, val_sk):
-            r_idx = self.secondary_table.rowCount()
-            self.secondary_table.insertRow(r_idx)
-            
-            item_lbl = QTableWidgetItem(lbl)
-            item_lbl.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
-            
-            item_gg = QTableWidgetItem(val_gg)
-            item_gg.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
-            item_gg.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-            
-            item_sk = QTableWidgetItem(val_sk)
-            item_sk.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
-            item_sk.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-            
-            self.secondary_table.setItem(r_idx, 0, item_lbl)
-            self.secondary_table.setItem(r_idx, 1, item_gg)
-            self.secondary_table.setItem(r_idx, 2, item_sk)
-
-        gg = scope_res["gesamtgerat"]
-        sk = scope_res["sicherheitskanal"]
-
-        add_summary_row("Total Failure Rate (λ total)", f"{gg['lambda']:.4f} FIT", f"{sk['lambda']:.4f} FIT")
-        add_summary_row("Safe Failure Rate (λ safe)", f"{gg['lambda_safe']:.4f} FIT", f"{sk['lambda_safe']:.4f} FIT")
-        add_summary_row("Dangerous Failure Rate (λ dangerous)", f"{gg['lambda_dangerous']:.4f} FIT", f"{sk['lambda_dangerous']:.4f} FIT")
-        add_summary_row("Safe Detected λsd", f"{gg['lambda_sd']:.4f} FIT", f"{sk['lambda_sd']:.4f} FIT")
-        add_summary_row("Safe Undetected λsu", f"{gg['lambda_su']:.4f} FIT", f"{sk['lambda_su']:.4f} FIT")
-        add_summary_row("Dangerous Detected λdd", f"{gg['lambda_dd']:.4f} FIT", f"{sk['lambda_dd']:.4f} FIT")
-        add_summary_row("Dangerous Undetected λdu", f"{gg['lambda_du']:.4f} FIT", f"{sk['lambda_du']:.4f} FIT")
-        
-        add_summary_row("PFDavg", "N/A", f"{sk['pfd_avg']:.6e}" if sk['pfd_avg'] is not None else "N/A")
-        add_summary_row("PFHd", "N/A", f"{sk['pfd_max']:.6e} /h" if sk['pfd_max'] is not None else "N/A")
-        add_summary_row("MTTFd (years)", "N/A", f"{sk['mttfd']:.1f} years" if sk['mttfd'] is not None and sk['mttfd'] > 0 else "N/A")
-        
-        t_proof = scope_res["test_interval"]
-        t_diag = scope_res["diagnostic_test_interval"]
-        add_summary_row("Proof Test Interval", f"{t_proof:.1f} hours", f"{t_proof:.1f} hours")
-        add_summary_row("Diagnostic Test Interval", f"{t_diag:.1f} hours", f"{t_diag:.1f} hours")
-        add_summary_row("Component Count", str(gg['comp_count']), str(sk['comp_count']))
-        add_summary_row("FMEDA Row Count", str(gg['row_count']), str(sk['row_count']))
-        add_summary_row("λDiagGesamt (selected groups)", f"{scope_res['lambda_diag_gesamt']:.4f} FIT", "N/A")
 
     def refresh_validation(self):
         if not self.project:
             return
             
-        # Refresh project calculations
-        CalculationService.calculate_project(self.project)
-        
         self.validation_tree.clear()
         self._rebuild_scope_selectors()
         
@@ -650,113 +600,3 @@ class VerificationView(QWidget):
             self.validation_tree.addTopLevelItem(group_item)
             group_item.setExpanded(True)
 
-    def _populate_secondary_table(self):
-        """Populates the Detailed Scope Comparison table filtered by selected functional groups."""
-        self.secondary_table.setRowCount(0)
-        if not self.project:
-            return
-
-        def add_summary_row(lbl, val_gg, val_sk):
-            r_idx = self.secondary_table.rowCount()
-            self.secondary_table.insertRow(r_idx)
-            
-            item_lbl = QTableWidgetItem(lbl)
-            item_lbl.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
-            
-            item_gg = QTableWidgetItem(val_gg)
-            item_gg.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
-            item_gg.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-            
-            item_sk = QTableWidgetItem(val_sk)
-            item_sk.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
-            item_sk.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-            
-            self.secondary_table.setItem(r_idx, 0, item_lbl)
-            self.secondary_table.setItem(r_idx, 1, item_gg)
-            self.secondary_table.setItem(r_idx, 2, item_sk)
-
-        # Calculate metrics for selected units only
-        scoped_units = [u for u in self.project.units if u.id in self.selected_unit_ids]
-
-        diag = CalculationService.calculate_scope(scoped_units, self.project)["lambda_diag_gesamt"]
-
-        # Aggregate scoped metrics
-        lambda_total_gg = 0.0
-        lambda_safe_gg = 0.0
-        lambda_dangerous_gg = 0.0
-        lambda_sd_gg = 0.0
-        lambda_su_gg = 0.0
-        lambda_dd_gg = 0.0
-        lambda_du_gg = 0.0
-
-        lambda_total_sk = 0.0
-        lambda_safe_sk = 0.0
-        lambda_dangerous_sk = 0.0
-        lambda_sd_sk = 0.0
-        lambda_su_sk = 0.0
-        lambda_dd_sk = 0.0
-        lambda_du_sk = 0.0
-
-        gg_comp_count = 0
-        gg_row_count = 0
-        sk_comp_count = 0
-        sk_row_count = 0
-
-        for u in scoped_units:
-            # Gesamtgerät includes all components in selected units
-            gg_comp_count += len(u.components)
-            for comp in u.components:
-                gg_row_count += len(comp.failure_modes)
-                for assignment in comp.failure_mode_assignments:
-                    fm_name = assignment.failure_mode_name
-                    fm_pct = comp.failure_modes.get(fm_name, assignment.failure_rate_percentage or 0.0)
-                    local_fit = (comp.failure_rate or 0.0) * (fm_pct / 100.0)
-                    classif = getattr(assignment, "classification", "not_evaluated")
-                    dp = assignment.dangerous_failure_percentage if assignment.dangerous_failure_percentage is not None else 100.0
-                    det = assignment.detection_percentage if assignment.detection_percentage is not None else 0.0
-
-                    m = CalculationService.calculate_row_detailed(local_fit, classif, dp, det)
-                    lambda_total_gg += m.get("lambda", 0.0)
-                    lambda_safe_gg += m.get("lambda_safe", 0.0)
-                    lambda_dangerous_gg += m.get("lambda_dangerous", 0.0)
-                    lambda_sd_gg += m.get("lambda_sd", 0.0)
-                    lambda_su_gg += m.get("lambda_su", 0.0)
-                    lambda_dd_gg += m.get("lambda_dd", 0.0)
-                    lambda_du_gg += m.get("lambda_du", 0.0)
-
-                    # Sicherheitskanal includes if included_in_safety_function and not dont_care
-                    if u.included_in_safety_function and not getattr(assignment, "dont_care", False):
-                        sk_row_count += 1
-                        lambda_total_sk += m.get("lambda", 0.0)
-                        lambda_safe_sk += m.get("lambda_safe", 0.0)
-                        lambda_dangerous_sk += m.get("lambda_dangerous", 0.0)
-                        lambda_sd_sk += m.get("lambda_sd", 0.0)
-                        lambda_su_sk += m.get("lambda_su", 0.0)
-                        lambda_dd_sk += m.get("lambda_dd", 0.0)
-                        lambda_du_sk += m.get("lambda_du", 0.0)
-
-                if u.included_in_safety_function and any(not getattr(a, "dont_care", False) for a in comp.failure_mode_assignments):
-                    sk_comp_count += 1
-
-        # PFD and MTTFd for scoped Sicherheitskanal
-        pfd_avg = (lambda_du_sk * 1e-9 * (self.project.test_interval or 8760.0)) / 2.0
-        pfd_max = lambda_du_sk * 1e-9
-        mttfd_years = (1e9 / (lambda_dangerous_sk * 8760.0)) if lambda_dangerous_sk > 0.0 else 0.0
-
-        add_summary_row("Total Failure Rate (λ total)", f"{lambda_total_gg:.4f} FIT", f"{lambda_total_sk:.4f} FIT")
-        add_summary_row("Safe Failure Rate (λ safe)", f"{lambda_safe_gg:.4f} FIT", f"{lambda_safe_sk:.4f} FIT")
-        add_summary_row("Dangerous Failure Rate (λ dangerous)", f"{lambda_dangerous_gg:.4f} FIT", f"{lambda_dangerous_sk:.4f} FIT")
-        add_summary_row("Safe Detected λsd", f"{lambda_sd_gg:.4f} FIT", f"{lambda_sd_sk:.4f} FIT")
-        add_summary_row("Safe Undetected λsu", f"{lambda_su_gg:.4f} FIT", f"{lambda_su_sk:.4f} FIT")
-        add_summary_row("Dangerous Detected λdd", f"{lambda_dd_gg:.4f} FIT", f"{lambda_dd_sk:.4f} FIT")
-        add_summary_row("Dangerous Undetected λdu", f"{lambda_du_gg:.4f} FIT", f"{lambda_du_sk:.4f} FIT")
-        
-        add_summary_row("PFDavg", "N/A", f"{pfd_avg:.6e}")
-        add_summary_row("PFHd", "N/A", f"{pfd_max:.6e} /h")
-        add_summary_row("MTTFd (years)", "N/A", f"{mttfd_years:.1f} years" if mttfd_years > 0 else "N/A")
-        
-        add_summary_row("Proof Test Interval", f"{self.project.test_interval or 8760.0:.1f} hours", f"{self.project.test_interval or 8760.0:.1f} hours")
-        add_summary_row("Diagnostic Test Interval", f"{self.project.diagnostic_test_interval or 8.0:.1f} hours", f"{self.project.diagnostic_test_interval or 8.0:.1f} hours")
-        add_summary_row("Component Count", str(gg_comp_count), str(sk_comp_count))
-        add_summary_row("FMEDA Row Count", str(gg_row_count), str(sk_row_count))
-        add_summary_row("λDiagGesamt (selected groups)", f"{diag:.4f} FIT", "N/A")

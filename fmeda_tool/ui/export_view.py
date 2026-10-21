@@ -6,6 +6,7 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
 from typing import Optional
 from pathlib import Path
+from fmeda_tool.paths import projects_directory
 
 from fmeda_tool.models import Project
 from fmeda_tool.ui.widgets import WorkflowPageHeader
@@ -178,9 +179,9 @@ class ExportView(QWidget):
             self.save_status_lbl.setText("Project File Status: 🟢 Project is saved up to date.")
             self.save_status_lbl.setStyleSheet("color: #198754; font-weight: bold;")
             
-        data_dir = Path("data/projects")
+        data_dir = projects_directory()
         filename = f"{project.id}_{project.name.replace(' ', '_')}.json"
-        filepath = data_dir / filename
+        filepath = Path(project._saved_path) if project._saved_path else data_dir / filename
         if filepath.exists():
             self.file_path_lbl.setText(f"Saved Location: {filepath.absolute()}")
         else:
@@ -195,9 +196,9 @@ class ExportView(QWidget):
             self.save_status_lbl.setStyleSheet("color: #198754; font-weight: bold;")
             
         if self.project:
-            data_dir = Path("data/projects")
+            data_dir = projects_directory()
             filename = f"{self.project.id}_{self.project.name.replace(' ', '_')}.json"
-            filepath = data_dir / filename
+            filepath = Path(self.project._saved_path) if self.project._saved_path else data_dir / filename
             if filepath.exists():
                 self.file_path_lbl.setText(f"Saved Location: {filepath.absolute()}")
             else:

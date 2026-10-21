@@ -46,18 +46,34 @@ FORMULA_SECTIONS = (
         Formula("lambda_total", "Total failure rate (λtotal)",
                 f"{rate('total')} = Σ {rate('row')}",
                 "Sum of assigned failure-mode rates in the chosen scope, accumulated through components and functional groups. Percentages are not averaged.",
-                (COMPONENT, UNIT, SCOPE)),
+                (COMPONENT, UNIT, SCOPE, "calculate_group_result")),
         Formula("lambda_safe", "Safe failure rate (λsafe)",
-                f"{rate('safe,row')} = {rate('row')} × (100 − p<sub>D</sub>) / 100",
-                "Safe share of each row. Scope totals sum these row rates.", (ROW, COMPONENT)),
+                f"{rate('safe,row')} = {rate('row')} when Classification = Safe Failure; otherwise 0",
+                "Full rate of Safe Failure rows. Detection splits this rate into detected and undetected portions.", (ROW, COMPONENT)),
         Formula("lambda_dangerous", "Dangerous failure rate (λdangerous)",
-                f"{rate('dangerous,row')} = {rate('row')} × p<sub>D</sub> / 100",
-                "Dangerous share of each row. The numerical split uses Dangerous %, not the classification label.", (ROW, COMPONENT)),
+                f"{rate('dangerous,row')} = {rate('row')} when Classification = Dangerous Failure; otherwise 0",
+                "Full rate of Dangerous Failure rows. Other current classifications do not contribute to dangerous failures.", (ROW, COMPONENT)),
+    )),
+    ("Classification Buckets", (
+        Formula("lambda_no_part", "No Part Failure (λnoPart)",
+                f"{rate('noPart')} = Σ {rate('row')} where Classification = No Part Failure",
+                "Full mode rate; excluded from all safety metrics.", (ROW, COMPONENT)),
+        Formula("lambda_no_effect", "No Effect Failure (λnoEffect)",
+                f"{rate('noEffect')} = Σ {rate('row')} where Classification = No Effect Failure",
+                "Full mode rate; excluded from all safety metrics.", (ROW, COMPONENT)),
+        Formula("lambda_diag_failure", "Diagnostic Function Failure",
+                f"{rate('DiagFail')} = Σ {rate('row')} where Classification = Diagnostic Function Failure",
+                "Separate classification bucket. Independent of Diagnostic Function Yes/No and λDiagGesamt. No detected/undetected diagnostic-failure split or DC Diag is implemented.", (ROW, COMPONENT)),
+        Formula("legacy_classification", "Legacy assessment compatibility",
+                f"{rate('dangerous,row')} = {rate('row')} × p<sub>D</sub> / 100<br>"
+                f"{rate('safe,row')} = {rate('row')} × (1 − p<sub>D</sub> / 100)",
+                "Only migrated percentage-based assessments retain this historical split until explicitly classified. Legacy No Part / No Effect rows retain their former overall-device rates and safety exclusion pending review. Not Evaluated is incomplete and generates a warning; new unclassified rows enter no engineering bucket.",
+                (ROW, "calculate_assignment")),
     )),
     ("Safety Channel", (
         Formula("lambda_sd", "Safe detected failure rate (λsd)",
                 f"{rate('sd,row')} = {rate('safe,row')} × p<sub>DC</sub> / 100",
-                "Detected portion of safe failures. Safety-channel totals sum the included rows.", (ROW, COMPONENT, SCOPE)),
+                "Detected portion of safe failures. Safety-channel totals sum only the included rows in that group.", (ROW, COMPONENT, SCOPE)),
         Formula("lambda_su", "Safe undetected failure rate (λsu)",
                 f"{rate('su,row')} = {rate('safe,row')} × (1 − p<sub>DC</sub> / 100)",
                 "Undetected portion of safe failures.", (ROW,)),
@@ -72,14 +88,14 @@ FORMULA_SECTIONS = (
         Formula("lambda_diag_gesamt", "Diagnostic-function failure rate (λDiagGesamt)",
                 f"{rate('DiagGesamt')} = Σ {rate('row')}<br>"
                 "Summation condition: Diagnostic Function = Yes",
-                "Sums the full failure-mode rate for explicit Yes assignments across the selected groups. Independent of classification, detection percentage, No Part / No Effect, and group safety-function inclusion.",
+                "Sums the full failure-mode rate for explicit Yes assignments within one functional group. Independent of classification, detection percentage, No Part / No Effect, and group safety-function inclusion.",
                 ("calculate_diagnostic_lambda", UNIT, SCOPE)),
     )),
     ("Safety Metrics", (
         Formula("sff", "Safe Failure Fraction (SFF)",
                 f"SFF<sub>safety</sub> = 100 × ({rate('sd')} + {rate('su')} + {rate('dd')}) / "
                 f"({rate('sd')} + {rate('su')} + {rate('dd')} + {rate('du')})<br>"
-                f"SFF<sub>device</sub> = 100 × ({rate('safe')} + {rate('dd')}) / {rate('total')}<br>"
+                f"SFF<sub>device</sub> = 100 × ({rate('safe')} + {rate('dd')}) / ({rate('safe')} + {rate('dangerous')})<br>"
                 f"SFF<sub>row</sub> = 100 × ({rate('safe,row')} + {rate('dd,row')}) / {rate('row')}",
                 "Share of safe or dangerous detected failures, in percent. Scope results are unavailable for non-positive denominators; row and unit calculations return 0 in that case.",
                 (ROW, UNIT, SCOPE)),
@@ -125,7 +141,7 @@ FORMULA_SECTIONS = (
         Formula("proof_coverage", "Proof-test coverage (A, B, C)",
                 f"Coverage<sub>X</sub> [%] = 100 × Σ ({rate('du,row')} × p<sub>X,row</sub> / 100) / Σ {rate('du,row')}<br>"
                 "X = A, B or C",
-                "Dangerous-undetected-rate-weighted coverage across all assigned rows in a functional group, including No Part / No Effect rows. Unavailable when the summed rate is non-positive.",
+                "Dangerous-undetected-rate-weighted coverage across all assigned rows in a functional group, excluding No Part, No Effect, Diagnostic Function Failure rows. Legacy exclusion rows retain their historical proof-test contribution until review. Unavailable when the summed rate is non-positive.",
                 (UNIT_METRICS,)),
     )),
 )
@@ -143,12 +159,9 @@ def reference_html():
         (failures per 10<sup>9</sup> hours) unless marked otherwise.</p>
         <p><b>Notation:</b> p<sub>FM</sub> is the failure-mode percentage,
         p<sub>D</sub> is Dangerous %, and p<sub>DC</sub> is Detection %.
-        Missing Dangerous % defaults to 100; missing Detection % defaults to 0.</p>
-        <p><b>Scope:</b> Overall device (Gesamtgerät) includes assigned rows in all
-        selected groups. Safety channel (Sicherheitskanal) excludes No Part / No Effect
-        rows and, at scope level, groups not included in the safety function.
-        Mapping templates are excluded throughout. Scope percentages are calculated
-        from summed rates.</p>"""]
+        Classification defines current engineering buckets. Only legacy percentage-based assessments use Dangerous % (default 100). Missing Detection % defaults to 0.</p>
+        <p><b>Scope:</b> Overall device (Gesamtgerät) includes assigned rows in the assessment. Safety channel (Sicherheitskanal) excludes No Part Failure, No Effect Failure, Diagnostic Function Failure and unresolved legacy exclusion rows and, at scope level, groups not included in the safety function.
+        Mapping templates are excluded throughout. Page 3 and Excel assess each functional group independently. Results from different groups are never combined in those views.</p>"""]
     for section, formulas in FORMULA_SECTIONS:
         parts.append(f"<h2>{escape(section)}</h2><hr>")
         for formula in formulas:

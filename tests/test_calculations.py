@@ -61,7 +61,7 @@ class TestFMEDACalculations(unittest.TestCase):
                             failure_rate_percentage=50.0,
                             dangerous_failure_percentage=60.0,
                             detection_percentage=80.0,
-                            classification="dangerous_failure"
+                            classification="dangerous_failure", classification_version=1
                         ),
                         # row 2: 50 FIT, 40% dangerous, 90% detection -> dd: 18 FIT, du: 2 FIT, safe: 30 FIT
                         FailureModeAssignment(
@@ -69,7 +69,7 @@ class TestFMEDACalculations(unittest.TestCase):
                             failure_rate_percentage=50.0,
                             dangerous_failure_percentage=40.0,
                             detection_percentage=90.0,
-                            classification="dangerous_failure"
+                            classification="dangerous_failure", classification_version=1
                         )
                     ]
                 )

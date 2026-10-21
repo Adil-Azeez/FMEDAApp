@@ -174,13 +174,20 @@ class ProjectService:
         # Phase 4: Pydantic model validation
         if timer:
             timer.start_phase("pydantic_validation")
+        for unit in project_data.get("units", []):
+            for component in unit.get("components", []):
+                for assignment in component.get("failure_mode_assignments", []):
+                    assignment.setdefault("classification_version", 1)
         project = Project.model_validate(project_data)
+        review_count = sum(a.classification == "legacy_no_part_no_effect" for u in project.units
+                           for c in u.components for a in c.failure_mode_assignments)
+        if review_count:
+            migration_msg += f"\nClassification Review Required: {review_count} rows retain their previous exclusion. Select No Part Failure or No Effect Failure."
+            was_migrated = True
         if timer:
             timer.end_phase("pydantic_validation")
             timer.record_project_metrics(project, file_size)
             
-        if was_migrated:
-            ProjectService.save_project_atomically(project, str(path), record_history=False)
 
         project._saved_state = ChangeHistoryService.meaningful_state(project)
         project._saved_path = str(path.resolve())

@@ -9,13 +9,14 @@ import tracemalloc
 from typing import Dict, Any, Optional, List
 from pathlib import Path
 from dataclasses import dataclass, field
+from fmeda_tool.paths import logs_directory
 
 # Configure logger for performance metrics
 logger = logging.getLogger("fmeda_tool.performance")
 if not logger.handlers:
     logger.setLevel(logging.INFO)
     
-    log_dir = Path("logs")
+    log_dir = logs_directory()
     log_dir.mkdir(parents=True, exist_ok=True)
     
     log_file = log_dir / "fmeda_performance.log"

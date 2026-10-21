@@ -246,9 +246,10 @@ def test_diagnostic_persistence_warnings_and_scope(tmp_path, qapp):
     assert tab.table.currentIndex().row() == 4
     view = VerificationView()
     view.load_project(loaded)
-    view._populate_secondary_table_from_scope(CalculationService.calculate_scope(p.units[:1], p))
-    row = next(r for r in range(view.secondary_table.rowCount()) if "λDiagGesamt" in view.secondary_table.item(r, 0).text())
-    assert view.secondary_table.item(row, 1).text() == "8.0000 FIT"
+    view.selected_unit_ids = {p.units[0].id}
+    view._update_scope_results()
+    row = next(r for r in range(view.secondary_table.rowCount()) if "λDiagGesamt" in view.secondary_table.verticalHeaderItem(r).text())
+    assert view.secondary_table.item(row, 0).text() == "8.0000 FIT"
 
 
 def test_diagnostic_undo_and_search_has_no_undo(qapp, fresh_isolated_db):
@@ -399,10 +400,10 @@ def test_diagnostic_and_history_exports(tmp_path, qapp):
     book = openpyxl.load_workbook(xlsx)
     overview = book["Overview"]
     label_cells = [cell for row in overview for cell in row if cell.value == "λDiagGesamt (FIT)"]
-    assert len(label_cells) == 2
+    assert len(label_cells) == 1
     header = next(cell for cell in label_cells if cell.column > 3)
-    assert overview.cell(header.row + 1, header.column).value == "8.0000"
-    assert overview.cell(header.row + 2, header.column).value == "10.0000"
+    assert overview.cell(header.row + 1, header.column).value == 8.0
+    assert overview.cell(header.row + 2, header.column).value == 10.0
     assert book["Change History"].cell(2, 8).value == "Exported comment"
     assert book["Change Details"].max_row == 2
     assert all(c.width <= 70 for c in book["Change History"].column_dimensions.values())

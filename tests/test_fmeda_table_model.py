@@ -122,14 +122,14 @@ def test_model_structure_and_headers(qapp):
     unit = project.units[0]
     model = FmedaTableModel(unit, project)
 
-    assert model.columnCount() == 36
+    assert model.columnCount() == 35
     # comp1 has 2 failure modes, comp2 has 1 failure mode, plus 1 separator between them = 4 rows
     assert model.rowCount() == 4
 
     assert model.headerData(0, Qt.Orientation.Horizontal) == "Component ID / Designator"
     assert model.headerData(11, Qt.Orientation.Horizontal) == "Failure Classification"
-    assert model.headerData(22, Qt.Orientation.Horizontal) == "No Part / No Effect"
-    assert model.headerData(35, Qt.Orientation.Horizontal) == "MTTFd (y)"
+    assert model.headerData(22, Qt.Orientation.Horizontal) == "lambda (FIT)"
+    assert model.headerData(34, Qt.Orientation.Horizontal) == "MTTFd (y)"
 
 
 def test_model_flags_in_view_vs_edit_mode(qapp):
@@ -150,7 +150,7 @@ def test_model_flags_in_view_vs_edit_mode(qapp):
     model.set_edit_mode(True)
     assert bool(model.flags(idx_func) & Qt.ItemFlag.ItemIsEditable)
     assert bool(model.flags(idx_class) & Qt.ItemFlag.ItemIsEditable)
-    assert bool(model.flags(idx_chk) & Qt.ItemFlag.ItemIsUserCheckable)
+    assert not (model.flags(idx_chk) & Qt.ItemFlag.ItemIsUserCheckable)
 
     # Separator row (row 2) remains unselectable / uneditable
     idx_sep = model.index(2, 0)
@@ -191,37 +191,20 @@ def test_model_set_data_and_recalculation(qapp):
     model = FmedaTableModel(unit, project)
     model.set_edit_mode(True)
 
-    # Edit Dangerous % from 100 to 40
-    idx_dp = model.index(0, 12)
-    success = model.setData(idx_dp, 40.0, Qt.ItemDataRole.EditRole)
-    assert success is True
-
-    # Check that Safe % was updated to 60.0%
-    idx_safe = model.index(0, 13)
-    assert model.data(idx_safe, Qt.ItemDataRole.DisplayRole) == "60.0%"
-
-    # Check that lambda_safe and lambda_dangerous were updated
-    # Total local FIT = 20.0 * 50% = 10.0 FIT
-    # lambda_safe = 10.0 * 0.6 = 6.0 FIT, lambda_dangerous = 10.0 * 0.4 = 4.0 FIT
-    idx_lam_s = model.index(0, 24)
-    idx_lam_d = model.index(0, 25)
-    assert model.data(idx_lam_s, Qt.ItemDataRole.DisplayRole) == "6.0000"
-    assert model.data(idx_lam_d, Qt.ItemDataRole.DisplayRole) == "4.0000"
+    assert model.setData(model.index(0, 11), "safe_failure")
+    assert model.data(model.index(0, 13)) == "100.0%"
+    assert model.data(model.index(0, 23)) == "10.0000"
+    assert model.data(model.index(0, 24)) == "0.0000"
+    assert not model.setData(model.index(0, 12), 40.0)
 
 
-def test_model_checkbox_dont_care(qapp):
+def test_model_legacy_checkbox_is_not_an_input(qapp):
     project = create_sample_project()
-    unit = project.units[0]
-    model = FmedaTableModel(unit, project)
+    model = FmedaTableModel(project.units[0], project)
     model.set_edit_mode(True)
-
-    idx_chk = model.index(0, 22)
-    assert model.data(idx_chk, Qt.ItemDataRole.CheckStateRole) == Qt.CheckState.Unchecked
-
-    # Check the box
-    model.setData(idx_chk, Qt.CheckState.Checked, Qt.ItemDataRole.CheckStateRole)
-    assert model.data(idx_chk, Qt.ItemDataRole.CheckStateRole) == Qt.CheckState.Checked
-    assert unit.components[0].failure_mode_assignments[0].dont_care is True
+    assert all(model.data(model.index(0, c), Qt.ItemDataRole.CheckStateRole) is None for c in range(model.columnCount()))
+    assert not model.setData(model.index(0, 22), Qt.CheckState.Checked, Qt.ItemDataRole.CheckStateRole)
+    assert not project.units[0].components[0].failure_mode_assignments[0].dont_care
 
 
 def test_linked_component_text_updates(qapp):
