@@ -217,8 +217,10 @@ def test_delete_and_mapping_reload_summary(qapp):
     with patch.object(DeleteComponentsConfirmDialog, "exec", return_value=QDialog.DialogCode.Accepted):
         tab.delete_selected_components()
     assert tab.diagnostic_summary.text().count("0.0000 FIT") == 4
+    tab.confirm_changes()
     def map_component(dialog):
         tab.unit.components = project().units[0].components
+        dialog.changed_component_ids = {c.id for c in tab.unit.components}
         return QDialog.DialogCode.Accepted
     with patch.object(ComponentMappingDialog, "exec", map_component), patch.object(QMessageBox, "information"):
         tab._on_component_bom_mapping()

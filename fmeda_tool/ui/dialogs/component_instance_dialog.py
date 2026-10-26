@@ -53,6 +53,18 @@ class ComponentInstanceDialog(QDialog):
         
         # Failure modes table
         self._create_failure_modes_table(layout)
+
+        self.retained_review_checks = []
+        if self.component.remapping_review_assignments:
+            label = QLabel("Unmatched assessments retained after remapping. "
+                           "Check an item only to explicitly discard it after engineering review.")
+            label.setWordWrap(True)
+            layout.addWidget(label)
+            for assignment in self.component.remapping_review_assignments:
+                check = QCheckBox(f"Discard reviewed assignment: {assignment.failure_mode_name}")
+                check.setToolTip(assignment.model_dump_json(indent=2))
+                layout.addWidget(check)
+                self.retained_review_checks.append((assignment, check))
         
         # Buttons
         self._create_buttons(layout)
@@ -459,6 +471,8 @@ class ComponentInstanceDialog(QDialog):
                 snapshot["selected_profile"] = self.component.selected_profile or self.project.selected_profile
             self.component.failure_modes = modes
             self.component.failure_mode_assignments = assignments
+            self.component.remapping_review_assignments = [
+                assignment for assignment, check in self.retained_review_checks if not check.isChecked()]
             if snapshot:
                 self.component.snapshot = snapshot
                 self.component.library_component_id = snapshot["library_component_id"]

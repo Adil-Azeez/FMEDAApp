@@ -18,6 +18,8 @@ CLASSIFICATION_LABELS = {**CLASSIFICATIONS, LEGACY_CLASSIFICATION:
 
 class FailureModeAssignment(BaseModel):
     """Assignment of a failure mode to deviations and diagnostic measures"""
+    assignment_id: Optional[str] = None
+    parent_failure_mode_id: Optional[str] = None
     
     # Failure mode information (from ComponentDB)
     failure_mode_name: str = Field(description="Name of the failure mode")

@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from fmeda_tool.models import Project, Unit, Component, FailureModeAssignment
 from fmeda_tool.models.failure_mode_assignment import CLASSIFICATIONS, CLASSIFICATION_LABELS
 from fmeda_tool.services.calculation_service import CalculationService
+from fmeda_tool.services.component_ordering import component_blocks
 from fmeda_tool.services.validation_service import ValidationService
 from fmeda_tool.services.catalog_service import linked_mitigations, valid_mitigation, deviation_search_text
 
@@ -118,33 +119,34 @@ class FmedaTableModel(QAbstractTableModel):
         if not self.unit or not self.unit.components:
             return
 
-        is_first_comp = True
-        for comp in self.unit.components:
-            if not is_first_comp:
+        for block in component_blocks(self.unit):
+            if self.rows and any(c.failure_modes for c in block.components):
                 self.rows.append(FmedaRowEntry(is_separator=True))
-            is_first_comp = False
+            for comp in block.components:
+                self._append_component_rows(comp)
 
-            for fm_name, fm_percentage in comp.failure_modes.items():
-                assignment = next((a for a in comp.failure_mode_assignments if a.failure_mode_name == fm_name), None)
-                if not assignment:
-                    assignment = FailureModeAssignment(
-                        failure_mode_name=fm_name,
-                        failure_rate_percentage=fm_percentage,
-                        classification="not_evaluated",
-                        dangerous_failure_percentage=100.0,
-                        detection_percentage=0.0
-                    )
-                    comp.failure_mode_assignments.append(assignment)
-
-                entry = FmedaRowEntry(
-                    is_separator=False,
-                    component=comp,
-                    assignment=assignment,
-                    fm_name=fm_name,
-                    fm_percentage=fm_percentage
+    def _append_component_rows(self, comp):
+        for fm_name, fm_percentage in comp.failure_modes.items():
+            assignment = next((a for a in comp.failure_mode_assignments if a.failure_mode_name == fm_name), None)
+            if not assignment:
+                assignment = FailureModeAssignment(
+                    failure_mode_name=fm_name,
+                    failure_rate_percentage=fm_percentage,
+                    classification="not_evaluated",
+                    dangerous_failure_percentage=100.0,
+                    detection_percentage=0.0
                 )
-                self._compute_entry_metrics(entry)
-                self.rows.append(entry)
+                comp.failure_mode_assignments.append(assignment)
+
+            entry = FmedaRowEntry(
+                is_separator=False,
+                component=comp,
+                assignment=assignment,
+                fm_name=fm_name,
+                fm_percentage=fm_percentage
+            )
+            self._compute_entry_metrics(entry)
+            self.rows.append(entry)
 
     def reload_data(self) -> None:
         """Full model reload."""
@@ -166,6 +168,7 @@ class FmedaTableModel(QAbstractTableModel):
 
     def refresh_all_metrics(self) -> None:
         """Refreshes metrics across all rows with targeted dataChanged."""
+        self.sync_components(set())
         for r_idx, entry in enumerate(self.rows):
             if not entry.is_separator:
                 self._compute_entry_metrics(entry)
@@ -632,6 +635,48 @@ class FmedaTableModel(QAbstractTableModel):
             if not entry.is_separator and entry.component and entry.component.id == comp_id:
                 indices.append(r_idx)
         return indices
+
+    def sync_components(self, changed_ids):
+        """Refresh changed blocks once, retaining every unaffected row and lazy tab."""
+        old_entries = {(entry.component.id, entry.fm_name): entry for entry in self.rows if not entry.is_separator}
+        separators = {}
+        for index, entry in enumerate(self.rows[:-1]):
+            if entry.is_separator and self.rows[index + 1].component:
+                separators[self.rows[index + 1].component.id] = entry
+        desired = []
+        ordered = [(component, index) for block in component_blocks(self.unit)
+                   for index, component in enumerate(c for c in block.components if c.failure_modes)]
+        for component, index in ordered:
+            if desired and index == 0:
+                desired.append(separators.get(component.id) or FmedaRowEntry(is_separator=True))
+            assignments = {a.failure_mode_name: a for a in component.failure_mode_assignments}
+            for name, pct in component.failure_modes.items():
+                entry = old_entries.get((component.id, name))
+                if entry is None or component.id in changed_ids:
+                    assignment = assignments.get(name)
+                    if assignment is None:
+                        assignment = FailureModeAssignment(failure_mode_name=name, failure_rate_percentage=pct)
+                        component.failure_mode_assignments.append(assignment)
+                    entry = FmedaRowEntry(component=component, assignment=assignment, fm_name=name, fm_percentage=pct)
+                    self._compute_entry_metrics(entry)
+                desired.append(entry)
+        prefix = 0
+        while prefix < min(len(self.rows), len(desired)) and self.rows[prefix] is desired[prefix]:
+            prefix += 1
+        suffix = 0
+        while suffix < min(len(self.rows), len(desired)) - prefix and self.rows[-suffix - 1] is desired[-suffix - 1]:
+            suffix += 1
+        old_end, new_end = len(self.rows) - suffix, len(desired) - suffix
+        if old_end > prefix:
+            self.beginRemoveRows(QModelIndex(), prefix, old_end - 1)
+            del self.rows[prefix:old_end]
+            self.endRemoveRows()
+        if new_end > prefix:
+            self.beginInsertRows(QModelIndex(), prefix, new_end - 1)
+            self.rows[prefix:prefix] = desired[prefix:new_end]
+            self.endInsertRows()
+        self._search_texts.clear()
+        self.active_search_row = None
 
     def get_distinct_component_ids(self) -> List[str]:
         """Returns ordered list of distinct component IDs currently visible in model rows."""

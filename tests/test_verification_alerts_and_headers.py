@@ -265,7 +265,7 @@ def test_verification_view_with_mixed_and_malformed_alerts(qapp, monkeypatch):
     view.load_project(project)
 
     # Mock ValidationService to return mixed alerts including malformed ones
-    def mock_validate(proj):
+    def mock_validate(proj, group_results=None):
         return [
             {"severity": "Error", "message": "Project Number missing", "location": None},
             {"severity": "Warning", "message": "Component warning", "unit_id": "unit_v1", "row_index": 0},
@@ -294,7 +294,7 @@ def test_verification_view_zero_alerts(qapp, monkeypatch):
     view = VerificationView()
     view.load_project(project)
 
-    monkeypatch.setattr(ValidationService, "validate_project", lambda p: [])
+    monkeypatch.setattr(ValidationService, "validate_project", lambda p, group_results=None: [])
     view.refresh_validation()
 
     assert view.validation_tree.topLevelItemCount() == 0
@@ -335,13 +335,12 @@ def test_row_alert_navigation_and_lazy_load(qapp):
     assert isinstance(tab, FunctionalGroupTab)
     assert tab.is_populated is True
     
-    # Check that model selected row accounts for separator row
-    # Sensor Unit components:
-    # comp1 (2 failure modes): rows 0, 1
-    # separator: row 2
-    # comp2 (1 failure mode): row 3
-    # Therefore row_index 2 (comp2 failure mode 0) maps to model row 3!
-    assert tab.table.currentIndex().row() == 3
+    # Validation ordinals still resolve the same component after visual sorting.
+    entry = tab.model.rows[tab.table.currentIndex().row()]
+    assert entry.component.position == "R1"
+    assert entry.fm_name == "Open"
+    assert tab.table.currentIndex().row() == 0  # Natural order puts R1 before U1.
+
 
 
 # ==============================================================================

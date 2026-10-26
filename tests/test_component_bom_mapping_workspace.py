@@ -220,7 +220,7 @@ class TestComponentBOMMappingWorkspace(unittest.TestCase):
         # Verify 13 positions are staged
         self.assertEqual(len(dialog.staged_mappings), 13)
         for i in range(3, 16):
-            self.assertIn(f"C{i}", dialog.staged_mappings)
+            self.assertIn(f"C{i}", [b.designator for b, _ in dialog._staged_entries()])
             
         # Commit mappings
         dialog._commit_mappings()
@@ -362,7 +362,7 @@ class TestComponentBOMMappingWorkspace(unittest.TestCase):
             
             # Verify Column 8 shows ✓ {selected_disp_name} and NOT "SCAP-VS"
             map_item_after = dialog.bom_table.item(0, 8)
-            self.assertEqual(map_item_after.text(), f"✓ {selected_disp_name}")
+            self.assertEqual(map_item_after.text(), f"✓ {selected_disp_name} [exida]")
             self.assertNotIn("SCAP-VS", map_item_after.text())
             
             # Commit mappings
@@ -371,7 +371,7 @@ class TestComponentBOMMappingWorkspace(unittest.TestCase):
             # Reopen dialog for this unit and verify staged mapping retains library display label
             reopened_dialog = ComponentMappingDialog(self.unit, project_profile="Profile 1", project=self.project)
             reopened_item = reopened_dialog.bom_table.item(0, 8)
-            self.assertEqual(reopened_item.text(), f"✓ {selected_disp_name}")
+            self.assertEqual(reopened_item.text(), f"✓ {selected_disp_name} [exida]")
             self.assertNotIn("SCAP-VS", reopened_item.text())
 
     @patch("PyQt6.QtWidgets.QMessageBox.information")

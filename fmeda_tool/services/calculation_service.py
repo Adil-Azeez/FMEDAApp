@@ -569,7 +569,7 @@ class CalculationService:
         """Independent assessment: never combine groups or change their inclusion settings."""
         assessment = unit.model_copy(update={"included_in_safety_function": True})
         metrics = CalculationService.calculate_unit_metrics(assessment, project)
-        rates = CalculationService.calculate_unit(assessment)
+        rates = CalculationService.get_unit_result(assessment)
         result = {
             "unit_id": unit.id, "unit_name": unit.name,
             "lambda_total": metrics["lambda_total_gesamtgerat"],

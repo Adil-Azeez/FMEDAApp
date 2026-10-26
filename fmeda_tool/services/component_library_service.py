@@ -242,7 +242,7 @@ class ComponentLibraryService:
             
             # Fetch failure modes and profile-specific percentages
             fm_rows = cur.execute("""
-                SELECT fm.name, cfm.percentage
+                SELECT fm.id, fm.name, cfm.percentage
                 FROM component_failure_modes cfm
                 JOIN failure_modes fm ON cfm.failure_mode_id = fm.id
                 WHERE cfm.component_id = ? AND cfm.profile_id = ?
@@ -276,6 +276,7 @@ class ComponentLibraryService:
                 "selected_profile": ComponentLibraryService._profile_id_to_name(profile_id),
                 "failure_rate": comp_dict["fit"],  # Can be None if null in DB
                 "failure_modes": failure_modes,
+                "failure_mode_ids": {r["name"]: "exida:" + str(r["id"]) for r in fm_rows},
                 "source_type": "exida",
                 "library_id": lib_id,
                 "schema_version": schema_ver,
@@ -360,7 +361,7 @@ class ComponentLibraryService:
             comp_dict = dict(comp)
             
             fm_rows = cur.execute("""
-                SELECT name, percentage FROM legacy_failure_modes WHERE legacy_component_id = ?
+                SELECT id, name, percentage FROM legacy_failure_modes WHERE legacy_component_id = ?
             """, (component_id,)).fetchall()
             
             failure_modes = {r["name"]: float(r["percentage"]) for r in fm_rows}
@@ -374,6 +375,7 @@ class ComponentLibraryService:
                 "material": comp_dict["material"],
                 "failure_rate": comp_dict["fits"],
                 "failure_modes": failure_modes,
+                "failure_mode_ids": {r["name"]: "legacy:" + str(r["id"]) for r in fm_rows},
                 "source_type": "legacy",
                 "mapping_status": comp_dict["mapping_status"],
                 "review_required": bool(comp_dict["review_required"])
@@ -469,7 +471,7 @@ class ComponentLibraryService:
                 
             comp_dict = dict(comp)
             fm_rows = cur.execute("""
-                SELECT name, percentage FROM custom_failure_modes WHERE custom_component_id = ? ORDER BY id ASC
+                SELECT id, name, percentage FROM custom_failure_modes WHERE custom_component_id = ? ORDER BY id ASC
             """, (component_id,)).fetchall()
             
             failure_modes = {r["name"]: float(r["percentage"]) for r in fm_rows}
@@ -484,6 +486,7 @@ class ComponentLibraryService:
                 "material": comp_dict["component_type"],
                 "failure_rate": float(comp_dict["fits"]),
                 "failure_modes": failure_modes,
+                "failure_mode_ids": {r["name"]: "custom:" + str(r["id"]) for r in fm_rows},
                 "source_type": "custom",
                 "status": comp_dict["status"],
                 "selected_profile": "Profile 1",

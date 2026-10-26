@@ -23,6 +23,7 @@ class ComponentDB(BaseModel):
         default_factory=dict, 
         description="Failure modes with their percentage of overall FITS (lambda)"
     )
+    failure_mode_ids: Dict[str, str] = Field(default_factory=dict)
     
     # Extended Library Metadata & Project Snapshot
     library_component_id: Optional[str] = Field(default=None, description="Library UUID or legacy component ID")

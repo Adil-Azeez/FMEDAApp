@@ -22,6 +22,8 @@ class ValidationService:
         if project is not None and not valid_mitigation(project, assignment.deviation_id, assignment.mitigation_id):
             errors.append("Invalid deviation/mitigation combination: mitigation is not linked to the selected deviation.")
 
+        from fmeda_tool.services.component_remapping_service import assignment_findings
+        errors.extend(assignment_findings(assignment, project))
         classification = getattr(assignment, "classification", "not_evaluated")
         
         if classification == "not_evaluated":
@@ -111,7 +113,7 @@ class ValidationService:
             return "valid", ["Component is valid"]
             
     @staticmethod
-    def validate_project(project: Project) -> List[Dict[str, Any]]:
+    def validate_project(project: Project, group_results=None) -> List[Dict[str, Any]]:
         """
         Validates the entire project, running global, unit, component, and row checks.
         
@@ -145,7 +147,8 @@ class ValidationService:
         target_val = sil_levels.get(project.target_sil, 0)
         from fmeda_tool.services.calculation_service import CalculationService
         for unit in project.units:
-            achieved = CalculationService.calculate_group_result(unit, project)["achieved_sil"]
+            achieved = (group_results[unit.id] if group_results is not None and unit.id in group_results
+                        else CalculationService.calculate_group_result(unit, project))["achieved_sil"]
             if achieved != "N/A" and sil_levels.get(achieved, 0) < target_val:
                 alerts.append({"severity": "Error", "scope": "Functional Group", "item": "Target SIL Mismatch",
                     "message": f"Target SIL is {project.target_sil} but {unit.name} achieved {achieved}.",
@@ -182,6 +185,10 @@ class ValidationService:
             # Check components and rows
             row_index = 0
             for comp in unit.components:
+                for archived in comp.remapping_review_assignments:
+                    alerts.append({"severity": "Warning", "scope": "Component", "item": comp.position,
+                        "message": f"Remapping Review Required: {archived.failure_mode_name} — previous engineering assignment retained; review it in Edit Component.",
+                        "unit_id": unit.id, "row_index": row_index, "component_id": comp.id})
                 # Check sum of failure modes
                 tot_dist = sum(comp.failure_modes.values()) if comp.failure_modes else 0
                 if abs(tot_dist - 100.0) > 0.01 and comp.failure_modes:

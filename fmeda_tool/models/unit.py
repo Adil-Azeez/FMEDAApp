@@ -1,15 +1,19 @@
 
 from typing import Optional, List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from datetime import datetime
 from .component import Component
 from .bom_component import BOMComponent
-from .component_mapping import ComponentMapping
+from .component_mapping import ComponentMapping, complete_mapping_identities
 from .component_db import ComponentDB
 
 
 class Unit(BaseModel):
     """Functional unit or subsystem"""
+
+    @model_validator(mode="after")
+    def complete_mapping_identities(self):
+        return complete_mapping_identities(self)
     
     # Basic identification
     id: str = Field(description="Unique unit identifier")

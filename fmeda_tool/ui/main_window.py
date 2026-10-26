@@ -143,9 +143,10 @@ class MainWindow(QMainWindow):
         self.verification_view = VerificationView()
         self.verification_view.back_requested.connect(self._on_verification_back)
         self.verification_view.next_requested.connect(self._on_verification_next)
-        self.verification_view.re_verify_requested.connect(self._on_reverify_project)
         self.verification_view.alert_clicked.connect(self._on_verification_alert_clicked)
         self.add_view("verification", self.verification_view)
+        self.unit_editor_view.project_changed.connect(self._invalidate_verification)
+        self.unit_editor_view.analysis_changed.connect(self._invalidate_verification)
         
         self.export_view = ExportView()
         self.export_view.back_requested.connect(self._on_export_back)
@@ -725,6 +726,7 @@ class MainWindow(QMainWindow):
             self.unit_editor_view.undo_btn.setToolTip("Nothing to undo")
             
         self.has_unsaved_changes = True
+        self._invalidate_verification()
         
     def _on_redo(self):
         print("Redo clicked")
@@ -812,6 +814,10 @@ class MainWindow(QMainWindow):
     def _on_fmeda_back(self):
         self.show_view("create_project")
         
+    def _invalidate_verification(self):
+        if self.current_project and not self.unit_editor_view.is_loading_project:
+            self.verification_view.invalidate_results(self.current_project)
+
     def _on_fmeda_next(self):
         if not self.current_project:
             return

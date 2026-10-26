@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import (
     QTableWidget, QTableWidgetItem, QHeaderView, QScrollArea, QTreeWidget, QTreeWidgetItem,
     QMessageBox, QCheckBox
 )
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer
 from PyQt6.QtGui import QFont, QColor
 from typing import Optional, List, Dict, Any, Set, Tuple
 from dataclasses import dataclass
@@ -175,6 +175,8 @@ class VerificationView(QWidget):
         super().__init__()
         self.project: Optional[Project] = None
         self.selected_unit_ids: Set[str] = set()
+        self._result_cache = {}
+        self._refresh_pending = False
         self.unit_checkboxes: Dict[str, QCheckBox] = {}
         self._setup_ui()
         
@@ -355,7 +357,7 @@ class VerificationView(QWidget):
     def _on_next(self):
         has_errors = False
         if self.project:
-            raw_alerts = ValidationService.validate_project(self.project)
+            raw_alerts = ValidationService.validate_project(self.project, group_results=self._independent_results())
             for ra in raw_alerts:
                 norm = normalize_alert(ra, self.project)
                 if norm.severity == "Error":
@@ -381,18 +383,61 @@ class VerificationView(QWidget):
                 pass
             
     def load_project(self, project: Project):
+        same_project = self.project is not None and self.project.id == project.id
+        previous_ids = set(self.unit_checkboxes)
+        selected_all = previous_ids == self.selected_unit_ids
         self.project = project
         self.project_name_label.setText(project.name)
-        if project and project.units:
-            self.selected_unit_ids = {u.id for u in project.units}
+        ids = {u.id for u in project.units}
+        if not same_project or selected_all:
+            self.selected_unit_ids = ids
         else:
-            self.selected_unit_ids = set()
+            self.selected_unit_ids.intersection_update(ids)
+            if not self.selected_unit_ids and project.units:
+                self.selected_unit_ids = {project.units[0].id}
+        if not same_project:
+            self._result_cache.clear()
         self.refresh_validation()
-        
+
+    def invalidate_results(self, project):
+        # Hidden pages refresh on entry. Visible edits are coalesced into one update.
+        if self.project is None or self.project.id != project.id:
+            return
+        self.project = project
+        if self.isVisible() and not self._refresh_pending:
+            self._refresh_pending = True
+            QTimer.singleShot(0, self._refresh_if_visible)
+
+    def _refresh_if_visible(self):
+        self._refresh_pending = False
+        if (self.project and self.isVisible()
+                and getattr(self, "_loaded_state", None) != self.project.model_dump()):
+            self.load_project(self.project)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if self.project and getattr(self, "_loaded_state", None) != self.project.model_dump():
+            self.load_project(self.project)
+
+    def _independent_results(self):
+        results = {}
+        if self.project:
+            context = (self.project.test_interval, self.project.diagnostic_test_interval,
+                       self.project.safety_context.safety_architecture if self.project.safety_context else None)
+            for unit in self.project.units:
+                signature = (unit.model_dump(), context)
+                cached = self._result_cache.get(unit.id)
+                if cached is None or cached[0] != signature:
+                    cached = (signature, CalculationService.calculate_group_result(unit, self.project))
+                    self._result_cache[unit.id] = cached
+                results[unit.id] = cached[1]
+        self._result_cache = {uid: value for uid, value in self._result_cache.items() if uid in results}
+        return results
+
     def _rebuild_scope_selectors(self):
         """Rebuilds scope checkboxes for current project units."""
         for i in reversed(range(self.scope_checkboxes_layout.count())):
-            item = self.scope_checkboxes_layout.itemAt(i)
+            item = self.scope_checkboxes_layout.takeAt(i)
             if item and item.widget():
                 item.widget().setParent(None)
                 
@@ -451,7 +496,8 @@ class VerificationView(QWidget):
     def _update_scope_results(self):
         units = [u for u in self.project.units if u.id in self.selected_unit_ids] if self.project else []
         self.scope_indicator_label.setText("Independent groups: " + (", ".join(u.name for u in units) or "None"))
-        self.group_results = [CalculationService.calculate_group_result(u, self.project) for u in units]
+        results = self._independent_results()
+        self.group_results = [results[u.id] for u in units]
         for frame in (self.card_frame_sil, self.card_frame_target, self.card_frame_sff,
                       self.card_frame_dc, self.card_frame_mttfd):
             frame.setVisible(len(units) == 1)
@@ -500,6 +546,7 @@ class VerificationView(QWidget):
     def refresh_validation(self):
         if not self.project:
             return
+        self._loaded_state = self.project.model_dump()
             
         self.validation_tree.clear()
         self._rebuild_scope_selectors()
@@ -508,7 +555,7 @@ class VerificationView(QWidget):
         self._update_scope_results()
         
         # Populate Collapsible Tree Grouped by Component
-        raw_alerts = ValidationService.validate_project(self.project) if self.project else []
+        raw_alerts = ValidationService.validate_project(self.project, group_results=self._independent_results()) if self.project else []
         normalized_alerts: List[NormalizedAlert] = []
         for ra in raw_alerts:
             try:

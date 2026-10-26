@@ -242,8 +242,8 @@ class TestBOMBatchMapping(unittest.TestCase):
         self.assertEqual(len(self.unit.components), 1)
         self.assertEqual(self.unit.components[0].position, "C1")
 
-    def test_unmap_and_remap_position(self):
-        """Remapping an existing position replaces the reliability model and preserves BOM fields."""
+    def test_add_second_mapping_to_position(self):
+        """Adding another library component preserves the existing independent mapping."""
         bom = BOMComponent(id="bom_c1", designator="C1", part_number="0011", value="10u", description="TANTAL CAP 10uF", layer="TOP", is_fitted=True)
         self.unit.bom_components = [bom]
         self.unit.component_templates = [self.ckp_template, self.tantal_template]
@@ -256,13 +256,14 @@ class TestBOMBatchMapping(unittest.TestCase):
         self.assertEqual(self.unit.components[0].failure_rate, 0.4)
         self.assertEqual(self.unit.components[0].value, "10u / TANTAL CAP 10uF")
         
-        # 2. Remap to Tantalum (1.5 FIT)
+        # 2. Add Tantalum (1.5 FIT) without replacing CKP
         dialog2 = ComponentMappingDialog(self.unit, project_profile="Profile 1")
         dialog2.staged_mappings["C1"] = self.tantal_template
         dialog2._commit_mappings()
         
-        self.assertEqual(len(self.unit.components), 1)
-        c1 = self.unit.components[0]
+        self.assertEqual(len(self.unit.components), 2)
+        self.assertEqual(self.unit.components[0].failure_rate, 0.4)
+        c1 = self.unit.components[1]
         self.assertEqual(c1.position, "C1")
         self.assertEqual(c1.failure_rate, 1.5)
         self.assertEqual(c1.value, "10u / TANTAL CAP 10uF")

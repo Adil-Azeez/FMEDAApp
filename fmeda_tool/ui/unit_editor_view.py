@@ -1540,6 +1540,8 @@ class FunctionalGroupTab(QWidget):
         from fmeda_tool.services.calculation_service import CalculationService
         CalculationService.calculate_project(self.project)
         self._refresh_diagnostic_summary()
+        if self.main_editor:
+            self.main_editor.analysis_changed.emit()
 
     def enable_editing(self) -> bool:
         """Enters Edit Mode for this functional group tab."""
@@ -1615,6 +1617,7 @@ class FunctionalGroupTab(QWidget):
             self.unit.description = restored.description
             self.unit.notes = restored.notes
             self.unit.bom_components = getattr(restored, "bom_components", [])
+            self.unit.component_mappings = restored.component_mappings
             if hasattr(restored, "component_templates"):
                 self.unit.component_templates = restored.component_templates
             
@@ -1802,6 +1805,10 @@ class FunctionalGroupTab(QWidget):
                 self.unit.components[index] = before
                 window.push_undo_state(f"Edit Component: {target_comp.position}")
                 self.unit.components[index] = target_comp
+            for mapping in self.unit.component_mappings:
+                if mapping.component_instance_id == target_comp.id:
+                    mapping.component_db_id = target_comp.library_component_id or mapping.component_db_id
+                    mapping.library_source = target_comp.source_type or mapping.library_source
             from fmeda_tool.services.calculation_service import CalculationService
             CalculationService.calculate_project(self.project)
             if self.model:
@@ -1935,6 +1942,9 @@ class FunctionalGroupTab(QWidget):
             self.main_editor.main_window.push_undo_state(f"Delete {len(comps_to_del)} Components: {self.unit.name}")
 
         self.unit.components = remaining
+        removed_ids = {c.id for c in comps_to_del}
+        self.unit.component_mappings = [m for m in self.unit.component_mappings
+                                        if m.component_instance_id not in removed_ids]
         self.table.selected_component_ids.clear()
         self.table.anchor_component_id = None
 
@@ -2311,24 +2321,45 @@ class FunctionalGroupTab(QWidget):
             self._on_map_bom_components()
         
     def _on_component_bom_mapping(self):
-        prof = getattr(self.project, "selected_profile", "Profile 1") if hasattr(self, "project") and self.project else "Profile 1"
-        dialog = ComponentMappingDialog(self.unit, project_profile=prof, project=self.project, parent=self)
-        if dialog.exec() == QDialog.DialogCode.Accepted:
+        if self.is_in_edit_mode:
+            QMessageBox.warning(self, "Confirm Changes", "Confirm or cancel the current table edits before changing mappings.")
+            return
+        before = self.unit.model_copy(deep=True)
+        from fmeda_tool.services.calculation_service import CalculationService
+        before_result = CalculationService._unit_results.get(id(self.unit))
+        dialog = ComponentMappingDialog(self.unit, project_profile=self.project.selected_profile or "Profile 1", project=self.project, parent=self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        if before.model_dump() == self.unit.model_dump():
+            return
+        window = getattr(self.main_editor, "main_window", None)
+        try:
             from fmeda_tool.services.calculation_service import CalculationService
-            CalculationService.calculate_project(self.project)
-            self._load_fmeda_table()
-            
-            if self.main_editor and hasattr(self.main_editor, "main_window") and self.main_editor.main_window:
-                self.main_editor.main_window.push_undo_state(f"Component & BOM Mapping: {self.unit.name}")
-                
-            if self.main_editor and hasattr(self.main_editor, "project_changed"):
+            CalculationService.calculate_unit(self.unit)
+            if self.model and self.is_populated:
+                self.model.sync_components(dialog.changed_component_ids)
+                self.search_bar.refresh()
+                self.table.update_visual_selection()
+            if window:
+                index = self.project.units.index(self.unit)
+                self.project.units[index] = before
+                try:
+                    window.push_undo_state(f"Component & BOM Mapping: {self.unit.name}")
+                finally:
+                    self.project.units[index] = self.unit
+            self._refresh_diagnostic_summary()
+            if self.main_editor:
                 self.main_editor.project_changed.emit()
-                
-            QMessageBox.information(
-                self, "Mappings Saved",
-                f"Component mappings saved and FMEDA rows generated successfully for '{self.unit.name}'!"
-            )
-            
+        except Exception as error:
+            self.unit.__dict__.update(before.__dict__)
+            if before_result is None:
+                CalculationService._unit_results.pop(id(self.unit), None)
+            else:
+                CalculationService._unit_results[id(self.unit)] = before_result
+            if self.model and self.is_populated:
+                self.model.reload_data()
+            QMessageBox.warning(self, "Mapping Rolled Back", str(error))
+
     def _on_map_bom_components(self):
         """Backward compatibility alias for _on_component_bom_mapping."""
         self._on_component_bom_mapping()
@@ -2627,6 +2658,7 @@ class UnitEditorView(QWidget):
     next_requested = pyqtSignal()
     formulas_requested = pyqtSignal()
     project_changed = pyqtSignal()
+    analysis_changed = pyqtSignal()
     
     def __init__(self):
         super().__init__()

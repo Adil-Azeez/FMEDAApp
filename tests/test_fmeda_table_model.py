@@ -152,8 +152,8 @@ def test_model_flags_in_view_vs_edit_mode(qapp):
     assert bool(model.flags(idx_class) & Qt.ItemFlag.ItemIsEditable)
     assert not (model.flags(idx_chk) & Qt.ItemFlag.ItemIsUserCheckable)
 
-    # Separator row (row 2) remains unselectable / uneditable
-    idx_sep = model.index(2, 0)
+    # Natural ordering puts R1 before U1; separators remain unselectable.
+    idx_sep = model.index(next(i for i, e in enumerate(model.rows) if e.is_separator), 0)
     assert model.flags(idx_sep) == Qt.ItemFlag.NoItemFlags
 
 
@@ -161,26 +161,27 @@ def test_model_data_display_and_edit_roles(qapp):
     project = create_sample_project()
     unit = project.units[0]
     model = FmedaTableModel(unit, project)
+    row = model.get_row_indices_for_component(unit.components[0].id)[0]
 
-    # Row 0: U1 Stuck High
-    idx_des = model.index(0, 0)
+    # Locate U1 Stuck High independently of display order
+    idx_des = model.index(row, 0)
     assert model.data(idx_des, Qt.ItemDataRole.DisplayRole) == "U1"
 
-    idx_func = model.index(0, 2)
+    idx_func = model.index(row, 2)
     assert model.data(idx_func, Qt.ItemDataRole.DisplayRole) == "Amplification"
 
-    idx_fm = model.index(0, 6)
+    idx_fm = model.index(row, 6)
     assert model.data(idx_fm, Qt.ItemDataRole.DisplayRole) == "Stuck High"
 
-    idx_fm_pct = model.index(0, 7)
+    idx_fm_pct = model.index(row, 7)
     assert model.data(idx_fm_pct, Qt.ItemDataRole.DisplayRole) == "50.0%"
     assert model.data(idx_fm_pct, Qt.ItemDataRole.EditRole) == 50.0
 
-    idx_dev = model.index(0, 9)
+    idx_dev = model.index(row, 9)
     assert model.data(idx_dev, Qt.ItemDataRole.DisplayRole) == "Output High Deviation"
     assert model.data(idx_dev, Qt.ItemDataRole.EditRole) == "dev_01"
 
-    idx_class = model.index(0, 11)
+    idx_class = model.index(row, 11)
     assert model.data(idx_class, Qt.ItemDataRole.DisplayRole) == "Dangerous Failure"
     assert model.data(idx_class, Qt.ItemDataRole.EditRole) == "dangerous_failure"
 
@@ -189,13 +190,14 @@ def test_model_set_data_and_recalculation(qapp):
     project = create_sample_project()
     unit = project.units[0]
     model = FmedaTableModel(unit, project)
+    row = model.get_row_indices_for_component(unit.components[0].id)[0]
     model.set_edit_mode(True)
 
-    assert model.setData(model.index(0, 11), "safe_failure")
-    assert model.data(model.index(0, 13)) == "100.0%"
-    assert model.data(model.index(0, 23)) == "10.0000"
-    assert model.data(model.index(0, 24)) == "0.0000"
-    assert not model.setData(model.index(0, 12), 40.0)
+    assert model.setData(model.index(row, 11), "safe_failure")
+    assert model.data(model.index(row, 13)) == "100.0%"
+    assert model.data(model.index(row, 23)) == "10.0000"
+    assert model.data(model.index(row, 24)) == "0.0000"
+    assert not model.setData(model.index(row, 12), 40.0)
 
 
 def test_model_legacy_checkbox_is_not_an_input(qapp):
@@ -211,13 +213,14 @@ def test_linked_component_text_updates(qapp):
     project = create_sample_project()
     unit = project.units[0]
     model = FmedaTableModel(unit, project)
+    row = model.get_row_indices_for_component(unit.components[0].id)[0]
     model.set_edit_mode(True)
 
-    # Edit Function on row 0 (U1 Stuck High)
-    idx_func_row0 = model.index(0, 2)
+    # Edit U1 Stuck High
+    idx_func_row0 = model.index(row, 2)
     model.setData(idx_func_row0, "Preamplifier Stage", Qt.ItemDataRole.EditRole)
 
-    # Verify that row 1 (U1 Stuck Low) also reflects "Preamplifier Stage"
-    idx_func_row1 = model.index(1, 2)
+    # Verify that the next row (U1 Stuck Low) also reflects "Preamplifier Stage"
+    idx_func_row1 = model.index(row + 1, 2)
     assert model.data(idx_func_row1, Qt.ItemDataRole.DisplayRole) == "Preamplifier Stage"
     assert unit.components[0].function == "Preamplifier Stage"

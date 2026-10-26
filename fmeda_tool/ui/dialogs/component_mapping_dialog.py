@@ -20,6 +20,9 @@ from fmeda_tool.models import (
 )
 from fmeda_tool.services.import_service import format_value_description
 from fmeda_tool.services.component_library_service import ComponentLibraryService
+from fmeda_tool.services.mapping_service import MappingService
+from fmeda_tool.services.component_remapping_service import library_identity
+from fmeda_tool.ui.dialogs.remapping_review_dialog import RemappingReviewDialog
 from fmeda_tool.ui.dialogs.bom_import_dialog import BOMImportDialog
 from fmeda_tool.ui.dialogs.custom_component_dialog import CustomComponentDialog
 
@@ -120,7 +123,11 @@ class ComponentMappingDialog(QDialog):
     
     def __init__(self, unit: Unit, project_profile: str = "Profile 1", project: Optional[Project] = None, parent=None):
         super().__init__(parent)
-        self.unit = unit
+        self.original_unit = unit
+        self.unit = Unit.model_validate(unit.model_dump())
+        self.removed_mapping_ids = set()
+        self.replacements = {}
+        self.changed_component_ids = set()
         self.project_profile = project_profile or "Profile 1"
         self.project = project
         
@@ -128,8 +135,8 @@ class ComponentMappingDialog(QDialog):
         self.setMinimumSize(950, 580)
         self.resize(1420, 880)
         
-        # Staged mappings: BOM designator.upper() -> ComponentDB template
-        self.staged_mappings: Dict[str, ComponentDB] = {}
+        # Staged mappings: (BOM record ID, library source, library component ID) -> template
+        self.staged_mappings: Dict[tuple, ComponentDB] = {}
         self.mappings: List[ComponentMapping] = list(self.unit.component_mappings or [])
         self._custom_templates: Optional[List[ComponentDB]] = None
         
@@ -193,6 +200,8 @@ class ComponentMappingDialog(QDialog):
                 try:
                     if comp.source_type == "legacy" or getattr(comp, "database", "") == "legacy":
                         snap = ComponentLibraryService.get_legacy_component_snapshot(comp.library_component_id)
+                    elif comp.source_type == "custom":
+                        snap = ComponentLibraryService.get_custom_component_snapshot(comp.library_component_id)
                     else:
                         snap = ComponentLibraryService.get_exida_component_snapshot(comp.library_component_id, comp.selected_profile or self.project_profile)
                     if snap:
@@ -219,7 +228,10 @@ class ComponentMappingDialog(QDialog):
                 source_type=comp.source_type or "exida",
                 snapshot=comp.snapshot
             )
-            self.staged_mappings[comp.position.upper()] = tmpl
+            tmpl.failure_mode_ids = dict(comp.failure_mode_ids)
+            mapping = next((m for m in self.unit.component_mappings if m.component_instance_id == comp.id), None)
+            if mapping:
+                self.staged_mappings[mapping.pair] = tmpl
 
     def _setup_ui(self):
         main_layout = QVBoxLayout(self)
@@ -547,6 +559,10 @@ class ComponentMappingDialog(QDialog):
         self.unmap_btn.setStyleSheet("background-color: #6c757d; color: white; padding: 6px 14px; border-radius: 4px;")
         self.unmap_btn.clicked.connect(self._on_unmap_selected)
         act_row.addWidget(self.unmap_btn)
+        self.unmap_btn.setText("Remove Mapping…")
+        self.remap_btn = QPushButton("Remap Mapping…")
+        self.remap_btn.clicked.connect(self._on_remap_selected)
+        act_row.addWidget(self.remap_btn)
         
         act_row.addStretch()
         
@@ -799,8 +815,7 @@ class ComponentMappingDialog(QDialog):
             it_pct.setFlags(it_pct.flags() & ~Qt.ItemFlag.ItemIsEditable)
             self.cfg_fm_table.setItem(r, 1, it_pct)
             
-            is_dang = "short" in fm_name.lower() or "open" in fm_name.lower() or len(failure_modes) == 1
-            classif_str = "Dangerous" if is_dang else "Not Evaluated"
+            classif_str = "Not Evaluated"
             it_class = QTableWidgetItem(classif_str)
             it_class.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             it_class.setFlags(it_class.flags() & ~Qt.ItemFlag.ItemIsEditable)
@@ -926,15 +941,35 @@ class ComponentMappingDialog(QDialog):
             self._update_bom_row_mapping_display(row, des_upper)
 
     def _update_bom_row_mapping_display(self, row: int, des_upper: str):
-        target = self.staged_mappings.get(des_upper)
-        if target:
-            map_item = QTableWidgetItem(f"✓ {target.display_name}")
+        targets = [(bom, template) for bom, template in self._staged_entries()
+                   if bom.designator.upper() == des_upper]
+        if targets:
+            map_item = QTableWidgetItem("\n".join(f"✓ {t.display_name} [{library_identity(t)[0]}]" for _, t in targets))
             map_item.setForeground(QColor("#198754"))
-            map_item.setFont(QFont("Arial", 9, QFont.Weight.Bold))
+            map_item.setToolTip("\n".join(f"{bom.designator} → {t.display_name} ({library_identity(t)[1]})" for bom, t in targets))
         else:
             map_item = QTableWidgetItem("— Unmapped —")
             map_item.setForeground(QColor("#6c757d"))
         self.bom_table.setItem(row, 8, map_item)
+        self.bom_table.resizeRowToContents(row)
+
+    def _staged_entries(self):
+        """Accept legacy programmatic position keys as additions, never replacements."""
+        result = []
+        for key, template in self.staged_mappings.items():
+            boms = [b for b in self.unit.bom_components if
+                    (b.id == key[0] if isinstance(key, tuple) else b.designator.upper() == key.upper())]
+            if len(boms) != 1:
+                raise ValueError("Select a unique BOM record for this mapping.")
+            result.append((boms[0], template))
+        return result
+
+    def _refresh_mapping_display(self):
+        for row in range(self.bom_table.rowCount()):
+            item = self.bom_table.item(row, 1)
+            if item:
+                self._update_bom_row_mapping_display(row, item.text().strip().upper())
+        self._update_selection_summary()
 
     def _on_bom_checkbox_changed(self):
         self._update_selection_summary()
@@ -1012,7 +1047,7 @@ class ComponentMappingDialog(QDialog):
                 match_prefix = not des_upper.startswith(("C", "R", "V", "D", "Q", "T", "U", "IC", "N", "L", "X", "J", "K", "W"))
                 
             match_status = True
-            is_mapped = des_upper in self.staged_mappings
+            is_mapped = any(bom.id == b.id for b, _ in self._staged_entries())
             is_not_fitted = not bom.is_fitted or any(kw in (bom.notes or "").lower() for kw in ["nicht bestueckt", "nicht bestückt", "not fitted", "dnp"])
             if status_filter == "Unmapped Only":
                 match_status = not is_mapped
@@ -1083,8 +1118,16 @@ class ComponentMappingDialog(QDialog):
         if custom_lbl:
             target_template.shortcut = custom_lbl
             
+        duplicates = []
         for pos in selected_positions:
-            self.staged_mappings[pos.upper()] = target_template
+            bom = next(b for b in self.unit.bom_components if b.designator.upper() == pos.upper())
+            key = (bom.id, *library_identity(target_template))
+            if key in self.staged_mappings:
+                duplicates.append(pos)
+            else:
+                self.staged_mappings[key] = target_template
+        if duplicates:
+            QMessageBox.warning(self, "Duplicate Mapping", "Already mapped to this library component: " + ", ".join(duplicates))
             
         for row in range(self.bom_table.rowCount()):
             pos_item = self.bom_table.item(row, 1)
@@ -1101,167 +1144,89 @@ class ComponentMappingDialog(QDialog):
             "Click 'Save Mappings' when ready to commit to the functional group."
         )
 
+    def _choose_mapping(self, existing_only=False):
+        positions = {p.upper() for p in self._get_selected_designators()}
+        choices = []
+        for bom, template in self._staged_entries():
+            if bom.designator.upper() not in positions:
+                continue
+            pair = (bom.id, *library_identity(template))
+            mapping = next((m for m in self.unit.component_mappings if m.pair == pair), None)
+            if mapping is None:
+                mapping = next((m for m in self.unit.component_mappings
+                    if m.id in self.replacements and self.replacements[m.id].library_component_id == pair[2]
+                    and self.replacements[m.id].source_type == pair[1] and m.bom_component_id == bom.id), None)
+            if existing_only and mapping is None:
+                continue
+            choices.append((f"{bom.designator} → {template.display_name} [{pair[1]}: {pair[2]}]", pair, mapping, bom))
+        if not choices:
+            QMessageBox.warning(self, "Select Mapping", "Select a BOM position with a saved mapping first.")
+            return None
+        if len(choices) == 1:
+            return choices[0]
+        text, accepted = QInputDialog.getItem(self, "Select Exact Mapping", "Mapping:", [c[0] for c in choices], 0, False)
+        return next((c for c in choices if c[0] == text), None) if accepted else None
+
     def _on_unmap_selected(self):
-        selected_positions = self._get_selected_designators()
-        if not selected_positions:
-            QMessageBox.warning(self, "Selection Required", "Please select one or more BOM positions to unmap.")
+        choice = self._choose_mapping()
+        if choice is None:
             return
-            
-        unmapped_count = 0
-        for pos in selected_positions:
-            if pos.upper() in self.staged_mappings:
-                del self.staged_mappings[pos.upper()]
-                unmapped_count += 1
-                
-        for row in range(self.bom_table.rowCount()):
-            pos_item = self.bom_table.item(row, 1)
-            if pos_item:
-                self._update_bom_row_mapping_display(row, pos_item.text().strip().upper())
-                
-        self._clear_selection()
-        self._update_selection_summary()
-        QMessageBox.information(self, "Unmapped", f"Unmapped {unmapped_count} BOM positions.")
+        _, pair, mapping, _ = choice
+        self.staged_mappings.pop(pair, None)
+        if mapping:
+            self.removed_mapping_ids.add(mapping.id)
+            self.replacements.pop(mapping.id, None)
+        self._refresh_mapping_display()
+
+    def _on_remap_selected(self):
+        if not self.selected_template:
+            QMessageBox.warning(self, "Component Required", "Select the replacement library component first.")
+            return
+        choice = self._choose_mapping(existing_only=True)
+        if choice is None:
+            return
+        _, pair, mapping, bom = choice
+        new_pair = (bom.id, *library_identity(self.selected_template))
+        if new_pair != pair and new_pair in self.staged_mappings:
+            QMessageBox.warning(self, "Duplicate Mapping", "This BOM record and library component are already mapped.")
+            return
+        old = self.replacements.get(mapping.id) or next((c for c in self.unit.components if c.id == mapping.component_instance_id), None)
+        if old is None:
+            QMessageBox.warning(self, "Missing Instance", "This mapping has no component instance; review the mapping before remapping.")
+            return
+        review = RemappingReviewDialog(old, self.selected_template, bom, self.project_profile, self.project, self)
+        if review.exec() != QDialog.DialogCode.Accepted:
+            return
+        self.replacements[mapping.id] = review.plan.component
+        self.staged_mappings.pop(pair, None)
+        self.staged_mappings[new_pair] = self.selected_template.model_copy(deep=True)
+        self._refresh_mapping_display()
 
     def _on_save_clicked(self):
-        if not self.staged_mappings:
-            QMessageBox.warning(self, "No Mappings", "No BOM positions are currently mapped. Please assign at least one position before saving.")
-            return
-            
-        grouped: Dict[str, Tuple[ComponentDB, List[str]]] = {}
-        for des, tmpl in self.staged_mappings.items():
-            if tmpl.id not in grouped:
-                grouped[tmpl.id] = (tmpl, [])
-            grouped[tmpl.id][1].append(des)
-            
-        summary_lines = []
-        total_comps = 0
-        for tmpl_id, (tmpl, pos_list) in grouped.items():
-            total_comps += len(pos_list)
-            fits_str = f"{tmpl.fits:.4f} FIT" if tmpl.fits is not None else "0.0 FIT"
-            summary_lines.append(
-                f"• <b>{tmpl.display_name}</b> ({fits_str}):<br>"
-                f"  <b>{len(pos_list)} positions:</b> {format_position_ranges(pos_list)}"
-            )
-            
-        confirm_msg = (
-            f"<h3>Confirm Component & BOM Mappings</h3>"
-            f"<p>The following <b>{total_comps} component instances</b> will be created/updated in <b>{self.unit.name}</b>:</p>"
-            f"{'<br><br>'.join(summary_lines)}<br><br>"
-            f"Do you want to proceed and save these mappings?"
-        )
-        
-        reply = QMessageBox.question(
-            self, "Confirm Save Mappings", confirm_msg,
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel
-        )
+        summary = "\n".join(f"{bom.designator} → {template.display_name}" for bom, template in self._staged_entries())
+        summary += f"\n\nMappings to remove: {len(self.removed_mapping_ids)}"
+        reply = QMessageBox.question(self, "Confirm Save Mappings", summary,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel)
         if reply != QMessageBox.StandardButton.Yes:
             return
-            
-        self._commit_mappings()
+        try:
+            self._commit_mappings()
+        except Exception as error:
+            QMessageBox.warning(self, "Mappings Not Saved", str(error))
+            return
         self.accept()
 
     def _commit_mappings(self):
-        """
-        Commits all staged mappings into self.unit.components and self.unit.component_mappings.
-        Creates single Component instances with attached failure modes, sets Not Fitted status,
-        and replaces temporary templates cleanly.
-        """
-        bom_by_des = {b.designator.upper(): b for b in getattr(self.unit, "bom_components", []) or []}
-        
-        new_components_list: List[Component] = []
-        existing_comp_by_des: Dict[str, Component] = {}
-        for comp in getattr(self.unit, "components", []) or []:
-            if comp.position in ("Mapping Template", "Template") or getattr(comp, "is_template", False):
-                continue
-            if comp.position.upper() not in bom_by_des:
-                new_components_list.append(comp)
-            else:
-                existing_comp_by_des[comp.position.upper()] = comp
-                
-        new_mappings: List[ComponentMapping] = []
-        
-        for des_upper, template in self.staged_mappings.items():
-            bom = bom_by_des.get(des_upper)
-            if not bom:
-                continue
-                
-            value_desc = format_value_description(bom.value, bom.description)
-            part_num = bom.internal_part_number or bom.part_number
-            
-            is_not_fitted = not bom.is_fitted or any(
-                kw in (bom.notes or "").lower() for kw in ["nicht bestueckt", "nicht bestückt", "not fitted", "dnp"]
-            )
-            fitted_status = "Not Fitted" if is_not_fitted else "Fitted"
-            
-            assignments = []
-            for fm_name, fm_percentage in template.failure_modes.items():
-                assignments.append(FailureModeAssignment(
-                    failure_mode_name=fm_name,
-                    failure_rate_percentage=fm_percentage,
-                    classification="dangerous_failure" if "short" in fm_name.lower() or "open" in fm_name.lower() or len(template.failure_modes) == 1 else "not_evaluated",
-                    dangerous_failure_percentage=100.0 if "short" in fm_name.lower() or "open" in fm_name.lower() or len(template.failure_modes) == 1 else 0.0,
-                    detection_percentage=0.0
-                ))
-                
-            existing_comp = existing_comp_by_des.get(des_upper)
-            if existing_comp:
-                existing_comp.name = template.display_name
-                existing_comp.type = template.material or template.display_name
-                existing_comp.failure_rate = template.fits
-                existing_comp.failure_modes = dict(template.failure_modes)
-                existing_comp.failure_mode_assignments = assignments
-                existing_comp.part_number = part_num
-                existing_comp.internal_pn = part_num
-                existing_comp.value = value_desc or existing_comp.value
-                existing_comp.layer = bom.layer or existing_comp.layer
-                existing_comp.notes = bom.notes or existing_comp.notes
-                existing_comp.fitted_status = fitted_status
-                existing_comp.library_component_id = template.id
-                existing_comp.failure_rate_id = template.shortcut or template.failure_rate_id
-                existing_comp.item_no = template.item_no or existing_comp.item_no
-                existing_comp.component_subtype = template.component_subtype or existing_comp.component_subtype
-                existing_comp.component_use_category = template.component_use_category or existing_comp.component_use_category
-                existing_comp.selected_profile = template.selected_profile or self.project_profile
-                existing_comp.source_type = template.database or template.source_type or "exida"
-                existing_comp.snapshot = template.snapshot
-                new_components_list.append(existing_comp)
-            else:
-                comp_id = f"comp_{uuid.uuid4().hex[:8]}"
-                new_comp = Component(
-                    id=comp_id,
-                    position=bom.designator,
-                    name=template.display_name,
-                    type=template.material or template.display_name,
-                    failure_rate=template.fits,
-                    failure_modes=dict(template.failure_modes),
-                    failure_mode_assignments=assignments,
-                    part_number=part_num,
-                    fitted_status=fitted_status,
-                    value=value_desc or None,
-                    internal_pn=part_num or None,
-                    layer=bom.layer or "TOP",
-                    notes=bom.notes or None,
-                    library_component_id=template.id,
-                    failure_rate_id=template.shortcut or template.failure_rate_id,
-                    item_no=template.item_no,
-                    component_subtype=template.component_subtype,
-                    component_use_category=template.component_use_category,
-                    selected_profile=template.selected_profile or self.project_profile,
-                    source_type=template.database or template.source_type or "exida",
-                    snapshot=template.snapshot
-                )
-                new_components_list.append(new_comp)
-                
-            new_mappings.append(ComponentMapping(
-                bom_component_id=bom.id,
-                component_db_id=template.id,
-                confidence=1.0,
-                is_confirmed=True
-            ))
-            
-        self.unit.components = new_components_list
-        self.unit.component_mappings = new_mappings
-        self.mappings = new_mappings
+        additions = [(bom.id, template) for bom, template in self._staged_entries()]
+        candidate = MappingService.prepare_batch(self.unit, additions, self.removed_mapping_ids,
+            self.replacements, self.project_profile, self.project)
+        self.changed_component_ids = MappingService.commit_batch(self.original_unit, candidate)
+        self.unit = Unit.model_validate(self.original_unit.model_dump())
+        self.mappings = list(self.unit.component_mappings)
+        self.removed_mapping_ids.clear()
+        self.replacements.clear()
+        self.staged_mappings.clear()
+        self._init_staged_mappings_from_unit()
 
     def _generate_fmeda_rows(self):
         """Programmatic entry point for automated tests."""
@@ -1271,6 +1236,6 @@ class ComponentMappingDialog(QDialog):
             for m in self.mappings:
                 if m.is_confirmed and m.bom_component_id in bom_by_id and m.component_db_id in db_map:
                     bom = bom_by_id[m.bom_component_id]
-                    self.staged_mappings[bom.designator.upper()] = db_map[m.component_db_id]
+                    self.staged_mappings[(bom.id, *library_identity(db_map[m.component_db_id]))] = db_map[m.component_db_id]
                     
         self._commit_mappings()

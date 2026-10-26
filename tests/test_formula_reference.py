@@ -29,7 +29,7 @@ DOCUMENTED_IMPLEMENTATIONS = {
     'calculate_unit': 'dbe9c7f05a3781e54ba4abcabff338daa5cf8d972d22b99134b587754150982e',
     'calculate_scope': '098c4f9af6789c16b71ef90caf7d32814032eb815088bcfc7fa108c61fd07c46',
     'calculate_unit_metrics': 'c7d349ed8e3c71b20f74ee19906a5408b5c32f2f258197edf2ece366b2df47a6',
-    'calculate_group_result': '75da8a8b9a45150859874dbfffac11d6b5e4c9843b1e8474a6ec9df93eff2651',
+    'calculate_group_result': '677fe5764e91af075542535f805fb96c7d4bb85a01e3656679373e5fc564e3b8',
 }
 
 

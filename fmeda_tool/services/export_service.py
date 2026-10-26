@@ -6,6 +6,7 @@ from fmeda_tool.version import APP_DISPLAY_NAME
 
 from fmeda_tool.models import Project, Unit
 from fmeda_tool.services.validation_service import ValidationService
+from fmeda_tool.services.component_ordering import ordered_components, ordered_mappings
 
 # openpyxl import
 try:
@@ -296,6 +297,7 @@ class ExportService:
                     # Resolve Deviation Name
                     dev_val = "N/A"
                     if assignment.deviation_id:
+                        dev_val = f"Review required: {assignment.deviation_id}"
                         dev = next((d for d in project.deviations if d.id == assignment.deviation_id), None)
                         if dev:
                             dev_val = dev.name
@@ -303,6 +305,7 @@ class ExportService:
                     # Resolve Diagnostic Measure Name
                     dm_val = "N/A"
                     if assignment.diagnostic_measure_id:
+                        dm_val = f"Review required: {assignment.diagnostic_measure_id}"
                         dm = next((m for m in project.diagnostic_measures if m.id == assignment.diagnostic_measure_id), None)
                         if dm:
                             dm_val = dm.description
@@ -310,6 +313,7 @@ class ExportService:
                     # Resolve Mitigation Name
                     mit_val = "N/A"
                     if assignment.mitigation_id:
+                        mit_val = f"Review required: {assignment.mitigation_id}"
                         mit = next((m for m in project.mitigations if m.id == assignment.mitigation_id), None)
                         if mit:
                             mit_val = mit.name or mit.id
@@ -427,11 +431,11 @@ class ExportService:
                 if ws_title == "Overview" and include_summary:
                     ws_title = "Overview_FG"
                 ws = wb.create_sheet(title=ws_title)
-                write_fmeda_rows(ws, unit.components)
+                write_fmeda_rows(ws, ordered_components(unit))
         else:
             # Combined sheet
             ws = wb.create_sheet(title="FMEDA Workspace")
-            write_fmeda_rows(ws, [c for u in project.units for c in u.components], unit_name_opt="Functional Group")
+            write_fmeda_rows(ws, [c for u in project.units for c in ordered_components(u)], unit_name_opt="Functional Group")
             
         # Sheet: Change History
         if include_history and getattr(project, "change_history", None):
@@ -495,6 +499,36 @@ class ExportService:
         if len(wb.sheetnames) > 1 and "Sheet" in wb.sheetnames:
             wb.remove(wb["Sheet"])
             
+        # Trace individual instances even when several mappings share a BOM Pos.
+        mapping_rows = [
+            [unit.name, m.id, m.bom_component_id, m.bom_position, m.library_source,
+             m.component_db_id, m.component_instance_id]
+            for unit in project.units for m in ordered_mappings(unit)]
+        review_rows = [
+            [unit.name, component.position, component.id, assignment.failure_mode_name,
+             "Unmatched assignment retained — review required",
+             assignment.model_dump_json()]
+            for unit in project.units for component in ordered_components(unit)
+            for assignment in component.remapping_review_assignments]
+        for title, headers, rows in (
+            ("Component Mappings", ["Functional Group", "Mapping ID", "BOM Record ID", "BOM Pos",
+                                    "Library Source", "Library Component ID", "Component Instance ID"], mapping_rows),
+            ("Remapping Review", ["Functional Group", "BOM Pos", "Component Instance ID", "Failure Mode",
+                                  "Review State", "Retained Engineering Assignment"], review_rows),
+        ):
+            if not rows:
+                continue
+            sheet = wb.create_sheet(title)
+            sheet.append(headers)
+            for row in rows:
+                sheet.append(row)
+            sheet.freeze_panes = "A2"
+            sheet.auto_filter.ref = sheet.dimensions
+            for index in range(1, len(headers) + 1):
+                sheet.column_dimensions[get_column_letter(index)].width = 32
+            for cell in sheet[1]:
+                cell.font = Font(bold=True)
+                cell.alignment = Alignment(wrap_text=True)
         wb.save(filepath)
         return True
 

@@ -5,6 +5,77 @@ from fmeda_tool.models import BOMComponent, ComponentDB, ComponentMapping
 
 class MappingService:
     """Service to map BOM components to database templates with confidence scoring and reusable MN mapping"""
+
+    @staticmethod
+    def prepare_batch(unit, additions=(), removals=(), replacements=None, profile="Profile 1", project=None):
+        """Return a validated candidate; every error leaves the input unit untouched."""
+        from uuid import uuid4
+        from fmeda_tool.models import Unit
+        from fmeda_tool.services.component_remapping_service import ComponentRemappingService, library_identity
+        candidate = Unit.model_validate(unit.model_dump())
+        replacements = replacements or {}
+        removed = set(removals)
+        existing = {m.id: m for m in candidate.component_mappings}
+        if (removed | set(replacements)) - existing.keys():
+            raise ValueError("The selected mapping no longer exists.")
+        removed_components = {existing[mid].component_instance_id for mid in removed}
+        candidate.component_mappings = [m for m in candidate.component_mappings if m.id not in removed]
+        candidate.components = [c for c in candidate.components if c.id not in removed_components
+                                and c.position not in ("Mapping Template", "Template") and not c.is_template]
+        for mapping_id, component in replacements.items():
+            if mapping_id in removed:
+                raise ValueError("Cannot remove and remap the same mapping.")
+            mapping = existing[mapping_id]
+            if component.id != mapping.component_instance_id:
+                raise ValueError("Remapping must preserve the component-instance identity.")
+            index = next((i for i, c in enumerate(candidate.components) if c.id == component.id), None)
+            if index is None:
+                raise ValueError("Mapped component instance is missing.")
+            candidate.components[index] = component.model_copy(deep=True)
+            prior = {"library_source": mapping.library_source, "component_db_id": mapping.component_db_id}
+            mapping.component_db_id = component.library_component_id
+            mapping.library_source = component.source_type
+            mapping.metadata = {**mapping.metadata, "remapped_from": prior}
+        pairs = [m.pair for m in candidate.component_mappings]
+        if len(pairs) != len(set(pairs)):
+            raise ValueError("This BOM record and library component are already mapped.")
+        by_bom = {b.id: b for b in candidate.bom_components}
+        for bom_id, template in additions:
+            if bom_id not in by_bom:
+                raise ValueError("The BOM record no longer exists.")
+            source, library_id = library_identity(template)
+            pair = (bom_id, source, library_id)
+            prior = next((m for m in candidate.component_mappings if m.pair == pair), None)
+            if prior and any(c.id == prior.component_instance_id for c in candidate.components):
+                continue  # Repeated Save Mappings is idempotent.
+            bom = by_bom[bom_id]
+            component = ComponentRemappingService.plan(None, template, bom, profile, project).component
+            candidate.components.append(component)
+            if prior:
+                prior.component_instance_id = component.id
+                prior.bom_position = bom.designator
+                continue
+            candidate.component_mappings.append(ComponentMapping(
+                id="map_" + uuid4().hex, bom_component_id=bom.id, bom_position=bom.designator,
+                component_db_id=library_id, library_source=source, component_instance_id=component.id,
+                confidence=1.0, is_confirmed=True,
+                metadata={"profile": profile, "bom": bom.model_dump(mode="json")}))
+            pairs.append(pair)
+        return Unit.model_validate(candidate.model_dump())
+
+    @staticmethod
+    def commit_batch(unit, candidate):
+        """One mutation boundary; reuse untouched instances for targeted table refresh."""
+        from fmeda_tool.models import Unit
+        checked = Unit.model_validate(candidate.model_dump())
+        previous = {c.id: c for c in unit.components}
+        checked.components = [
+            previous[c.id] if c.id in previous and previous[c.id].model_dump() == c.model_dump() else c
+            for c in checked.components]
+        changed = {c.id for c in checked.components if c.id not in previous or c is not previous[c.id]}
+        changed.update(set(previous) - {c.id for c in checked.components})
+        unit.__dict__.update(checked.__dict__)
+        return changed
     
     @staticmethod
     def calculate_confidence(
