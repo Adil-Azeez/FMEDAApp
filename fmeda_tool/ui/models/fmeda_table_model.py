@@ -13,6 +13,7 @@ from fmeda_tool.models import Project, Unit, Component, FailureModeAssignment
 from fmeda_tool.models.failure_mode_assignment import CLASSIFICATIONS, CLASSIFICATION_LABELS
 from fmeda_tool.services.calculation_service import CalculationService
 from fmeda_tool.services.component_ordering import component_blocks
+from fmeda_tool.services.assessment_service import assessment_rows, allocation_percentage
 from fmeda_tool.services.validation_service import ValidationService
 from fmeda_tool.services.catalog_service import linked_mitigations, valid_mitigation, deviation_search_text
 
@@ -23,12 +24,13 @@ COLUMN_HEADERS = [
     "Failure Mode", "Failure-Mode %", "Base Failure Rate (FIT)",
     "Failure Effect / Deviation", "Diagnostic Function", "Failure Classification",
     "Dangerous %", "Safe %",
-    "Diagnostic Measure ID", "Detection % (DC)", "Mitigation",
+    "Diagnostic Measure", "Detection % (DC)", "Mitigation",
     "Comments / Justification", "Review Status",
     "Proof Test A", "Proof Test B", "Proof Test C",
     "lambda (FIT)", "lambda_safe (FIT)", "lambda_dangerous (FIT)",
     "lambda_sd (FIT)", "lambda_su (FIT)", "lambda_dd (FIT)", "lambda_du (FIT)",
-    "lambda_no_part (FIT)", "lambda_no_effect (FIT)", "SFF %", "DC %", "MTBF (h)", "MTTFd (y)"
+    "lambda_no_part (FIT)", "lambda_no_effect (FIT)", "SFF %", "DC %", "MTBF (h)", "MTTFd (y)",
+    "λduPTCA (FIT)", "λduPTCB (FIT)", "λduPTCC (FIT)", "PTCA (%)", "PTCB (%)", "PTCC (%)"
 ]
 
 CLASSIFICATION_DISPLAY_MAP = CLASSIFICATION_LABELS
@@ -50,7 +52,7 @@ class FmedaRowEntry:
 
 class FmedaTableModel(QAbstractTableModel):
     """
-    Model backing the FMEDA spreadsheet with 35 simplified columns,
+    Model backing the FMEDA spreadsheet with assessment and proof-test columns,
     subtle entry-origin styling, and Locked View Mode vs Edit Mode control.
     """
     data_modified = pyqtSignal()
@@ -63,6 +65,7 @@ class FmedaTableModel(QAbstractTableModel):
         self.rows: List[FmedaRowEntry] = []
         self.active_search_row: Optional[int] = None
         self._search_texts = {}
+        self._proof_result = None
         self.dataChanged.connect(self._invalidate_search_text)
         if auto_populate:
             self._rebuild_rows()
@@ -90,7 +93,20 @@ class FmedaTableModel(QAbstractTableModel):
                 matches.append(row)
         return matches, set(matches)
 
+    def _refresh_proof_results(self):
+        self._proof_result = CalculationService.proof_test_results(
+            entry.row_metrics for entry in self.rows
+            if not entry.is_separator and entry.component.position not in ("Mapping Template", "Template")
+            and not getattr(entry.component, "is_template", False)
+            and (CalculationService.is_safety_row(entry.assignment)
+                 or entry.assignment.classification == "legacy_no_part_no_effect"))
+
     def _invalidate_search_text(self, first, last, roles=None):
+        if self._proof_result is None:
+            self._refresh_proof_results()
+            self._search_texts.clear()
+            if self.rows:
+                self.dataChanged.emit(self.index(0, 38), self.index(len(self.rows) - 1, 40))
         if not roles or Qt.ItemDataRole.DisplayRole in roles:
             for row in range(first.row(), last.row() + 1):
                 self._search_texts.pop(row, None)
@@ -124,19 +140,13 @@ class FmedaTableModel(QAbstractTableModel):
                 self.rows.append(FmedaRowEntry(is_separator=True))
             for comp in block.components:
                 self._append_component_rows(comp)
+        self._refresh_proof_results()
 
     def _append_component_rows(self, comp):
-        for fm_name, fm_percentage in comp.failure_modes.items():
-            assignment = next((a for a in comp.failure_mode_assignments if a.failure_mode_name == fm_name), None)
-            if not assignment:
-                assignment = FailureModeAssignment(
-                    failure_mode_name=fm_name,
-                    failure_rate_percentage=fm_percentage,
-                    classification="not_evaluated",
-                    dangerous_failure_percentage=100.0,
-                    detection_percentage=0.0
-                )
+        for fm_name, parent_percentage, assignment in assessment_rows(comp):
+            if not any(a is assignment for a in comp.failure_mode_assignments):
                 comp.failure_mode_assignments.append(assignment)
+            fm_percentage = allocation_percentage(comp, assignment)
 
             entry = FmedaRowEntry(
                 is_separator=False,
@@ -159,6 +169,7 @@ class FmedaTableModel(QAbstractTableModel):
         if entry.is_separator or not entry.component or not entry.assignment:
             return
 
+        self._proof_result = None
         comp = entry.component
         assignment = entry.assignment
         entry.row_metrics = CalculationService.calculate_assignment(comp, assignment)
@@ -267,6 +278,12 @@ class FmedaTableModel(QAbstractTableModel):
 
         # 2. Tooltip Role
         if role == Qt.ItemDataRole.ToolTipRole:
+            if col in (6, 7) and assignment.allocation_percentage is not None:
+                return (f"Parent failure mode: {entry.fm_name}\n"
+                        f"Parent: {comp.failure_modes[entry.fm_name]:g}%\n"
+                        f"Case allocation: {assignment.allocation_percentage:g}%\n"
+                        f"Assessment case: {assignment.assignment_id}\n"
+                        "Edit case allocations together in Edit Component.")
             if col in (11, 12, 13):
                 return CLASSIFICATION_LABELS.get(assignment.classification, "Not Evaluated") + "\nClassification allocates the full failure-mode rate. Legacy percentage values are retained until review."
             if col == 14:
@@ -328,7 +345,7 @@ class FmedaTableModel(QAbstractTableModel):
             for dm in self.project.diagnostic_measures:
                 opts.append({"label": dm.display_label, "data": dm.id,
                              "search": "\n".join(getattr(dm, field) or "" for field in
-                                                 ("id", "name", "description", "verification_method",
+                                                 ("display_id", "diagnostic_measure_test", "description", "verification_method",
                                                   "execution_timing", "notes"))})
             return opts
         elif col == 16:  # Mitigation
@@ -371,7 +388,7 @@ class FmedaTableModel(QAbstractTableModel):
         elif col == 6:
             return entry.fm_name
         elif col == 7:
-            pct = comp.failure_modes.get(entry.fm_name, entry.fm_percentage)
+            pct = allocation_percentage(comp, assignment)
             return pct if role == Qt.ItemDataRole.EditRole else f"{pct:.1f}%"
         elif col == 8:
             rate = comp.failure_rate or 0.0
@@ -463,6 +480,11 @@ class FmedaTableModel(QAbstractTableModel):
         elif col == 34:
             mttfd = metrics.get('mttfd', 0.0)
             return f"{mttfd:.1f}" if mttfd > 0 else "N/A"
+        elif 35 <= col <= 37:
+            return f"{metrics.get('proof_test_' + 'abc'[col - 35] + '_contribution', 0):.4f}"
+        elif 38 <= col <= 40:
+            value = self._proof_result['proof_test_' + 'abc'[col - 38] + '_coverage']
+            return "N/A" if value is None else f"{value:.2f}%"
         return None
 
     def setData(self, index: QModelIndex, value: Any, role: int = Qt.ItemDataRole.EditRole) -> bool:
@@ -501,6 +523,8 @@ class FmedaTableModel(QAbstractTableModel):
 
         # Failure-Mode % (col 7)
         if col == 7:
+            if assignment.allocation_percentage is not None:
+                return False  # Edit split allocations together in the validated dialog.
             try:
                 fm_pct = float(value)
                 comp.failure_modes[entry.fm_name] = fm_pct
@@ -620,7 +644,8 @@ class FmedaTableModel(QAbstractTableModel):
                     assignment.proof_test_b = pt_val
                 elif col == 21:
                     assignment.proof_test_c = pt_val
-                self.dataChanged.emit(self.index(row, col), self.index(row, col))
+                self._compute_entry_metrics(entry)
+                self.dataChanged.emit(self.index(row, col), self.index(row, len(COLUMN_HEADERS) - 1))
                 self.data_modified.emit()
                 return True
             except (ValueError, TypeError):
@@ -638,7 +663,7 @@ class FmedaTableModel(QAbstractTableModel):
 
     def sync_components(self, changed_ids):
         """Refresh changed blocks once, retaining every unaffected row and lazy tab."""
-        old_entries = {(entry.component.id, entry.fm_name): entry for entry in self.rows if not entry.is_separator}
+        old_entries = {(entry.component.id, entry.assignment.assignment_id or id(entry.assignment)): entry for entry in self.rows if not entry.is_separator}
         separators = {}
         for index, entry in enumerate(self.rows[:-1]):
             if entry.is_separator and self.rows[index + 1].component:
@@ -649,13 +674,11 @@ class FmedaTableModel(QAbstractTableModel):
         for component, index in ordered:
             if desired and index == 0:
                 desired.append(separators.get(component.id) or FmedaRowEntry(is_separator=True))
-            assignments = {a.failure_mode_name: a for a in component.failure_mode_assignments}
-            for name, pct in component.failure_modes.items():
-                entry = old_entries.get((component.id, name))
+            for name, parent_percentage, assignment in assessment_rows(component):
+                pct = allocation_percentage(component, assignment)
+                entry = old_entries.get((component.id, assignment.assignment_id or id(assignment)))
                 if entry is None or component.id in changed_ids:
-                    assignment = assignments.get(name)
-                    if assignment is None:
-                        assignment = FailureModeAssignment(failure_mode_name=name, failure_rate_percentage=pct)
+                    if not any(a is assignment for a in component.failure_mode_assignments):
                         component.failure_mode_assignments.append(assignment)
                     entry = FmedaRowEntry(component=component, assignment=assignment, fm_name=name, fm_percentage=pct)
                     self._compute_entry_metrics(entry)
@@ -675,6 +698,7 @@ class FmedaTableModel(QAbstractTableModel):
             self.beginInsertRows(QModelIndex(), prefix, new_end - 1)
             self.rows[prefix:prefix] = desired[prefix:new_end]
             self.endInsertRows()
+        self._refresh_proof_results()
         self._search_texts.clear()
         self.active_search_row = None
 

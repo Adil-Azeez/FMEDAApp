@@ -20,6 +20,7 @@ class FailureModeAssignment(BaseModel):
     """Assignment of a failure mode to deviations and diagnostic measures"""
     assignment_id: Optional[str] = None
     parent_failure_mode_id: Optional[str] = None
+    allocation_percentage: Optional[float] = Field(default=None, ge=0.0, le=100.0)
     
     # Failure mode information (from ComponentDB)
     failure_mode_name: str = Field(description="Name of the failure mode")

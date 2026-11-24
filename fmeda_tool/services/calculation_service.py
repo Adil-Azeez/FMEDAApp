@@ -1,5 +1,6 @@
 from typing import Dict, Any, List, Optional
 import weakref
+from fmeda_tool.services.assessment_service import allocation_percentage
 from fmeda_tool.models import Project, Unit, Component, FailureModeAssignment
 
 
@@ -101,12 +102,15 @@ class CalculationService:
 
     @staticmethod
     def calculate_assignment(component, assignment):
-        local_fit = (component.failure_rate or 0.0) * component.failure_modes.get(assignment.failure_mode_name, 0.0) / 100.0
+        local_fit = (component.failure_rate or 0.0) * allocation_percentage(component, assignment) / 100.0
         classification = assignment.classification
         if assignment.classification_version == 1 and classification in ("safe_failure", "dangerous_failure", "not_evaluated"):
             classification = "_legacy_percentage"
-        return CalculationService.calculate_row_detailed(local_fit, classification,
+        result = CalculationService.calculate_row_detailed(local_fit, classification,
             assignment.dangerous_failure_percentage, assignment.detection_percentage)
+        for suffix in ("a", "b", "c"):
+            result[f"proof_test_{suffix}_contribution"] = result["lambda_du"] * (getattr(assignment, f"proof_test_{suffix}") or 0.0) / 100.0
+        return result
 
     @staticmethod
     def is_safety_row(assignment):
@@ -141,10 +145,8 @@ class CalculationService:
         """Full failure-mode lambda for explicit Yes, independent of all safety classifications."""
         if component.position in ("Mapping Template", "Template") or getattr(component, "is_template", False):
             return 0.0
-        assignments = {a.failure_mode_name: a for a in component.failure_mode_assignments}
-        return sum((component.failure_rate or 0.0) * percentage / 100.0
-                   for name, percentage in component.failure_modes.items()
-                   if name in assignments and assignments[name].diagnostic_function == "Yes")
+        return sum((component.failure_rate or 0.0) * allocation_percentage(component, a) / 100.0
+                   for a in component.failure_mode_assignments if a.diagnostic_function == "Yes")
 
     @staticmethod
     def calculate_unit(unit: Unit) -> Dict[str, Any]:
@@ -468,6 +470,18 @@ class CalculationService:
         return scope_res
 
     @staticmethod
+    def proof_test_results(rows):
+        """Aggregate already-calculated assessment results; coverage is a percentage."""
+        rows = list(rows)
+        total_du = sum(row["lambda_du"] for row in rows)
+        result = {}
+        for suffix in "abc":
+            contribution = sum(row[f"proof_test_{suffix}_contribution"] for row in rows)
+            result[f"proof_test_{suffix}_contribution"] = contribution
+            result[f"proof_test_{suffix}_coverage"] = contribution / total_du * 100.0 if total_du > 0 else None
+        return result
+
+    @staticmethod
     def calculate_unit_metrics(unit: Unit, project: Optional[Project] = None) -> Dict[str, Any]:
         """
         Calculates complete independent safety metrics for a single functional group
@@ -481,36 +495,13 @@ class CalculationService:
         gg_fit = gg["lambda"]
         mtbf_years = (10**9 / (gg_fit * 8760.0)) if gg_fit > 0.0 else None
         
-        # Proof test coverages across unit's dangerous undetected failures
-        sum_ldu = 0.0
-        sum_pt_a = 0.0
-        sum_pt_b = 0.0
-        sum_pt_c = 0.0
-        
-        for c in unit.components:
-            if c.position in ("Mapping Template", "Template") or getattr(c, "is_template", False):
-                continue
-            comp_fit = c.failure_rate or 0.0
-            for a in c.failure_mode_assignments:
-                fm_pct = c.failure_modes.get(a.failure_mode_name, 0.0)
-                local_fit = comp_fit * (fm_pct / 100.0)
-                dp = a.dangerous_failure_percentage if a.dangerous_failure_percentage is not None else 100.0
-                det = a.detection_percentage if a.detection_percentage is not None else 0.0
-                ldu = CalculationService.calculate_assignment(c, a)["lambda_du"] if CalculationService.is_safety_row(a) or a.classification == "legacy_no_part_no_effect" else 0.0
-                
-                pt_a = getattr(a, "proof_test_a", 0.0) or 0.0
-                pt_b = getattr(a, "proof_test_b", 0.0) or 0.0
-                pt_c = getattr(a, "proof_test_c", 0.0) or 0.0
-                
-                sum_ldu += ldu
-                sum_pt_a += ldu * (pt_a / 100.0)
-                sum_pt_b += ldu * (pt_b / 100.0)
-                sum_pt_c += ldu * (pt_c / 100.0)
-                
-        pt_cov_a = (sum_pt_a / sum_ldu * 100.0) if sum_ldu > 0.0 else None
-        pt_cov_b = (sum_pt_b / sum_ldu * 100.0) if sum_ldu > 0.0 else None
-        pt_cov_c = (sum_pt_c / sum_ldu * 100.0) if sum_ldu > 0.0 else None
-        
+        proof = CalculationService.proof_test_results(
+            CalculationService.calculate_assignment(c, a)
+            for c in unit.components
+            if c.position not in ("Mapping Template", "Template") and not getattr(c, "is_template", False)
+            for a in c.failure_mode_assignments
+            if CalculationService.is_safety_row(a) or a.classification == "legacy_no_part_no_effect")
+
         is_safety = bool(unit.included_in_safety_function)
         
         # SFF and DC (None if denominator is zero)
@@ -554,13 +545,7 @@ class CalculationService:
             "pfd_avg": pfd_avg,
             "pfd_max": pfd_max,
             "achieved_sil": achieved_sil,
-            "proof_test_a_contribution": sum_pt_a,
-            "proof_test_b_contribution": sum_pt_b,
-            "proof_test_c_contribution": sum_pt_c,
-            # Proof tests
-            "proof_test_a_coverage": pt_cov_a,
-            "proof_test_b_coverage": pt_cov_b,
-            "proof_test_c_coverage": pt_cov_c,
+            **proof,
         }
 
 

@@ -36,6 +36,11 @@ class ProjectService:
                 baseline = ChangeHistoryService.meaningful_state(saved)
         changes = ChangeHistoryService.changes(baseline, current_state) if record_history else []
         entry = ChangeHistoryService.entry(project, changes, comment) if changes else None
+        from fmeda_tool.services.assessment_service import allocation_errors
+        errors = [error for unit in project.units for component in unit.components
+                  for error in allocation_errors(component)]
+        if errors:
+            raise ValueError("Invalid assessment allocations: " + "; ".join(errors))
         payload = project.model_dump(mode='json')
         if entry:
             payload["change_history"].append(entry)

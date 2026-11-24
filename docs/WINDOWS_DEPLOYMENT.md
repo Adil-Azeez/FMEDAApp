@@ -29,7 +29,7 @@ With Inno Setup 6.3+ installed on the builder:
 "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" FMEDA_Setup.iss
 ```
 
-Output: `installer\FMEDA_Setup_v1.0.0.exe` for the initial version. Distribute that
+Output: `installer\FMEDA_Setup_v1.0.1.exe` for this release. Distribute that
 one file. It installs the entire one-directory PyInstaller bundle, creates Start
 Menu and desktop shortcuts, and registers an uninstaller. Users need no Python,
 PyQt, Office, Git, editor, or development environment. Keep the installer AppId

@@ -1,3 +1,4 @@
+from fmeda_tool.models.diagnostic_measure import DEFAULT_SOURCE_LINK
 
 
 from PyQt6.QtWidgets import (
@@ -8,7 +9,6 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
 from typing import Optional
-import uuid
 
 from fmeda_tool.models import DiagnosticMeasure
 
@@ -137,14 +137,16 @@ class CreateDiagnosticMeasureView(QWidget):
         
         # ID (auto-generated, read-only in create mode)
         self.id_input = QLineEdit()
-        self.id_input.setPlaceholderText("Auto-generated...")
+        self.id_input.setPlaceholderText("Optional visible ID...")
         self.id_input.setReadOnly(False)
         self.id_input.setMinimumHeight(35)
         self.id_input.setStyleSheet("background-color: #e9ecef;")
-        form_layout.addRow("Diagnostic Measure ID*:", self.id_input)
-        self.id_input.setText(f"dm_{uuid.uuid4().hex[:8]}")
-        self.name_input = QLineEdit()
-        form_layout.addRow("Name*:", self.name_input)
+        form_layout.addRow("Diagnostic Measure ID:", self.id_input)
+        self.id_input.clear()
+        self.test_input = QLineEdit()
+        form_layout.addRow("Diagnostic Measure Test*:", self.test_input)
+        self.source_link_input = QLineEdit(DEFAULT_SOURCE_LINK)
+        form_layout.addRow("Source Link:", self.source_link_input)
         
         # Diagnostic Coverage (0-100)
         dc_layout = QHBoxLayout()
@@ -197,10 +199,10 @@ class CreateDiagnosticMeasureView(QWidget):
         
     def _validate_inputs(self) -> bool:
         """Validate user inputs"""
-        if not self.id_input.text().strip() or not self.name_input.text().strip():
-            QMessageBox.warning(self, "Validation Error", "Diagnostic Measure ID and Name are required.")
+        if not self.test_input.text().strip():
+            QMessageBox.warning(self, "Validation Error", "Diagnostic Measure Test is required.")
             return False
-        if self.project and any(m.id == self.id_input.text().strip() and m is not self.measure
+        if self.id_input.text().strip() and self.project and any(m.display_id == self.id_input.text().strip() and m is not self.measure
                                 for m in self.project.diagnostic_measures):
             QMessageBox.warning(self, "Validation Error", "Diagnostic Measure ID must be unique.")
             return False
@@ -233,8 +235,6 @@ class CreateDiagnosticMeasureView(QWidget):
         try:
             # Generate unique ID if not in edit mode
             measure_id = self.id_input.text().strip()
-            if not measure_id:
-                measure_id = f"dm_{uuid.uuid4().hex[:8]}"
             
             # Get risk ID and SW requirement ID (optional)
             risk_id = self.risk_id_input.text().strip() or None
@@ -242,7 +242,8 @@ class CreateDiagnosticMeasureView(QWidget):
             
             # Create diagnostic measure
             values = self.measure.model_dump() if self.measure else {}
-            values.update(id=measure_id, name=self.name_input.text().strip(),
+            values.update(display_id=measure_id or None, diagnostic_measure_test=self.test_input.text().strip(),
+                          source_link=self.source_link_input.text().strip(),
                           dc=self.dc_input.value() if self.dc_input.value() >= 0 else None,
                           description=self.description_input.toPlainText().strip(),
                           risk_id=risk_id, sw_requirement_id=sw_req_id)
@@ -281,8 +282,9 @@ class CreateDiagnosticMeasureView(QWidget):
     
     def reset_form(self):
         """Reset the form to default values"""
-        self.id_input.setText(f"dm_{uuid.uuid4().hex[:8]}")
-        self.name_input.clear()
+        self.id_input.clear()
+        self.test_input.clear()
+        self.source_link_input.setText(DEFAULT_SOURCE_LINK)
         for widget in self.catalog_inputs.values():
             widget.clear()
         self.dc_input.setValue(-1)
@@ -299,8 +301,9 @@ class CreateDiagnosticMeasureView(QWidget):
         self.edit_mode = True
         self.title_label.setText("Edit Diagnostic Measure")
         
-        self.id_input.setText(measure.id)
-        self.name_input.setText(measure.name)
+        self.id_input.setText(measure.display_id or "")
+        self.test_input.setText(measure.diagnostic_measure_test)
+        self.source_link_input.setText(measure.source_link)
         for field, widget in self.catalog_inputs.items():
             widget.setText(getattr(measure, field) or "")
         self.dc_input.setValue(measure.dc if measure.dc is not None else -1)

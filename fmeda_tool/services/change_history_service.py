@@ -30,15 +30,20 @@ class ChangeHistoryService:
                 comp.pop("safe_failure_fraction", None)
                 # Lazy table loading materializes unevaluated assignments. Treat these as the
                 # same blank rows that already exist in the component's failure-mode definition.
-                assignments = {a["failure_mode_name"]: a for a in comp["failure_mode_assignments"]}
+                assignments = list(comp["failure_mode_assignments"])
+                names = {a["failure_mode_name"] for a in assignments}
                 for name, pct in comp["failure_modes"].items():
-                    if name not in assignments:
-                        assignments[name] = FailureModeAssignment(
+                    if name not in names:
+                        assignments.append(FailureModeAssignment(
                             failure_mode_name=name, failure_rate_percentage=pct,
                             classification="not_evaluated", dangerous_failure_percentage=100.0,
                             detection_percentage=0.0,
-                        ).model_dump(mode="json")
-                comp["failure_mode_assignments"] = list(assignments.values())
+                        ).model_dump(mode="json"))
+                counts = Counter(a["failure_mode_name"] for a in assignments)
+                comp["failure_mode_assignments"] = {
+                    (a.get("assignment_id") or (a["failure_mode_name"] if counts[a["failure_mode_name"]] == 1
+                     else f"{a['failure_mode_name']} [{index}]")): a
+                    for index, a in enumerate(assignments)}
 
         def clean(value, field=""):
             if field == "custom_fields":
@@ -81,8 +86,9 @@ class ChangeHistoryService:
                         walk(old[key], new[key], child)
             elif isinstance(old, list) and isinstance(new, list):
                 combined = old + new
-                identity = next((key for key in ("id", "failure_mode_name")
-                                 if combined and all(isinstance(v, dict) and key in v for v in combined)), None)
+                identity = next((key for key in ("id", "assignment_id", "failure_mode_name")
+                                 if combined and all(isinstance(v, dict) and v.get(key) is not None for v in combined)
+                                 and all(len({v[key] for v in values}) == len(values) for values in (old, new))), None)
                 if identity and len({v[identity] for v in old}) == len(old) and len({v[identity] for v in new}) == len(new):
                     old_map, new_map = ({v[identity]: v for v in values} for values in (old, new))
                     for key in sorted(old_map.keys() | new_map.keys()):

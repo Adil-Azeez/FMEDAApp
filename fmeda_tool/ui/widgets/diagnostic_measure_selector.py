@@ -7,5 +7,5 @@ class DiagnosticMeasureSelector(DeviationSelector):
     def __init__(self, options, parent=None):
         super().__init__(options, parent)
         self.lineEdit().setPlaceholderText(
-            "Search ID, name, description, verification, timing or notes..."
+            "Search ID, test, description, verification, timing or notes..."
         )

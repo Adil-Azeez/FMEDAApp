@@ -17,10 +17,9 @@ def main():
         sys.stdout = open(log_dir / "application.log", "a", encoding="utf-8", buffering=1)
     if sys.stderr is None:
         sys.stderr = sys.stdout
-    from PyQt6.QtWidgets import QApplication, QMessageBox
+    from PyQt6.QtWidgets import QApplication, QMessageBox, QSplashScreen
     from PyQt6.QtCore import Qt
-    from PyQt6.QtGui import QIcon
-    from fmeda_tool.ui import MainWindow, MainMenu
+    from PyQt6.QtGui import QIcon, QPixmap, QColor
     print("="*70)
     print(APP_DISPLAY_NAME + " - Failure Mode, Effects and Diagnostic Analysis")
     print("="*70)
@@ -78,6 +77,14 @@ def main():
     app = QApplication(sys.argv)
     app.setApplicationName(APP_NAME)
     app.setApplicationVersion(APP_VERSION)
+    panel = QPixmap(360, 112)
+    panel.fill(QColor("#20374a"))
+    splash = QSplashScreen(panel)
+    splash.setWindowTitle(f"Starting {APP_NAME}")
+    splash.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+    splash.showMessage(f"{APP_DISPLAY_NAME}\nStarting application…", Qt.AlignmentFlag.AlignCenter, QColor("white"))
+    splash.show()
+    app.processEvents()
     app.setWindowIcon(QIcon(str(resource_path("assets", "FMEDA.ico"))))
     
     # Ensure SQLite component database is initialized
@@ -88,6 +95,7 @@ def main():
         ready, db_msg = False, str(error)
     print(f"Database status: {db_msg}")
     if not ready:
+        splash.close()
         QMessageBox.critical(None, "Database Initialization Failed", db_msg)
         return 1
     projects_directory().mkdir(parents=True, exist_ok=True)
@@ -97,6 +105,7 @@ def main():
 
     
     # Create main window
+    from fmeda_tool.ui import MainWindow, MainMenu
     main_window = MainWindow()
     
     # Create and add main menu view
@@ -113,6 +122,7 @@ def main():
     
     # Show main window
     main_window.show()
+    splash.finish(main_window)
     
     print("[OK] Application launched successfully")
     print("\nGUI is now ready. Use the menu bar for navigation.")

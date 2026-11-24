@@ -22,13 +22,14 @@ from fmeda_tool.ui.main_window import MainWindow
 # Ignore formatting/comments/docstrings; if calculation code changes, review the
 # corresponding reference entries against that code before updating these hashes.
 DOCUMENTED_IMPLEMENTATIONS = {
+    'proof_test_results': 'b30433d5507c0e0c54f6f0a32e33a49100d65e59f3e5d9e802084fc1f61bfa82',
     'calculate_row_detailed': '1ab5f625ca7902c5d25558a43487e99ab14cc68a38d5d5dc9199e9d47ce7c1cb',
-    'calculate_assignment': '3a12716a05abcaca3541ede24cb0e2761767a69d13e61868e683ea3ebeed7817',
+    'calculate_assignment': '39e99d8af851cc448d3ff4891450df7a287c8406a1d2f6a5689e58b69f3b16b6',
     'calculate_component': '3e9936386d93cfc279b6e80024a09ccec215d872ca89bd38979a2c83fcadf173',
-    'calculate_diagnostic_lambda': 'f0abd443436dbb1b2ba5aa3a8713abef1192651b489a280703eee907a225113e',
+    'calculate_diagnostic_lambda': 'f345bd874b785ff31851b989cf9e58b95b39a2d50507a8db35e064a4788f51eb',
     'calculate_unit': 'dbe9c7f05a3781e54ba4abcabff338daa5cf8d972d22b99134b587754150982e',
     'calculate_scope': '098c4f9af6789c16b71ef90caf7d32814032eb815088bcfc7fa108c61fd07c46',
-    'calculate_unit_metrics': 'c7d349ed8e3c71b20f74ee19906a5408b5c32f2f258197edf2ece366b2df47a6',
+    'calculate_unit_metrics': '67012cc8261b4a2afcee51fc1d3b4bf86358a8a0ce7df08ae585ada2f4d1eb39',
     'calculate_group_result': '677fe5764e91af075542535f805fb96c7d4bb85a01e3656679373e5fc564e3b8',
 }
 
@@ -106,7 +107,7 @@ def test_reference_contains_all_implemented_metrics_and_source_links(qtbot):
         'Failure Rates', 'Classification Buckets', 'Safety Channel', 'Diagnostic Metrics', 'Safety Metrics', 'Reliability Metrics']
     expected = {'lambda_total', 'lambda_safe', 'lambda_dangerous', 'lambda_sd', 'lambda_su',
                 'lambda_dd', 'lambda_du', 'lambda_diag_gesamt', 'sff', 'dc', 'mttfd', 'pfd_avg',
-                'pfhd', 'mtbf', 'proof_coverage', 'sil', 'lambda_row', 'units',
+                'pfhd', 'mtbf', 'proof_coverage', 'proof_contribution', 'sil', 'lambda_row', 'units',
                 'lambda_no_part', 'lambda_no_effect', 'lambda_diag_failure', 'legacy_classification'}
     assert {f.key for _, formulas in FORMULA_SECTIONS for f in formulas} == expected
     for section, formulas in FORMULA_SECTIONS:

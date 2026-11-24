@@ -48,8 +48,8 @@ def test_header_layout_survives_search_and_refresh(qtbot):
     header = dialog.table.horizontalHeader()
     assert header.sectionsMovable()
     assert dialog.width() >= 1320
-    assert sum(header.sectionSize(col) for col in range(6)) <= dialog.table.viewport().width()
-    for col in range(6):
+    assert sum(header.sectionSize(col) for col in range(7)) <= dialog.table.viewport().width()
+    for col in range(7):
         assert not header.isSectionHidden(col)
         assert header.sectionResizeMode(col) == QHeaderView.ResizeMode.Interactive
         assert header.sectionSize(col) >= header.sectionSizeHint(col)
@@ -68,7 +68,7 @@ def test_description_absorbs_window_space_and_manual_resize(qtbot):
     dialog.show()
     header = dialog.table.horizontalHeader()
     qtbot.waitUntil(lambda: header.length() == dialog.table.viewport().width())
-    widths = [header.sectionSize(c) for c in range(6)]
+    widths = [header.sectionSize(c) for c in range(7)]
     dialog.resize(dialog.width() + 400, dialog.height())
     qtbot.waitUntil(lambda: header.sectionSize(3) == widths[3] + 400)
     assert header.length() == dialog.table.viewport().width()
@@ -129,7 +129,7 @@ def test_legacy_reference_roundtrip_and_column_removal(qtbot, tmp_path):
     reopened, _, _ = ProjectService.load_and_migrate_project(str(path))
     model = FmedaTableModel(reopened.units[0], reopened)
     metrics = dict(model.rows[0].row_metrics)
-    assert model.columnCount() == 35
+    assert model.columnCount() == 41
     assert "DC Test Ref" not in COLUMN_HEADERS
     assert model.rows[0].assignment.dc_test_ref == "Historical evidence"
     assert "Historical evidence" in reopened.model_dump_json(by_alias=True)
@@ -146,7 +146,7 @@ def test_filtered_edit_and_remove_keep_catalog_identity(qtbot, monkeypatch):
     dialog.table.setCurrentCell(1, 0)
 
     def edit(editor):
-        editor.name_input.setText("Updated watchdog")
+        editor.test_input.setText("Updated watchdog")
         editor._on_accept()
         return QDialog.DialogCode.Accepted
 

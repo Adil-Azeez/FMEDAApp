@@ -63,19 +63,6 @@ class Component(BaseModel):
     snapshot: Optional[Dict[str, Any]] = Field(default=None, description="Complete library snapshot at time of selection")
     is_template: bool = Field(default=False, description="Whether this component is a temporary mapping template")
     
-    # Library References & Project Snapshotting
-    library_component_id: Optional[str] = Field(default=None, description="UUID or legacy ID in SQLite component library")
-    failure_rate_id: Optional[str] = Field(default=None, description="Failure Rate ID (e.g. FR-000001)")
-    item_no: Optional[str] = Field(default=None, description="Handbook Item Number (e.g. E.1.1.1)")
-    component_subtype: Optional[str] = Field(default=None, description="Component subtype")
-    component_use_category: Optional[str] = Field(default=None, description="Component use category")
-    selected_profile: Optional[str] = Field(default=None, description="Selected profile name (e.g. Profile 1)")
-    source_type: Optional[str] = Field(default="exida", description="Source type ('exida' or 'legacy')")
-    library_id: Optional[str] = Field(default=None, description="Library metadata UUID")
-    schema_version: Optional[str] = Field(default=None, description="Library schema version")
-    snapshot: Optional[Dict[str, Any]] = Field(default=None, description="Complete library snapshot at time of selection")
-    is_template: bool = Field(default=False, description="Whether this component is a temporary mapping template")
-    
     # Relationships
     deviation_ids: List[str] = Field(default_factory=list, description="Associated deviation IDs")
     mitigation_ids: List[str] = Field(default_factory=list, description="Associated mitigation IDs")

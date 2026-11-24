@@ -13,7 +13,7 @@
 | **Seed JSON Source Path** | `data/seed/Combined_Exida_Component_library_version2.json` |
 | **SQLite Schema Version** | `1.0` |
 | **Seed Library ID** | `b41d2f01-9596-5b7a-958f-ed405f96955a` |
-| **Application Version** | `1.0.0` |
+| **Application Version** | `1.0.1` |
 | **Git Commit Hash** | `741dfab173ae1539457560b87d3129b8b9701448` |
 | **Author** | Antigravity AI Engineering Assistant / DeepMind Advanced Agentic Coding |
 | **Reviewer** | Technical Lead / Functional Safety Assessor |

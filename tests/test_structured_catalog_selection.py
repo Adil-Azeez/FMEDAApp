@@ -37,15 +37,15 @@ def row(project):
     return project.units[0].components[0].failure_mode_assignments[0]
 
 
-@pytest.mark.parametrize('field', ['id', 'name', 'description'])
+@pytest.mark.parametrize('field', ['diagnostic_measure_test', 'description'])
 def test_mandatory_model_and_dialog(qapp, field):
-    data = dict(id='id', name='Name', description='Description')
+    data = dict(id='id', diagnostic_measure_test='Test', description='Description')
     data[field] = ' '
     with pytest.raises(ValidationError):
         DiagnosticMeasure(**data)
     dialog = DiagnosticMeasureMiniDialog(project=sample())
     dialog.id_input.setText(data['id'])
-    dialog.name_input.setText(data['name'])
+    dialog.test_input.setText(data['diagnostic_measure_test'])
     dialog.desc_input.setText(data['description'])
     with patch.object(QMessageBox, 'warning') as warning:
         dialog._on_accept()
@@ -57,7 +57,7 @@ def test_catalog_add_edit_unique_rename_delete(qapp, monkeypatch):
     manager = DiagnosticMeasureManagerDialog(p)
     def add(dialog):
         dialog.id_input.setText('new')
-        dialog.name_input.setText('New measure')
+        dialog.test_input.setText('New measure')
         dialog.desc_input.setText('Description')
         dialog.failure_reaction_input.setText('Trip')
         dialog._on_accept()
@@ -66,21 +66,23 @@ def test_catalog_add_edit_unique_rename_delete(qapp, monkeypatch):
     manager._on_add()
     assert p.diagnostic_measures[-1].dc is None
     assert p.diagnostic_measures[-1].failure_reaction == 'Trip'
-    assert manager.table.columnCount() == 6
+    assert manager.table.columnCount() == 7
     with patch.object(QMessageBox, 'warning') as warning:
         manager._on_add()
     assert warning.called and len(p.diagnostic_measures) == 3
-    row(p).diagnostic_measure_id = 'new'
+    internal_id = p.diagnostic_measures[-1].id
+    row(p).diagnostic_measure_id = internal_id
     row(p).detection_percentage = 55
     manager.table.setCurrentCell(2, 0)
     def edit(dialog):
         dialog.id_input.setText('renamed')
-        dialog.name_input.setText('Updated')
+        dialog.test_input.setText('Updated')
         dialog._on_accept()
         return dialog.result()
     monkeypatch.setattr(DiagnosticMeasureMiniDialog, 'exec', edit)
     manager._on_edit()
-    assert row(p).diagnostic_measure_id == 'renamed'
+    assert row(p).diagnostic_measure_id == internal_id
+    assert p.diagnostic_measures[-1].display_id == 'renamed'
     assert row(p).detection_percentage == 55
     assert p.diagnostic_measures[-1].failure_reaction == 'Trip'
     with patch.object(QMessageBox, 'question', return_value=QMessageBox.StandardButton.Yes):

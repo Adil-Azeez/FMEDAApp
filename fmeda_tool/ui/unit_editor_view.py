@@ -42,6 +42,9 @@ from fmeda_tool.utils.performance import PerformanceTimer
 from fmeda_tool.services.catalog_service import linked_mitigations, valid_mitigation, deviation_search_text
 
 
+from fmeda_tool.models.diagnostic_measure import DEFAULT_SOURCE_LINK
+
+
 class DiagnosticMeasureMiniDialog(QDialog):
     """Structured catalog editor. Existing metadata survives edits."""
     OPTIONAL_FIELDS = ("failure_reaction", "execution_timing", "verification_method",
@@ -55,12 +58,17 @@ class DiagnosticMeasureMiniDialog(QDialog):
         self.setMinimumWidth(550)
         layout = QVBoxLayout(self)
         form = QFormLayout()
-        self.id_input = QLineEdit(dm.id if dm else f"dm_{uuid.uuid4().hex[:8]}")
-        self.name_input = QLineEdit(dm.name if dm else "")
+        self.id_input = QLineEdit((dm.display_id or "") if dm else "")
+        self.test_input = QLineEdit(dm.diagnostic_measure_test if dm else "")
         self.desc_input = QLineEdit(dm.description if dm else "")
-        form.addRow("Diagnostic Measure ID*:", self.id_input)
-        form.addRow("Name*:", self.name_input)
+        form.addRow("Diagnostic Measure ID:", self.id_input)
+        form.addRow("Diagnostic Measure Test*:", self.test_input)
         form.addRow("Description*:", self.desc_input)
+        self.source_link_input = QLineEdit(dm.source_link if dm else DEFAULT_SOURCE_LINK)
+        form.addRow("Source Link:", self.source_link_input)
+        source_button = QPushButton("Open Source Reference")
+        source_button.clicked.connect(self._open_source)
+        form.addRow("", source_button)
         self.dc_input = QDoubleSpinBox()
         self.dc_input.setRange(-1, 100)
         self.dc_input.setDecimals(2)
@@ -85,14 +93,22 @@ class DiagnosticMeasureMiniDialog(QDialog):
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 
+    def _open_source(self):
+        from PyQt6.QtCore import QUrl
+        from PyQt6.QtGui import QDesktopServices
+        url = QUrl(self.source_link_input.text().strip())
+        if url.scheme() in ("http", "https"):
+            QDesktopServices.openUrl(url)
+
     def _on_accept(self):
-        values = {"id": self.id_input.text().strip(), "name": self.name_input.text().strip(),
+        values = {"display_id": self.id_input.text().strip() or None, "diagnostic_measure_test": self.test_input.text().strip(),
+                  "source_link": self.source_link_input.text().strip(),
                   "description": self.desc_input.text().strip()}
-        for field, label in (("id", "Diagnostic Measure ID"), ("name", "Name"), ("description", "Description")):
+        for field, label in (("diagnostic_measure_test", "Diagnostic Measure Test"), ("description", "Description")):
             if not values[field]:
                 QMessageBox.warning(self, "Validation Error", f"{label} is required.")
                 return
-        if self.project and any(m.id == values["id"] and m is not self.dm
+        if values["display_id"] and self.project and any(m.display_id == values["display_id"] and m is not self.dm
                                 for m in self.project.diagnostic_measures):
             QMessageBox.warning(self, "Validation Error", "Diagnostic Measure ID must be unique.")
             return
@@ -123,7 +139,7 @@ class DiagnosticMeasureManagerDialog(QDialog):
         search_layout = QHBoxLayout()
         search_layout.addWidget(QLabel("Search:"))
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Search ID, name, description, verification method, execution timing, notes...")
+        self.search_input.setPlaceholderText("Search ID, test, description, verification method, execution timing, notes...")
         self.search_input.setClearButtonEnabled(True)
         self.search_input.textChanged.connect(self._filter_table)
         search_layout.addWidget(self.search_input, stretch=1)
@@ -132,8 +148,9 @@ class DiagnosticMeasureManagerDialog(QDialog):
         search_layout.addWidget(self.clear_search_btn)
         layout.addLayout(search_layout)
         self.table = QTableWidget()
-        self.table.setColumnCount(6)
-        self.table.setHorizontalHeaderLabels(["Diagnostic Measure ID", "Name", "Default DC %", "Description", "Execution Timing", "Verification Method"])
+        self.table.setColumnCount(7)
+        self.table.setHorizontalHeaderLabels(["Diagnostic Measure\nID (optional)", "Diagnostic Measure\nTest", "Default DC %", "Description", "Execution Timing", "Verification Method", "Source Link"])
+        self.table.cellDoubleClicked.connect(self._open_source)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         header = self.table.horizontalHeader()
@@ -141,7 +158,7 @@ class DiagnosticMeasureManagerDialog(QDialog):
         header.setSectionsMovable(True)
         header.setStretchLastSection(False)
         header.setMinimumSectionSize(60)
-        for column, width in enumerate((190, 220, 120, 330, 180, 220)):
+        for column, width in enumerate((150, 220, 100, 260, 140, 160, 130)):
             header.resizeSection(column, max(width, header.sectionSizeHint(column)))
         self._fitting_columns = False
         self.table.viewport().installEventFilter(self)
@@ -171,6 +188,14 @@ class DiagnosticMeasureManagerDialog(QDialog):
         
         self._refresh_table()
 
+    def _open_source(self, row, column):
+        if column == 6:
+            from PyQt6.QtCore import QUrl
+            from PyQt6.QtGui import QDesktopServices
+            url = QUrl(self.table.item(row, column).data(Qt.ItemDataRole.UserRole).source_link)
+            if url.scheme() in ("http", "https"):
+                QDesktopServices.openUrl(url)
+
     def eventFilter(self, watched, event):
         if watched is self.table.viewport() and event.type() == QEvent.Type.Resize:
             QTimer.singleShot(0, self._fit_columns)
@@ -179,10 +204,10 @@ class DiagnosticMeasureManagerDialog(QDialog):
     def _on_column_resized(self, column, old_size, new_size):
         if not self._fitting_columns:
             # Keep the user's chosen width; absorb remaining space elsewhere.
-            self._fit_columns(1 if column == 3 else 3)
+            self._fit_columns(1 if column == 3 else 3, allow_secondary=False)
             self.table.resizeRowsToContents()
 
-    def _fit_columns(self, flexible_column=3):
+    def _fit_columns(self, flexible_column=3, allow_secondary=True):
         if self._fitting_columns:
             return
         header = self.table.horizontalHeader()
@@ -193,6 +218,13 @@ class DiagnosticMeasureManagerDialog(QDialog):
             self._fitting_columns = True
             try:
                 header.resizeSection(flexible_column, width)
+                # On a narrower window, give back space previously absorbed by
+                # the other text column before introducing horizontal scrolling.
+                overflow = header.length() - self.table.viewport().width()
+                other = 1 if flexible_column == 3 else 3
+                if overflow > 0 and allow_secondary:
+                    other_minimum = max(header.sectionSizeHint(other), 200)
+                    header.resizeSection(other, max(other_minimum, header.sectionSize(other) - overflow))
                 self.table.resizeRowsToContents()
             finally:
                 self._fitting_columns = False
@@ -201,10 +233,15 @@ class DiagnosticMeasureManagerDialog(QDialog):
         from PyQt6.QtWidgets import QTableWidgetItem
         self.table.setRowCount(len(self.project.diagnostic_measures))
         for r, dm in enumerate(self.project.diagnostic_measures):
-            values = [dm.id, dm.name, f"{dm.dc:.1f}%" if dm.dc is not None else "",
-                      dm.description, dm.execution_timing or "", dm.verification_method or ""]
+            values = [dm.display_id or "", dm.diagnostic_measure_test, f"{dm.dc:.1f}%" if dm.dc is not None else "",
+                      dm.description, dm.execution_timing or "", dm.verification_method or "", dm.source_link]
             for col, value in enumerate(values):
-                item = QTableWidgetItem(value)
+                item = QTableWidgetItem("Source reference" if col == 6 and value else value)
+                if col == 6 and value:
+                    item.setForeground(QColor("#176bb0"))
+                    font = item.font()
+                    font.setUnderline(True)
+                    item.setFont(font)
                 item.setData(Qt.ItemDataRole.UserRole, dm)
                 item.setToolTip(value)
                 self.table.setItem(r, col, item)
@@ -217,7 +254,7 @@ class DiagnosticMeasureManagerDialog(QDialog):
         for row, dm in enumerate(self.project.diagnostic_measures):
             matches = not query or any(
                 query in (getattr(dm, field) or "").casefold()
-                for field in ("id", "name", "description", "verification_method",
+                for field in ("display_id", "diagnostic_measure_test", "description", "verification_method",
                               "execution_timing", "notes")
             )
             self.table.setRowHidden(row, not matches)
@@ -1444,7 +1481,7 @@ class FunctionalGroupTab(QWidget):
         self.cb_eng.stateChanged.connect(self._toggle_column_groups)
         group_layout.addWidget(self.cb_eng)
         
-        self.cb_proof = QCheckBox("Proof-Test")
+        self.cb_proof = QCheckBox("Show Proof-Test")
         self.cb_proof.setChecked(True)
         self.cb_proof.stateChanged.connect(self._toggle_column_groups)
         group_layout.addWidget(self.cb_proof)
@@ -1697,7 +1734,7 @@ class FunctionalGroupTab(QWidget):
 
 
         show_proof = self.cb_proof.isChecked()
-        for c in range(19, 22):
+        for c in (*range(19, 22), *range(35, 41)):
             self.table.setColumnHidden(c, not show_proof)
 
         show_calc = self.cb_calc.isChecked()
@@ -1717,6 +1754,13 @@ class FunctionalGroupTab(QWidget):
             return
 
         menu = QMenu(self)
+        current = self.table.currentIndex()
+        if current.isValid():
+            entry = self.model.rows[current.row()]
+            if not entry.is_separator:
+                split_action = menu.addAction("Split Selected Failure Mode")
+                split_action.triggered.connect(lambda: self.edit_component(entry.component.id, split_mode=(entry.fm_name, entry.assignment.assignment_id)))
+                menu.addSeparator()
         menu.setStyleSheet("""
             QMenu {
                 background-color: #ffffff;
@@ -1782,7 +1826,7 @@ class FunctionalGroupTab(QWidget):
     # ---------------------------------------------------------
     # Single Component Modifying Handlers (Guarded by Edit Mode)
     # ---------------------------------------------------------
-    def edit_component(self, comp_id: Optional[str] = None) -> bool:
+    def edit_component(self, comp_id: Optional[str] = None, split_mode=None) -> bool:
         """Opens ComponentInstanceDialog to edit single component properties."""
         if not self.is_in_edit_mode:
             return False
@@ -1796,6 +1840,13 @@ class FunctionalGroupTab(QWidget):
 
         before = target_comp.model_copy(deep=True)
         dialog = ComponentInstanceDialog(target_comp, self.project, parent=self, allow_distribution=True)
+        if split_mode is not None:
+            name, identity = split_mode
+            row = next((r for r in range(dialog.table.rowCount()) if dialog.table.item(r, 0).text() == name
+                        and (identity is None or dialog.table.item(r, 0).data(Qt.ItemDataRole.UserRole).assignment_id == identity)), None)
+            if row is not None:
+                dialog.table.setCurrentCell(row, 0)
+                dialog._split_selected()
         if dialog.exec() == QDialog.DialogCode.Accepted:
             if before.model_dump() == target_comp.model_dump():
                 return True
@@ -1865,6 +1916,9 @@ class FunctionalGroupTab(QWidget):
                 FailureModeAssignment(
                     failure_mode_name=a.failure_mode_name,
                     failure_rate_percentage=a.failure_rate_percentage,
+                    allocation_percentage=a.allocation_percentage,
+                    assignment_id=("assessment_" + uuid.uuid4().hex) if a.assignment_id else None,
+                    parent_failure_mode_id=a.parent_failure_mode_id,
                     deviation_id=a.deviation_id,
                     diagnostic_measure_id=a.diagnostic_measure_id,
                     mitigation_id=a.mitigation_id,
@@ -2853,12 +2907,15 @@ class UnitEditorView(QWidget):
                 
                 target_comp = None
                 target_fm = None
+                target_case = None
                 curr = 0
                 for comp in tab_widget.unit.components:
-                    for fm_name in comp.failure_modes.keys():
+                    from fmeda_tool.services.assessment_service import assessment_rows
+                    for fm_name, _, case in assessment_rows(comp):
                         if curr == row_index:
                             target_comp = comp
                             target_fm = fm_name
+                            target_case = case
                             break
                         curr += 1
                     if target_comp:
@@ -2867,7 +2924,7 @@ class UnitEditorView(QWidget):
                 actual_table_row = -1
                 if target_comp and target_fm and tab_widget.model:
                     for r, entry in enumerate(tab_widget.model.rows):
-                        if not entry.is_separator and entry.component == target_comp and entry.fm_name == target_fm:
+                        if not entry.is_separator and entry.component == target_comp and entry.fm_name == target_fm and entry.assignment == target_case:
                             actual_table_row = r
                             break
                             

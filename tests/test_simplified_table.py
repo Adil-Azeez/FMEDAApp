@@ -88,8 +88,8 @@ def test_column_count_and_headers_structure(qapp):
     unit = project.units[0]
     model = FmedaTableModel(unit, project)
 
-    assert model.columnCount() == 35
-    assert len(COLUMN_HEADERS) == 35
+    assert model.columnCount() == 41
+    assert len(COLUMN_HEADERS) == 41
 
     # Verify removed headers are NOT in COLUMN_HEADERS
     assert "Fitted Status" not in COLUMN_HEADERS
@@ -112,7 +112,7 @@ def test_column_count_and_headers_structure(qapp):
     assert COLUMN_HEADERS[11] == "Failure Classification"
     assert COLUMN_HEADERS[12] == "Dangerous %"
     assert COLUMN_HEADERS[13] == "Safe %"
-    assert COLUMN_HEADERS[14] == "Diagnostic Measure ID"
+    assert COLUMN_HEADERS[14] == "Diagnostic Measure"
     assert COLUMN_HEADERS[15] == "Detection % (DC)"
     assert "DC Test Ref" not in COLUMN_HEADERS
     assert COLUMN_HEADERS[16] == "Mitigation"

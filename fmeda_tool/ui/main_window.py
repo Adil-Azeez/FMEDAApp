@@ -2,13 +2,13 @@ from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QStackedWidget,
     QMenuBar, QMenu, QMessageBox, QFileDialog, QApplication, QInputDialog
 )
-from PyQt6.QtCore import Qt, QRect, QThread, pyqtSignal
-from PyQt6.QtGui import QAction, QScreen
+from PyQt6.QtCore import QUrl, Qt, QRect, QThread, pyqtSignal
+from PyQt6.QtGui import QAction, QDesktopServices, QScreen
 from typing import Optional, Any
 import json
 import time
 from pathlib import Path
-from fmeda_tool.paths import projects_directory
+from fmeda_tool.paths import projects_directory, resource_path
 from fmeda_tool.version import APP_DISPLAY_NAME
 
 from fmeda_tool.models import Project, DiagnosticMeasure, Component
@@ -874,7 +874,14 @@ class MainWindow(QMainWindow):
         print("Run FMEDA Analysis clicked")
     
     def _on_documentation(self):
-        print("Documentation clicked")
+        self._open_help_pdf("FMEDA_Application_Technical_Documentation.pdf")
+
+    def _open_help_pdf(self, filename):
+        path = resource_path("data", "Documentation", filename)
+        if not path.is_file():
+            QMessageBox.warning(self, "Help", f"Documentation file is missing: {path}")
+        elif not QDesktopServices.openUrl(QUrl.fromLocalFile(str(path))):
+            QMessageBox.warning(self, "Help", f"Windows could not open {filename} in the default PDF viewer.")
     
     def _on_components_db(self):
         if "components_db" not in self.views:
@@ -882,7 +889,7 @@ class MainWindow(QMainWindow):
         self.show_view("components_db")
         
     def _on_user_guide(self):
-        print("User Guide clicked")
+        self._open_help_pdf("FMEDA_user manual.pdf")
         
     def _on_about(self):
         QMessageBox.about(

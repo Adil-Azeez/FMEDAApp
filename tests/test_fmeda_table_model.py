@@ -122,7 +122,7 @@ def test_model_structure_and_headers(qapp):
     unit = project.units[0]
     model = FmedaTableModel(unit, project)
 
-    assert model.columnCount() == 35
+    assert model.columnCount() == 41
     # comp1 has 2 failure modes, comp2 has 1 failure mode, plus 1 separator between them = 4 rows
     assert model.rowCount() == 4
 

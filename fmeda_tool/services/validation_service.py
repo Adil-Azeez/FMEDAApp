@@ -1,3 +1,4 @@
+from fmeda_tool.services.assessment_service import assessment_rows, allocation_errors
 from typing import List, Dict, Tuple, Any, Optional
 import re
 from fmeda_tool.services.catalog_service import valid_mitigation
@@ -202,8 +203,10 @@ class ValidationService:
                         "location": f"{unit.name} (Row {row_index + 1})"
                     })
                     
-                for fm_name, fm_perc in comp.failure_modes.items():
-                    assignment = next((a for a in comp.failure_mode_assignments if a.failure_mode_name == fm_name), None)
+                for error in allocation_errors(comp):
+                    alerts.append({"severity": "Error", "scope": "Component", "item": comp.position,
+                        "message": error, "unit_id": unit.id, "row_index": row_index})
+                for fm_name, fm_perc, assignment in assessment_rows(comp):
                     if assignment is None or assignment.diagnostic_function not in ("Yes", "No"):
                         alerts.append({"severity": "Warning", "scope": "Component",
                                        "item": f"{comp.position} ({fm_name})",

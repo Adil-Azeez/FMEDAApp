@@ -1,3 +1,4 @@
+from fmeda_tool.services.assessment_service import assessment_rows, allocation_percentage, allocation_errors, split_case
 from fmeda_tool.models.failure_mode_assignment import CLASSIFICATIONS, CLASSIFICATION_LABELS
 from fmeda_tool.services.catalog_service import linked_mitigations, valid_mitigation, deviation_search_text
 from fmeda_tool.ui.widgets.deviation_selector import DeviationSelector
@@ -236,10 +237,15 @@ class ComponentInstanceDialog(QDialog):
 
     def _load_data(self):
         self.table.setRowCount(0)
-        assignments = {a.failure_mode_name: a for a in self.component.failure_mode_assignments}
-        for name, pct in self.component.failure_modes.items():
-            self._add_row(name, pct, assignments.get(name))
+        for name, parent, assignment in assessment_rows(self.component):
+            self._add_row(name, allocation_percentage(self.component, assignment), assignment)
         self.table.itemChanged.connect(self._update_total)
+        self.split_button = QPushButton("Split Selected Failure Mode")
+        self.split_button.clicked.connect(self._split_selected)
+        self.layout().addWidget(self.split_button)
+        self.allocation_summary = QLabel()
+        self.allocation_summary.setWordWrap(True)
+        self.layout().addWidget(self.allocation_summary)
         self.distribution_button = QPushButton("Edit Failure-Mode Distribution")
         self.distribution_button.setVisible(self.allow_distribution)
         self.distribution_button.clicked.connect(self._unlock_distribution)
@@ -294,7 +300,7 @@ class ComponentInstanceDialog(QDialog):
             failure_mode_name=name, failure_rate_percentage=percentage)
         for col, text in enumerate((name, str(percentage))):
             item = QTableWidgetItem(text)
-            if not self.distribution_unlocked:
+            if (not self.distribution_unlocked and not (col == 1 and assignment.allocation_percentage is not None)) or (col == 0 and assignment.allocation_percentage is not None):
                 item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
             self.table.setItem(row, col, item)
         self.table.item(row, 0).setData(Qt.ItemDataRole.UserRole, assignment)
@@ -402,7 +408,9 @@ class ComponentInstanceDialog(QDialog):
         for row in range(self.table.rowCount()):
             for col in (0, 1):
                 item = self.table.item(row, col)
-                item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
+                assignment = self.table.item(row, 0).data(Qt.ItemDataRole.UserRole)
+                if col != 0 or assignment.allocation_percentage is None:
+                    item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
         self.distribution_button.setEnabled(False)
         self.distribution_controls.show()
         self.custom_fields.show()
@@ -412,13 +420,56 @@ class ComponentInstanceDialog(QDialog):
             self.table.removeRow(self.table.currentRow())
             self._update_total()
 
+    def _split_selected(self):
+        row = self.table.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "Select Failure Mode", "Select an assessment row to split.")
+            return
+        if self.distribution_unlocked:
+            QMessageBox.warning(self, "Save Distribution First", "Save the physical failure-mode distribution before splitting assessments.")
+            return
+        original = self.table.item(row, 0).data(Qt.ItemDataRole.UserRole).model_copy(deep=True)
+        try:
+            for field in self.ENGINEERING_FIELDS:
+                widget = self._engineering_widget(row, field)
+                value = self._widget_value(widget)
+                if value != widget.property("originalValue") or widget.property("catalogPrefilled"):
+                    if field == "classification":
+                        original.set_classification(value)
+                    else:
+                        setattr(original, field, value)
+            if original.allocation_percentage is not None:
+                original.allocation_percentage = float(self.table.item(row, 1).text())
+            first, second = split_case(self.component, original)
+        except ValueError as error:
+            QMessageBox.warning(self, "Invalid Allocation", str(error))
+            return
+        self.table.item(row, 0).setData(Qt.ItemDataRole.UserRole, first)
+        self.table.item(row, 1).setText(str(first.allocation_percentage))
+        self.table.item(row, 1).setFlags(self.table.item(row, 1).flags() | Qt.ItemFlag.ItemIsEditable)
+        self.table.item(row, 0).setFlags(self.table.item(row, 0).flags() & ~Qt.ItemFlag.ItemIsEditable)
+        self._add_row(second.failure_mode_name, second.allocation_percentage, second)
+        self._update_total()
+
     def _update_total(self, *_):
         if not hasattr(self, "total_label"):
             return
         try:
             total = sum(float(self.table.item(r, 1).text()) for r in range(self.table.rowCount()))
             self.total_label.setText(f"Total: {total:.1f}%")
-        except (ValueError, AttributeError):
+            if hasattr(self, "allocation_summary"):
+                from decimal import Decimal
+                names = {self.table.item(r, 0).text() for r in range(self.table.rowCount())
+                         if self.table.item(r, 0).data(Qt.ItemDataRole.UserRole) is not None
+                         and self.table.item(r, 0).data(Qt.ItemDataRole.UserRole).allocation_percentage is not None}
+                messages = []
+                for name in names:
+                    parent = Decimal(str(self.component.failure_modes[name]))
+                    allocated = sum((Decimal(self.table.item(r, 1).text()) for r in range(self.table.rowCount())
+                                     if self.table.item(r, 0).text() == name), Decimal(0))
+                    messages.append(f"{name}: Parent {parent}% | Allocated {allocated}% | Remaining {parent - allocated}%")
+                self.allocation_summary.setText("\n".join(messages))
+        except (ValueError, AttributeError, ArithmeticError):
             self.total_label.setText("Total: N/A")
 
     def _on_save(self):
@@ -429,14 +480,17 @@ class ComponentInstanceDialog(QDialog):
             for row in range(self.table.rowCount()):
                 name = self.table.item(row, 0).text().strip()
                 pct = float(self.table.item(row, 1).text())
-                if not name or name in modes:
-                    raise ValueError("Failure mode names must be non-empty and unique.")
+                original = self.table.item(row, 0).data(Qt.ItemDataRole.UserRole)
+                if not name or (name in modes and original.allocation_percentage is None):
+                    raise ValueError("Physical failure mode names must be non-empty and unique.")
                 if not isfinite(pct) or pct < 0 or pct > 100:
                     raise ValueError("Each Rate % must be between 0 and 100.")
-                modes[name] = pct
-                original = self.table.item(row, 0).data(Qt.ItemDataRole.UserRole)
+                parent = self.component.failure_modes[name] if original.allocation_percentage is not None else pct
+                modes[name] = parent
                 data = original.model_dump()
-                data.update(failure_mode_name=name, failure_rate_percentage=pct)
+                data.update(failure_mode_name=name, failure_rate_percentage=parent)
+                if original.allocation_percentage is not None:
+                    data["allocation_percentage"] = pct
                 for col, field in enumerate(self.ENGINEERING_FIELDS, 2):
                     widget = self.table.cellWidget(row, col)
                     value = self._widget_value(widget)
@@ -451,6 +505,10 @@ class ComponentInstanceDialog(QDialog):
                     data.update(classification=updated.classification, classification_version=updated.classification_version,
                                 dangerous_failure_percentage=updated.dangerous_failure_percentage)
                 assignments.append(FailureModeAssignment.model_validate(data))
+            proposed = self.component.model_copy(update={"failure_modes": modes, "failure_mode_assignments": assignments})
+            errors = allocation_errors(proposed)
+            if errors:
+                raise ValueError("; ".join(errors))
             changed = modes != self.component.failure_modes
             snapshot = None
             if changed:

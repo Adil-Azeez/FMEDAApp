@@ -65,6 +65,16 @@ class ComponentRemappingService:
             a.assignment_id = a.assignment_id or "assessment_" + uuid5(
                 NAMESPACE_URL, f"{component.id}:{a.failure_mode_name}:{index}").hex
             a.parent_failure_mode_id = a.parent_failure_mode_id or old_modes.get(a.failure_mode_name)
+        # Split cases share a physical parent; match the parent once, retain every case.
+        siblings, candidates = {}, []
+        for a in previous:
+            key = (a.parent_failure_mode_id, a.failure_mode_name) if a.allocation_percentage is not None else (a.assignment_id,)
+            siblings.setdefault(key, []).append(a)
+        case_groups = {}
+        for cases in siblings.values():
+            candidates.append(cases[0])
+            for a in cases:
+                case_groups[a.assignment_id] = cases
         new_ids = mode_identities(template)
         proposed_assignment_ids = (template.snapshot or {}).get("assignment_ids", {})
         used, matches, assignments, review = set(), {}, [], []
@@ -82,13 +92,13 @@ class ComponentRemappingService:
             for name in template.failure_modes:
                 if name in resolved:
                     continue
-                found = [a for a in previous if a.assignment_id not in used and criterion(name, a)]
+                found = [a for a in candidates if a.assignment_id not in used and any(criterion(name, case) for case in case_groups[a.assignment_id])]
                 if len(found) == 1:
                     proposals[name] = found[0]
             for name, a in proposals.items():
                 if sum(other.assignment_id == a.assignment_id for other in proposals.values()) == 1:
                     resolved[name] = a
-                    used.add(a.assignment_id)
+                    used.update(case.assignment_id for case in case_groups[a.assignment_id])
         for name, requested in explicit_matches.items():
             if name not in template.failure_modes or name in resolved:
                 raise ValueError(f"An existing match takes precedence for {name}.")
@@ -96,24 +106,26 @@ class ComponentRemappingService:
             if matched is None:
                 raise ValueError(f"Invalid or reused assignment choice for {name}.")
             resolved[name] = matched
-            used.add(matched.assignment_id)
+            used.update(case.assignment_id for case in case_groups[matched.assignment_id])
         for name, percentage in template.failure_modes.items():
             matched = resolved.get(name)
             if matched:
-                used.add(matched.assignment_id)
+                cases = case_groups[matched.assignment_id]
+                used.update(a.assignment_id for a in cases)
                 matches[name] = matched.assignment_id
-                a = matched.model_copy(deep=True)
+            else:
+                cases = [FailureModeAssignment(failure_mode_name=name, failure_rate_percentage=percentage,
+                    assignment_id="assessment_" + uuid4().hex, classification="not_evaluated")]
+            for original in cases:
+                a = original.model_copy(deep=True)
                 counts["deviations"] += bool(a.deviation_id)
                 counts["diagnostic measures"] += bool(a.diagnostic_measure_id)
                 counts["mitigations"] += bool(a.mitigation_id and (project is None or valid_mitigation(project, a.deviation_id, a.mitigation_id)))
                 review.extend(f"{name}: {message}" for message in assignment_findings(a, project))
-            else:
-                a = FailureModeAssignment(failure_mode_name=name, failure_rate_percentage=percentage,
-                    assignment_id="assessment_" + uuid4().hex, classification="not_evaluated")
-            a.failure_mode_name = name
-            a.failure_rate_percentage = percentage
-            a.parent_failure_mode_id = new_ids.get(name) or a.parent_failure_mode_id
-            assignments.append(a)
+                a.failure_mode_name = name
+                a.failure_rate_percentage = percentage
+                a.parent_failure_mode_id = new_ids.get(name) or a.parent_failure_mode_id
+                assignments.append(a)
         unmatched = [a for a in previous if a.assignment_id not in used]
         review.extend(f"{a.failure_mode_name}: unmatched previous assignment retained for review." for a in unmatched)
         component.name = template.display_name
@@ -123,6 +135,8 @@ class ComponentRemappingService:
         component.failure_mode_ids = new_ids
         component.failure_mode_assignments = assignments
         component.remapping_review_assignments = unmatched
+        from fmeda_tool.services.assessment_service import allocation_errors
+        review.extend(allocation_errors(component))
         component.library_component_id = library_id
         component.source_type = source
         component.failure_rate_id = template.failure_rate_id or template.shortcut

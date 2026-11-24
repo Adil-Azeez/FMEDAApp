@@ -1,3 +1,5 @@
+from fmeda_tool.services.assessment_service import assessment_rows, allocation_percentage
+from fmeda_tool.services.calculation_service import CalculationService
 """
 bulk_assignment_dialogs.py: Reusable UI modals for component details, duplication,
 bulk assignment pickers, bulk action summaries, and deletion confirmation in the FMEDA spreadsheet.
@@ -116,10 +118,11 @@ class ComponentDetailsDialog(QDialog):
         """)
         
         row_idx = 0
-        table.setRowCount(len(self.component.failure_modes))
-        for fm_name, fm_pct in self.component.failure_modes.items():
-            assignment = next((a for a in self.component.failure_mode_assignments if a.failure_mode_name == fm_name), None)
-            local_fit = (self.component.failure_rate or 0.0) * (fm_pct / 100.0)
+        cases = list(assessment_rows(self.component))
+        table.setRowCount(len(cases))
+        for fm_name, _, assignment in cases:
+            fm_pct = allocation_percentage(self.component, assignment)
+            local_fit = CalculationService.calculate_assignment(self.component, assignment)["lambda"]
             
             dev_name = "—"
             if assignment and assignment.deviation_id:
@@ -130,7 +133,7 @@ class ComponentDetailsDialog(QDialog):
             det_str = "—"
             if assignment and assignment.diagnostic_measure_id:
                 dm = next((m for m in self.project.diagnostic_measures if m.id == assignment.diagnostic_measure_id), None)
-                dm_name = dm.description if dm else assignment.diagnostic_measure_id
+                dm_name = dm.display_label if dm else assignment.diagnostic_measure_id
                 det_str = f"{assignment.detection_percentage or 0.0:.1f}%"
             elif assignment and assignment.detection_percentage:
                 det_str = f"{assignment.detection_percentage:.1f}%"

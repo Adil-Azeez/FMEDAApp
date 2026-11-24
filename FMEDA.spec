@@ -40,6 +40,8 @@ with closing(sqlite3.connect(snapshot)) as connection:
 
 datas = [
     (str(snapshot), "data"),
+    (str(root / "data" / "Documentation" / "FMEDA_Application_Technical_Documentation.pdf"), "data/Documentation"),
+    (str(root / "data" / "Documentation" / "FMEDA_user manual.pdf"), "data/Documentation"),
     (str(root / "data" / "components_db.json"), "data"),
     (str(root / "data" / "seed" / "Combined_Exida_Component_library_version2.json"), "data/seed"),
     (str(root / "fmeda_tool" / "db" / "schema.sql"), "fmeda_tool/db"),

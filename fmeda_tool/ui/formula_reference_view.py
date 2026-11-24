@@ -41,8 +41,8 @@ FORMULA_SECTIONS = (
     ("Failure Rates", (
         Formula("lambda_row", "Failure-mode rate (λrow)",
                 f"{rate('row')} = {rate('component')} × p<sub>FM</sub> / 100",
-                "Allocates the component failure rate to one failure mode using its percentage in the component's failure-mode distribution.",
-                (COMPONENT,)),
+                "Allocates the component failure rate to one assessment case. For an unsplit mode, pFM is its physical percentage; for split cases, it is the case allocation. Case allocations must sum to the parent percentage.",
+                ("calculate_assignment", COMPONENT,)),
         Formula("lambda_total", "Total failure rate (λtotal)",
                 f"{rate('total')} = Σ {rate('row')}",
                 "Sum of assigned failure-mode rates in the chosen scope, accumulated through components and functional groups. Percentages are not averaged.",
@@ -138,11 +138,15 @@ FORMULA_SECTIONS = (
                 f"MTBF<sub>group,device</sub> [years] = 10<sup>9</sup> / ({rate('total,device')} × 8760)",
                 "Reciprocal of the total rate. A non-positive rate gives 0 for the row (displayed as N/A), or an unavailable functional-group result.",
                 (ROW, UNIT_METRICS)),
+        Formula("proof_contribution", "Proof-test contribution (A, B, C)",
+                f"{rate('duPTCX,row')} = {rate('du,row')} × p<sub>X,row</sub> / 100",
+                "Dangerous undetected failures covered by proof test X (A, B or C). Each assessment case uses its own entered proof-test percentage.",
+                ("calculate_assignment",)),
         Formula("proof_coverage", "Proof-test coverage (A, B, C)",
                 f"Coverage<sub>X</sub> [%] = 100 × Σ ({rate('du,row')} × p<sub>X,row</sub> / 100) / Σ {rate('du,row')}<br>"
                 "X = A, B or C",
                 "Dangerous-undetected-rate-weighted coverage across all assigned rows in a functional group, excluding No Part, No Effect, Diagnostic Function Failure rows. Legacy exclusion rows retain their historical proof-test contribution until review. Unavailable when the summed rate is non-positive.",
-                (UNIT_METRICS,)),
+                (UNIT_METRICS, "proof_test_results")),
     )),
 )
 
